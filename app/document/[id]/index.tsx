@@ -1,0 +1,1365 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  Modal,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { useToast } from '../../../src/contexts/ToastContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { goBack } from '../../../src/utils/navigation';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  ArrowLeft,
+  FileText,
+  Calendar,
+  Tag,
+  HardDrive,
+  Trash2,
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Eye,
+  X,
+  AlertCircle,
+  Maximize2,
+  Share2,
+  RefreshCw,
+  FileSignature,
+  Pencil,
+  Save,
+  Upload,
+} from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { auth, deleteDocument } from '../../../src/lib/auth';
+import { useSubscription } from '../../../src/hooks/useSubscription';
+import type { SupabaseDocument } from '../../../src/lib/auth';
+import { useAuth } from '../../../src/hooks/useAuth';
+import { API_BASE } from '../../../src/lib/config';
+import Card from '../../../src/components/ui/Card';
+import Button from '../../../src/components/ui/Button';
+import Badge from '../../../src/components/ui/Badge';
+import GradientIcon from '../../../src/components/ui/GradientIcon';
+import LoadingSpinner from '../../../src/components/ui/LoadingSpinner';
+import DocumentHealthPanel from '../../../src/components/documents/DocumentHealthPanel';
+import { fetchDocumentRelationships } from '../../../src/lib/engagementApi';
+import { updateDocumentMetadata, appendFileToDocument } from '../../../src/lib/api';
+import { colors } from '../../../src/theme/colors';
+import { typography } from '../../../src/theme/typography';
+import { spacing, borderRadius } from '../../../src/theme/spacing';
+
+// Only import WebView on native platforms
+let WebView: any = null;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').WebView;
+}
+
+type CategoryKey = keyof typeof colors.category;
+
+const STATUS_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error'; Icon: typeof CheckCircle }> = {
+  active: { label: 'Active', variant: 'success', Icon: CheckCircle },
+  expiring: { label: 'Expiring Soon', variant: 'warning', Icon: AlertTriangle },
+  expired: { label: 'Expired', variant: 'error', Icon: Clock },
+};
+
+function formatFileSize(sizeStr: string | null | undefined): string {
+  if (!sizeStr) return '—';
+  const bytes = parseInt(sizeStr, 10);
+  if (isNaN(bytes)) return sizeStr;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function getCategoryBadgeVariant(
+  category: string | null | undefined
+): { bg: string; text: string; border: string } {
+  if (!category) return colors.category.other;
+  const key = category.toLowerCase() as CategoryKey;
+  return colors.category[key] || colors.category.other;
+}
+
+// ---- File type helpers ----
+function isPdfFile(mimeType: string, fileName: string): boolean {
+  return mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+}
+
+function isImageFile(mimeType: string, fileName: string): boolean {
+  return (
+    mimeType.startsWith('image/') ||
+    /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff)$/i.test(fileName)
+  );
+}
+
+function isWordFile(mimeType: string, fileName: string): boolean {
+  return (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mimeType === 'application/msword' ||
+    /\.(doc|docx)$/i.test(fileName)
+  );
+}
+
+function isTextFile(mimeType: string, fileName: string): boolean {
+  return mimeType === 'text/plain' || fileName.toLowerCase().endsWith('.txt');
+}
+
+function isViewableFile(mimeType: string, fileName: string): boolean {
+  return (
+    isPdfFile(mimeType, fileName) ||
+    isImageFile(mimeType, fileName) ||
+    isWordFile(mimeType, fileName) ||
+    isTextFile(mimeType, fileName)
+  );
+}
+
+const PREVIEW_HEIGHT = 300;
+const SCREEN_WIDTH = require('../../../src/utils/dimensions').getScreenWidth();
+const SCREEN_HEIGHT = require('../../../src/utils/dimensions').getScreenHeight();
+
+// E-signature access: Starter+ plans can initiate signature requests
+
+export default function DocumentViewerScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { showToast } = useToast();
+  const { user } = useAuth();
+  const { isStarterOrAbove } = useSubscription();
+  const [doc, setDoc] = useState<SupabaseDocument | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  // Renewal chain state
+  const [newerVersion, setNewerVersion] = useState<{ id: string; name: string } | null>(null);
+  const [olderVersion, setOlderVersion] = useState<{ id: string; name: string } | null>(null);
+
+  // Inline preview state — auto-loads when document loads
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<'pdf' | 'image' | 'html' | 'text' | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [fullScreen, setFullScreen] = useState(false);
+
+  // Edit mode state
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editExpiration, setEditExpiration] = useState('');
+  const [editFiles, setEditFiles] = useState<Array<{ uri: string; name: string; mimeType: string }>>([]);
+  const [saving, setSaving] = useState(false);
+
+  // Load document metadata
+  useEffect(() => {
+    if (!id) {
+      setLoadError('No document ID provided');
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data: { session } } = await auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+
+        const res = await fetch(`${API_BASE}/api/documents/${id}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Failed to load document' }));
+          throw new Error(err.error || 'Failed to load document');
+        }
+        const data = await res.json();
+        setDoc(data.document);
+      } catch (err) {
+        console.error('Error loading document:', err);
+        setLoadError(err instanceof Error ? err.message : 'Failed to load document');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  // Load renewal chain relationships
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const data = await fetchDocumentRelationships(id);
+        // incoming: documents that supersede this one (newer versions)
+        const newer = data.incoming?.find((r: any) => r.relationship_type === 'supersedes');
+        if (newer) {
+          setNewerVersion({ id: newer.document_id, name: newer.document_name || 'Newer Version' });
+        }
+        // outgoing: documents this one supersedes (older versions)
+        const older = data.outgoing?.find((r: any) => r.relationship_type === 'supersedes');
+        if (older) {
+          setOlderVersion({ id: older.related_document_id, name: older.related_document_name || 'Older Version' });
+        }
+      } catch {
+        // Non-critical — silently ignore
+      }
+    })();
+  }, [id]);
+
+  // Auto-load document preview once doc is fetched
+  const loadPreview = useCallback(async (document: SupabaseDocument) => {
+    if (!document.file_path) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      const mimeType = (document.type || '').toLowerCase();
+      const fileName = document.original_name || document.name || '';
+
+      // Get preview URL from API
+      const { data: { session } } = await auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Word documents → convert to HTML via Express API
+      if (isWordFile(mimeType, fileName)) {
+        const previewRes = await fetch(`${API_BASE}/api/documents/${document.id}/preview-url`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!previewRes.ok) throw new Error('Failed to get preview URL');
+        const previewData = await previewRes.json();
+
+        const resp = await fetch(`${API_BASE}/api/documents/convert-to-pdf`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filePath: previewData.filePath }),
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to convert document');
+        }
+
+        const htmlContent = await resp.text();
+        if (Platform.OS === 'web') {
+          const blob = new Blob([htmlContent], { type: 'text/html' });
+          setPreviewUrl(URL.createObjectURL(blob));
+        } else {
+          const base64 = btoa(unescape(encodeURIComponent(htmlContent)));
+          setPreviewUrl(`data:text/html;base64,${base64}`);
+        }
+        setPreviewType('html');
+        return;
+      }
+
+      // All other viewable files → signed URL via API
+      const previewRes = await fetch(`${API_BASE}/api/documents/${document.id}/preview-url`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!previewRes.ok) throw new Error('Failed to load document preview');
+      const previewData = await previewRes.json();
+
+      const url = previewData.url;
+      setPreviewUrl(url);
+
+      if (isImageFile(mimeType, fileName)) {
+        setPreviewType('image');
+      } else if (isPdfFile(mimeType, fileName)) {
+        setPreviewType('pdf');
+      } else if (isTextFile(mimeType, fileName)) {
+        setPreviewType('text');
+      }
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : 'Failed to load preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (doc) {
+      const mimeType = (doc.type || '').toLowerCase();
+      const fileName = doc.original_name || doc.name || '';
+      if (isViewableFile(mimeType, fileName)) {
+        loadPreview(doc);
+      }
+    }
+  }, [doc, loadPreview]);
+
+  const handleDelete = () => {
+    const doDelete = async () => {
+      setDeleting(true);
+      try {
+        await deleteDocument(id!);
+        showToast('Document deleted', 'success');
+        goBack('/(tabs)/vault');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Delete failed';
+        showToast(msg, 'error');
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete "${doc?.name}"? This cannot be undone.`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Document',
+        `Are you sure you want to delete "${doc?.name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: doDelete },
+        ]
+      );
+    }
+  };
+
+  const handleShare = async () => {
+    if (!doc) return;
+    setSharing(true);
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      // Get signed download URL
+      const res = await fetch(`${API_BASE}/api/documents/${doc.id}/preview-url`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error('Failed to get download URL');
+      const { url } = await res.json();
+
+      // Determine file extension from original name or mime type
+      const fileName = doc.original_name || doc.name || 'document';
+      const localPath = `${FileSystem.cacheDirectory}${fileName}`;
+
+      // Download to temp directory
+      const download = await FileSystem.downloadAsync(url, localPath);
+
+      // Open native share sheet
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(download.uri, {
+          mimeType: doc.type || 'application/octet-stream',
+          dialogTitle: `Share ${doc.name}`,
+        });
+      } else {
+        showToast('Sharing is not available on this device', 'error');
+      }
+    } catch (err) {
+      console.error('Error sharing document:', err);
+      showToast(err instanceof Error ? err.message : 'Failed to share document', 'error');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (Platform.OS === 'web' && previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  if (loading) return <LoadingSpinner fullScreen />;
+
+  if (!doc) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.notFoundContainer}>
+          <GradientIcon size={56}>
+            <FileText size={28} color={colors.white} />
+          </GradientIcon>
+          <Text style={styles.notFoundTitle}>Document Not Found</Text>
+          <Text style={styles.notFoundSub}>
+            {loadError || 'This document may have been deleted or is no longer available.'}
+          </Text>
+          <Button
+            title="Go Back"
+            onPress={() => goBack('/(tabs)/vault')}
+            variant="outline"
+            icon={<ArrowLeft size={18} color={colors.slate[700]} />}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const statusKey = doc.status || 'active';
+  const statusInfo = STATUS_CONFIG[statusKey] || STATUS_CONFIG.active;
+  const StatusIcon = statusInfo.Icon;
+  const categoryColors = getCategoryBadgeVariant(doc.category);
+  const categoryLabel = doc.category
+    ? doc.category.charAt(0).toUpperCase() + doc.category.slice(1)
+    : 'Other';
+
+  const openEditModal = () => {
+    setEditName(doc.name || '');
+    setEditCategory(doc.category || 'other');
+    setEditExpiration(doc.expiration_date ? new Date(doc.expiration_date).toISOString().split('T')[0] : '');
+    setEditFiles([]);
+    setShowEdit(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) { showToast('Name is required', 'warning'); return; }
+    setSaving(true);
+    try {
+      const metadata: Record<string, string> = {};
+      if (editName.trim() !== doc.name) metadata.name = editName.trim();
+      if (editCategory !== (doc.category || 'other')) metadata.category = editCategory;
+      const origExp = doc.expiration_date ? new Date(doc.expiration_date).toISOString().split('T')[0] : '';
+      if (editExpiration !== origExp) metadata.expirationDate = editExpiration;
+
+      if (Object.keys(metadata).length > 0) {
+        const result = await updateDocumentMetadata(doc.id, metadata);
+        if (!result.success) { showToast(result.error || 'Update failed', 'error'); setSaving(false); return; }
+      }
+
+      for (const ef of editFiles) {
+        const result = await appendFileToDocument(doc.id, ef.uri, ef.name, ef.mimeType);
+        if (!result.success) { showToast(result.error || `Failed to append ${ef.name}`, 'error'); setSaving(false); return; }
+      }
+
+      showToast(editFiles.length > 0 ? 'Document updated and re-processing' : 'Document updated', 'success');
+      setShowEdit(false);
+      fetchDocument(); // refresh
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Save failed', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePickEditFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const a = result.assets[0];
+        setEditFiles(prev => [...prev, { uri: a.uri, name: a.name, mimeType: a.mimeType || 'application/octet-stream' }]);
+      }
+    } catch { showToast('Failed to pick file', 'error'); }
+  };
+
+  const categories = [
+    { value: 'warranty', label: 'Warranty' },
+    { value: 'insurance', label: 'Insurance' },
+    { value: 'lease', label: 'Lease' },
+    { value: 'employment', label: 'Employment' },
+    { value: 'contract', label: 'Contract' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => goBack('/(tabs)/vault')}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={22} color={colors.slate[700]} />
+        </TouchableOpacity>
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {doc.name}
+          </Text>
+        </View>
+        <View style={styles.headerActions}>
+          {isStarterOrAbove && doc && previewUrl && (
+            isPdfFile(doc.type || '', doc.original_name || doc.name || '') ||
+            isWordFile(doc.type || '', doc.original_name || doc.name || '')
+          ) && (
+            <TouchableOpacity
+              onPress={() => {
+                router.push({
+                  pathname: '/esign/create',
+                  params: {
+                    documentId: doc.id,
+                    documentName: doc.name,
+                    pdfUrl: previewUrl || '',
+                  },
+                });
+              }}
+              style={styles.headerIconBtn}
+              activeOpacity={0.7}
+            >
+              <FileSignature size={20} color={colors.slate[600]} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={openEditModal}
+            style={styles.headerIconBtn}
+            activeOpacity={0.7}
+          >
+            <Pencil size={20} color={colors.slate[600]} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={styles.headerIconBtn}
+            activeOpacity={0.7}
+            disabled={sharing}
+          >
+            {sharing ? (
+              <ActivityIndicator size="small" color={colors.slate[600]} />
+            ) : (
+              <Share2 size={20} color={colors.slate[600]} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={styles.headerIconBtn}
+            activeOpacity={0.7}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.error[600]} />
+            ) : (
+              <Trash2 size={20} color={colors.error[500]} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Gradient accent stripe */}
+      <LinearGradient
+        colors={[...colors.gradient.primary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.accentStripe}
+      />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Renewal Chain Banners */}
+        {newerVersion && (
+          <TouchableOpacity
+            style={styles.renewalBanner}
+            onPress={() => router.push({ pathname: '/document/[id]', params: { id: newerVersion.id } })}
+            activeOpacity={0.7}
+          >
+            <RefreshCw size={16} color={colors.primary[600]} />
+            <Text style={styles.renewalBannerText}>
+              Newer version available: <Text style={styles.renewalBannerBold}>{newerVersion.name}</Text>
+            </Text>
+            <ArrowLeft size={16} color={colors.primary[400]} style={{ transform: [{ rotate: '180deg' }] }} />
+          </TouchableOpacity>
+        )}
+        {olderVersion && (
+          <TouchableOpacity
+            style={[styles.renewalBanner, styles.renewalBannerMuted]}
+            onPress={() => router.push({ pathname: '/document/[id]', params: { id: olderVersion.id } })}
+            activeOpacity={0.7}
+          >
+            <RefreshCw size={16} color={colors.slate[500]} />
+            <Text style={styles.renewalBannerMutedText}>
+              This replaces: <Text style={styles.renewalBannerBold}>{olderVersion.name}</Text>
+            </Text>
+            <ArrowLeft size={16} color={colors.slate[400]} style={{ transform: [{ rotate: '180deg' }] }} />
+          </TouchableOpacity>
+        )}
+
+        {/* ====== INLINE DOCUMENT PREVIEW ====== */}
+        {previewLoading && (
+          <Card style={styles.previewCard}>
+            <View style={styles.previewLoadingWrap}>
+              <ActivityIndicator size="large" color={colors.primary[600]} />
+              <Text style={styles.previewLoadingText}>Loading preview...</Text>
+            </View>
+          </Card>
+        )}
+
+        {previewError && (
+          <Card style={styles.previewCard}>
+            <View style={styles.previewErrorWrap}>
+              <AlertCircle size={24} color={colors.slate[400]} />
+              <Text style={styles.previewErrorText}>{previewError}</Text>
+              <TouchableOpacity
+                onPress={() => doc && loadPreview(doc)}
+                style={styles.retryBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.retryBtnText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        )}
+
+        {/* Image preview */}
+        {previewUrl && previewType === 'image' && (
+          <TouchableOpacity
+            onPress={() => setFullScreen(true)}
+            activeOpacity={0.9}
+            style={styles.previewTouchable}
+          >
+            <Card style={styles.previewCard}>
+              <View style={styles.previewHeader}>
+                <Eye size={16} color={colors.primary[600]} />
+                <Text style={styles.previewLabel}>Document Preview</Text>
+                <Maximize2 size={16} color={colors.slate[400]} />
+              </View>
+              <Image
+                source={{ uri: previewUrl }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            </Card>
+          </TouchableOpacity>
+        )}
+
+        {/* PDF / HTML / Text preview — WebView on native, iframe on web */}
+        {previewUrl && previewType && previewType !== 'image' && (
+          <TouchableOpacity
+            onPress={() => setFullScreen(true)}
+            activeOpacity={0.9}
+            style={styles.previewTouchable}
+          >
+            <Card style={styles.previewCard}>
+              <View style={styles.previewHeader}>
+                <Eye size={16} color={colors.primary[600]} />
+                <Text style={styles.previewLabel}>Document Preview</Text>
+                <Maximize2 size={16} color={colors.slate[400]} />
+              </View>
+              <View style={styles.previewWebViewWrap}>
+                {Platform.OS === 'web' ? (
+                  <iframe
+                    src={previewUrl}
+                    style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 } as any}
+                    title="Document preview"
+                  />
+                ) : WebView ? (
+                  <WebView
+                    source={
+                      previewUrl.startsWith('data:')
+                        ? { html: atob(previewUrl.replace('data:text/html;base64,', '')), baseUrl: '' }
+                        : {
+                            uri:
+                              previewType === 'pdf' && Platform.OS === 'android'
+                                ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(previewUrl)}`
+                                : previewUrl,
+                          }
+                    }
+                    style={styles.previewWebView}
+                    scalesPageToFit
+                    javaScriptEnabled
+                    domStorageEnabled
+                    scrollEnabled={false}
+                    nestedScrollEnabled={false}
+                  />
+                ) : null}
+              </View>
+            </Card>
+          </TouchableOpacity>
+        )}
+
+        {/* Not viewable banner */}
+        {!previewLoading && !previewUrl && !previewError && (
+          <View style={styles.unsupportedBanner}>
+            <AlertCircle size={18} color={colors.slate[500]} />
+            <Text style={styles.unsupportedText}>
+              Preview not available for this file type
+            </Text>
+          </View>
+        )}
+
+        {/* Status Bar */}
+        <View style={styles.statusRow}>
+          <View
+            style={[
+              styles.categoryBadge,
+              {
+                backgroundColor: categoryColors.bg,
+                borderColor: categoryColors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.categoryBadgeText, { color: categoryColors.text }]}>
+              {categoryLabel}
+            </Text>
+          </View>
+
+          <Badge label={statusInfo.label} variant={statusInfo.variant} />
+
+          {doc.processed && <Badge label="Processed" variant="info" />}
+        </View>
+
+        {/* Details Card */}
+        <Card style={styles.detailsCard}>
+          <Text style={styles.sectionTitle}>Document Details</Text>
+
+          <DetailRow
+            icon={<FileText size={18} color={colors.primary[600]} />}
+            label="File Type"
+            value={(doc.type || 'unknown').toUpperCase()}
+          />
+
+          <DetailRow
+            icon={<Calendar size={18} color={colors.primary[600]} />}
+            label="Uploaded"
+            value={formatDate(doc.upload_date)}
+          />
+
+          {doc.expiration_date && (
+            <DetailRow
+              icon={
+                <StatusIcon
+                  size={18}
+                  color={
+                    doc.status === 'expired'
+                      ? colors.error[600]
+                      : doc.status === 'expiring'
+                      ? colors.warning[600]
+                      : colors.primary[600]
+                  }
+                />
+              }
+              label="Expires"
+              value={formatDate(doc.expiration_date)}
+              valueColor={
+                doc.status === 'expired'
+                  ? colors.error[600]
+                  : doc.status === 'expiring'
+                  ? colors.warning[600]
+                  : undefined
+              }
+            />
+          )}
+
+          <DetailRow
+            icon={<HardDrive size={18} color={colors.primary[600]} />}
+            label="File Size"
+            value={formatFileSize(doc.size)}
+          />
+        </Card>
+
+        {/* Tags Card */}
+        {doc.tags && doc.tags.length > 0 && (
+          <Card style={styles.tagsCard}>
+            <View style={styles.tagsSectionHeader}>
+              <Tag size={18} color={colors.primary[600]} />
+              <Text style={styles.sectionTitle}>Tags</Text>
+            </View>
+            <View style={styles.tagsContainer}>
+              {doc.tags.map((tag) => (
+                <View key={tag} style={styles.tagChip}>
+                  <LinearGradient
+                    colors={[...colors.gradient.primaryLight]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.tagChipGradient}
+                  >
+                    <Text style={styles.tagChipText}>{tag}</Text>
+                  </LinearGradient>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* Document Health Panel */}
+        <DocumentHealthPanel documentId={id!} category={doc.category} />
+
+        {/* Spacer for bottom actions */}
+        <View style={{ height: spacing['4xl'] }} />
+      </ScrollView>
+
+      {/* Bottom Action Button */}
+      <View style={styles.bottomActions}>
+        <Button
+          title="Chat with Document"
+          onPress={() =>
+            router.push({
+              pathname: '/document/[id]/chat',
+              params: { id: doc.id },
+            })
+          }
+          size="lg"
+          icon={<MessageSquare size={20} color={colors.white} />}
+          fullWidth
+        />
+      </View>
+
+      {/* Full-screen viewer modal */}
+      {fullScreen && previewUrl && (
+        <Modal
+          visible
+          animationType="slide"
+          presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+          onRequestClose={() => setFullScreen(false)}
+        >
+          <SafeAreaView style={styles.fullScreenSafe} edges={['top', 'bottom']}>
+            {/* Floating close button — sits above the WebView on all platforms */}
+            <TouchableOpacity
+              onPress={() => setFullScreen(false)}
+              style={styles.fullScreenFloatingClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={20} color={colors.white} strokeWidth={2.5} />
+            </TouchableOpacity>
+
+            {/* Content */}
+            {previewType === 'image' ? (
+              <ScrollView
+                style={styles.fullScreenImageScroll}
+                contentContainerStyle={styles.fullScreenImageContent}
+                maximumZoomScale={5}
+                minimumZoomScale={1}
+                bouncesZoom
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+              >
+                <Image
+                  source={{ uri: previewUrl }}
+                  style={styles.fullScreenImage}
+                  resizeMode="contain"
+                />
+              </ScrollView>
+            ) : Platform.OS === 'web' ? (
+              <View style={styles.fullScreenWebViewWrap}>
+                <iframe
+                  src={previewUrl}
+                  style={{ width: '100%', height: '100%', border: 'none' } as any}
+                  title={doc.name}
+                />
+              </View>
+            ) : WebView ? (
+              <WebView
+                source={
+                  previewUrl.startsWith('data:')
+                    ? { html: atob(previewUrl.replace('data:text/html;base64,', '')), baseUrl: '' }
+                    : {
+                        uri:
+                          previewType === 'pdf' && Platform.OS === 'android'
+                            ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(previewUrl)}`
+                            : previewUrl,
+                      }
+                }
+                style={styles.fullScreenWebViewWrap}
+                scalesPageToFit
+                javaScriptEnabled
+                domStorageEnabled
+                allowsInlineMediaPlayback
+                startInLoadingState
+                renderLoading={() => (
+                  <View style={styles.fullScreenLoading}>
+                    <ActivityIndicator size="large" color={colors.primary[600]} />
+                  </View>
+                )}
+              />
+            ) : null}
+          </SafeAreaView>
+        </Modal>
+      )}
+
+      {/* Edit Modal */}
+      <Modal visible={showEdit} animationType="slide" presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'} onRequestClose={() => setShowEdit(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.white }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.slate[200] }}>
+            <TouchableOpacity onPress={() => setShowEdit(false)} activeOpacity={0.7}>
+              <X size={22} color={colors.slate[600]} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.slate[900] }}>Edit Document</Text>
+            <TouchableOpacity onPress={handleSaveEdit} disabled={saving || !editName.trim()} activeOpacity={0.7} style={{ opacity: saving || !editName.trim() ? 0.4 : 1 }}>
+              {saving ? <ActivityIndicator size="small" color={colors.primary[600]} /> : <Save size={22} color={colors.primary[600]} />}
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ gap: 18 }}>
+            {/* Name */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 6 }}>Document Name</Text>
+              <TextInput
+                value={editName}
+                onChangeText={setEditName}
+                style={{ borderWidth: 1, borderColor: colors.slate[300], borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: colors.slate[900] }}
+                placeholder="Enter document name"
+              />
+            </View>
+
+            {/* Category */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 6 }}>Category</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.value}
+                    onPress={() => setEditCategory(cat.value)}
+                    style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: editCategory === cat.value ? colors.primary[600] : colors.slate[200], backgroundColor: editCategory === cat.value ? colors.primary[50] : colors.white }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: editCategory === cat.value ? colors.primary[700] : colors.slate[600] }}>{cat.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Expiration Date */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 6 }}>Expiration Date</Text>
+              <TextInput
+                value={editExpiration}
+                onChangeText={setEditExpiration}
+                style={{ borderWidth: 1, borderColor: colors.slate[300], borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: colors.slate[900] }}
+                placeholder="YYYY-MM-DD"
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+
+            {/* Add File */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 4 }}>Add File to Document</Text>
+              <Text style={{ fontSize: 11, color: colors.slate[500], marginBottom: 8 }}>Upload a file to merge with this document. It will be re-processed after merging.</Text>
+              {editFiles.map((ef, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.slate[50], borderRadius: 10, padding: 12, marginBottom: 8 }}>
+                  <FileText size={20} color={colors.primary[600]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.slate[800] }} numberOfLines={1}>{ef.name}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setEditFiles(prev => prev.filter((_, i) => i !== idx))}>
+                    <X size={18} color={colors.slate[400]} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity
+                onPress={handlePickEditFile}
+                style={{ borderWidth: 2, borderStyle: 'dashed', borderColor: colors.slate[300], borderRadius: 10, padding: 20, alignItems: 'center' }}
+                activeOpacity={0.7}
+              >
+                <Upload size={24} color={colors.slate[400]} />
+                <Text style={{ fontSize: 13, color: colors.slate[600], marginTop: 6 }}>{editFiles.length > 0 ? 'Add another file' : 'Tap to select files to merge'}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+/* ---- Detail Row Subcomponent ---- */
+interface DetailRowProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  valueColor?: string;
+}
+
+function DetailRow({ icon, label, value, valueColor }: DetailRowProps) {
+  return (
+    <View style={styles.detailRow}>
+      <View style={styles.detailLeft}>
+        <View style={styles.detailIconWrap}>{icon}</View>
+        <Text style={styles.detailLabel}>{label}</Text>
+      </View>
+      <Text
+        style={[styles.detailValue, valueColor ? { color: valueColor } : undefined]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/* ---- Styles ---- */
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.slate[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleWrap: {
+    flex: 1,
+    marginHorizontal: spacing.md,
+  },
+  headerTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[900],
+    textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.slate[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Accent Stripe */
+  accentStripe: {
+    height: 3,
+  },
+
+  /* Scroll */
+  scrollView: {
+    flex: 1,
+    backgroundColor: colors.slate[50],
+  },
+  scrollContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+
+  /* Renewal Chain Banners */
+  renewalBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  renewalBannerMuted: {
+    backgroundColor: colors.slate[50],
+    borderColor: colors.slate[200],
+  },
+  renewalBannerText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    color: colors.primary[700],
+  },
+  renewalBannerMutedText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[600],
+  },
+  renewalBannerBold: {
+    fontWeight: typography.fontWeight.semibold,
+  },
+
+  /* Status Row */
+  statusRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  categoryBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  categoryBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+
+  /* Title Card */
+  titleCard: {
+    // no extra style needed, Card handles padding
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  titleTextWrap: {
+    flex: 1,
+  },
+  docName: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.slate[900],
+    lineHeight: 26,
+  },
+  docOriginal: {
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[400],
+    marginTop: 2,
+  },
+
+  /* Details Card */
+  detailsCard: {
+    // Card handles padding
+  },
+  sectionTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[900],
+    marginBottom: spacing.md,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[100],
+  },
+  detailLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  detailIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[500],
+    fontWeight: typography.fontWeight.medium,
+  },
+  detailValue: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[800],
+    maxWidth: '50%',
+    textAlign: 'right',
+  },
+
+  /* Tags */
+  tagsCard: {
+    // Card handles padding
+  },
+  tagsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tagChip: {
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  tagChipGradient: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  tagChipText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary[700],
+  },
+
+  /* Bottom Actions */
+  bottomActions: {
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.slate[100],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+
+  /* Not Found */
+  notFoundContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing['3xl'],
+    gap: spacing.lg,
+    backgroundColor: colors.slate[50],
+  },
+  notFoundTitle: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.slate[900],
+    textAlign: 'center',
+  },
+  notFoundSub: {
+    fontSize: typography.fontSize.base,
+    color: colors.slate[500],
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  /* Unsupported file banner */
+  unsupportedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.slate[100],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+  },
+  unsupportedText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[500],
+    flex: 1,
+  },
+
+  /* Inline Preview */
+  previewCard: {
+    overflow: 'hidden',
+  },
+  previewTouchable: {
+    // wrapper for the touchable — no extra styling needed
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[100],
+    marginBottom: spacing.sm,
+  },
+  previewLabel: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[700],
+  },
+  previewLoadingWrap: {
+    height: PREVIEW_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  previewLoadingText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[400],
+  },
+  previewErrorWrap: {
+    height: PREVIEW_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  previewErrorText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.slate[500],
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  retryBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary[50],
+  },
+  retryBtnText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary[700],
+  },
+  previewImage: {
+    width: '100%',
+    height: PREVIEW_HEIGHT,
+    borderRadius: borderRadius.md,
+  },
+  previewWebViewWrap: {
+    height: PREVIEW_HEIGHT,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+  },
+  previewWebView: {
+    flex: 1,
+  },
+
+  /* Full-Screen Viewer Modal */
+  fullScreenSafe: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  fullScreenFloatingClose: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    zIndex: 100,
+    elevation: 100,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fullScreenImageScroll: {
+    flex: 1,
+    backgroundColor: colors.slate[900],
+  },
+  fullScreenImageContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT * 0.8,
+  },
+  fullScreenWebViewWrap: {
+    flex: 1,
+  },
+  fullScreenLoading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
