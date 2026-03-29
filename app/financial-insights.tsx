@@ -3,7 +3,10 @@ import {
   View, Text, ScrollView, StyleSheet, RefreshControl, Platform, TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Landmark, TrendingDown, AlertTriangle, Crown, BarChart3, ChevronRight } from 'lucide-react-native';
+import {
+  Landmark, TrendingDown, AlertTriangle, Crown, BarChart3, ChevronRight,
+  TrendingUp, Receipt, PiggyBank, Target, Lock, Shield,
+} from 'lucide-react-native';
 import InAppBrowser from '../src/components/ui/InAppBrowser';
 import { useAuth } from '../src/hooks/useAuth';
 import { useSubscription } from '../src/hooks/useSubscription';
@@ -313,6 +316,13 @@ export default function FinancialInsightsScreen() {
 
   const hasAccounts = connectedAccounts.length > 0;
 
+  const FEATURE_PREVIEW = [
+    { icon: TrendingUp, title: 'Spending Analysis', subtitle: 'See where your money goes', color: colors.primary[600], bg: colors.primary[50] },
+    { icon: Receipt, title: 'Bill Tracking', subtitle: 'Never miss a payment', color: '#d97706', bg: '#fffbeb' },
+    { icon: PiggyBank, title: 'Loan Detection', subtitle: 'Find savings on interest', color: '#7c3aed', bg: '#f5f3ff' },
+    { icon: Target, title: 'Financial Goals', subtitle: 'Track progress automatically', color: colors.primary[600], bg: colors.primary[50] },
+  ];
+
   return (
     <View style={styles.screen}>
       {/* Loading overlay — during webhook polling or account commit */}
@@ -340,71 +350,33 @@ export default function FinancialInsightsScreen() {
           />
         }
       >
-        {/* Header */}
-        <LinearGradient
-          colors={[...colors.gradient.primaryLight]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
+        {/* ── Compact Header ── */}
+        <View style={styles.headerCompact}>
           <View style={styles.headerRow}>
-            <View style={{ position: 'relative' }}>
-              <GradientIcon size={40}>
-                <Landmark size={20} color={colors.white} strokeWidth={2} />
-              </GradientIcon>
-              {!isPro && (
-                <View style={styles.crownBadge}>
-                  <Crown size={10} color={colors.white} strokeWidth={2.5} />
-                </View>
-              )}
-            </View>
+            <GradientIcon size={40}>
+              <Landmark size={20} color={colors.white} strokeWidth={2} />
+            </GradientIcon>
             <View style={styles.headerText}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.headerTitle}>Financial Insights</Text>
-                {!isPro && (
-                  <View style={styles.proBadge}>
-                    <Crown size={10} color={colors.white} strokeWidth={2.5} />
-                    <Text style={styles.proBadgeText}>PRO</Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.headerTitle}>Financial Insights</Text>
               <Text style={styles.headerSubtitle}>
                 {hasAccounts
-                  ? 'AI-powered analysis of your finances'
-                  : 'Connect a bank account to get started'}
+                  ? `${bankCount} account${bankCount !== 1 ? 's' : ''} connected`
+                  : 'Connect a bank to get started'}
               </Text>
             </View>
+            {hasAccounts && (
+              <TouchableOpacity style={styles.addBankPill} onPress={handleConnectBank} activeOpacity={0.7}>
+                <Text style={styles.addBankPillText}>+ Add</Text>
+              </TouchableOpacity>
+            )}
           </View>
-
-          {/* Add another bank button (if already connected) */}
-          {hasAccounts && (
-            <ConnectBankCard onConnect={handleConnectBank} loading={plaid.loading} compact bankCount={bankCount} bankLimit={bankAccountLimit} onUpgrade={() => router.push('/billing')} />
-          )}
-        </LinearGradient>
-
-        {/* StockPulse AI quick access */}
-        {isPro && (
-          <TouchableOpacity
-            style={styles.stockpulseCard}
-            onPress={() => router.push('/stockpulse')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.stockpulseIcon}>
-              <BarChart3 size={20} color={colors.primary[600]} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stockpulseTitle}>StockPulse AI</Text>
-              <Text style={styles.stockpulseSubtitle}>CIRA v2 stock research & portfolio builder</Text>
-            </View>
-            <ChevronRight size={18} color={colors.slate[400]} strokeWidth={1.8} />
-          </TouchableOpacity>
-        )}
+        </View>
 
         {/* Cancel banner */}
         {cancelBanner && (
           <View style={styles.cancelBanner}>
             <Text style={styles.cancelBannerText}>
-              No accounts were added. You can connect a bank account anytime from Settings.
+              No accounts were added. You can connect a bank account anytime.
             </Text>
             <TouchableOpacity onPress={() => setCancelBanner(false)} hitSlop={8}>
               <Text style={styles.cancelBannerDismiss}>✕</Text>
@@ -419,80 +391,122 @@ export default function FinancialInsightsScreen() {
           </View>
         )}
 
-        {/* No accounts: show connect CTA */}
+        {/* ── Empty State: Feature Preview Grid + CTA ── */}
         {!hasAccounts && (
-          <ConnectBankCard onConnect={handleConnectBank} loading={plaid.loading} bankCount={bankCount} bankLimit={bankAccountLimit} onUpgrade={() => router.push('/billing')} />
+          <View style={styles.emptyState}>
+            {/* 2x2 Feature Preview Grid */}
+            <View style={styles.featureGrid}>
+              {FEATURE_PREVIEW.map((f, i) => {
+                const Icon = f.icon;
+                return (
+                  <View key={i} style={styles.featureCard}>
+                    <View style={[styles.featureIconCircle, { backgroundColor: f.bg }]}>
+                      <Icon size={20} color={f.color} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.featureTitle}>{f.title}</Text>
+                    <Text style={styles.featureSubtitle}>{f.subtitle}</Text>
+                    {/* Lock overlay */}
+                    <View style={styles.featureLock}>
+                      <Lock size={10} color={colors.slate[400]} strokeWidth={2} />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* CTA Button */}
+            <TouchableOpacity
+              style={styles.connectCTA}
+              onPress={handleConnectBank}
+              activeOpacity={0.8}
+              disabled={plaid.loading}
+            >
+              <LinearGradient
+                colors={[...colors.gradient.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.connectCTAGradient}
+              >
+                <Landmark size={20} color={colors.white} strokeWidth={2} />
+                <Text style={styles.connectCTAText}>
+                  {plaid.loading ? 'Connecting...' : 'Connect Bank Account'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Security note */}
+            <View style={styles.securityRow}>
+              <Shield size={12} color={colors.slate[400]} strokeWidth={2} />
+              <Text style={styles.securityText}>Secured by Plaid · Bank-level encryption</Text>
+            </View>
+            <Text style={styles.accountCount}>
+              {bankCount}/{bankAccountLimit} bank accounts connected
+            </Text>
+          </View>
         )}
 
-        {/* Financial Dashboard Content */}
+        {/* ── StockPulse AI Banner ── */}
+        {isPro && (
+          <TouchableOpacity
+            style={styles.stockpulseBanner}
+            onPress={() => router.push('/stockpulse')}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={['#1e293b', '#0f172a']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.stockpulseBannerGradient}
+            >
+              <BarChart3 size={22} color={colors.white} strokeWidth={2} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.stockpulseBannerTitle}>StockPulse AI</Text>
+                <Text style={styles.stockpulseBannerSubtitle}>AI stock research & portfolio builder</Text>
+              </View>
+              <ChevronRight size={18} color={colors.slate[400]} strokeWidth={1.8} />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Financial Dashboard Content (connected state) ── */}
         {hasAccounts && summary && (
           <View style={styles.sections}>
-            {/* KPI Cards */}
             <FinancialSummaryCards
               totalBalance={summary.total_balance}
               monthlyIncome={summary.monthly_income}
               monthlyExpenses={summary.monthly_expenses}
               netCashFlow={summary.net_cash_flow}
             />
-
-            {/* Connected Accounts */}
             <ConnectedAccountsList
               accounts={connectedAccounts}
               syncing={syncing}
               onSync={handleSync}
               onDisconnect={handleDisconnect}
             />
-
-            {/* Financial Goals */}
             <FinancialGoalsSection key={goalsRefreshKey} connectedAccounts={connectedAccounts} />
-
-            {/* Smart Document Prompts — "Optimize Your Debts" */}
             <SmartDocumentPrompts onUploadComplete={loadData} />
-
-            {/* Debt Optimization — analyzed loans with payoff analysis */}
             {analyzedLoans.length > 0 && (
               <CollapsibleSection
                 icon={<TrendingDown size={18} color={colors.primary[600]} strokeWidth={2} />}
                 title="Debt Optimization"
-                trailing={
-                  <Badge
-                    label={`${analyzedLoans.length} loan${analyzedLoans.length > 1 ? 's' : ''}`}
-                    variant="primary"
-                  />
-                }
+                trailing={<Badge label={`${analyzedLoans.length} loan${analyzedLoans.length > 1 ? 's' : ''}`} variant="primary" />}
               >
                 <View style={styles.loansList}>
                   {analyzedLoans.map((loan) => (
-                    <LoanAnalysisPanel
-                      key={loan.id}
-                      detectedLoanId={loan.id}
-                      displayName={loan.display_name}
-                    />
+                    <LoanAnalysisPanel key={loan.id} detectedLoanId={loan.id} displayName={loan.display_name} />
                   ))}
                 </View>
               </CollapsibleSection>
             )}
-
-            {/* Spending Breakdown */}
             <SpendingBreakdown categories={summary.spending_by_category} />
-
-            {/* Recurring Bills */}
             <RecurringBillsList bills={summary.recurring_bills} />
-
-            {/* Income Streams */}
             <IncomeStreamsList streams={summary.income_streams} />
-
-            {/* Monthly Trends */}
             <MonthlyTrendsChart data={summary.monthly_averages} />
-
-            {/* AI Insights */}
             <AIInsightsSection
               insights={summary.insights}
               accountAnalysis={summary.account_analysis}
               recommendations={summary.ai_recommendations}
             />
-
-            {/* Action Plan */}
             <ActionPlanSection items={summary.action_plan} onGoalCreated={() => setGoalsRefreshKey(k => k + 1)} />
           </View>
         )}
@@ -502,11 +516,10 @@ export default function FinancialInsightsScreen() {
           <AlertTriangle size={14} color="#92400e" strokeWidth={2} />
           <Text style={styles.disclaimerText}>
             <Text style={styles.disclaimerBold}>Disclaimer: </Text>
-            DocuIntelli AI provides financial insights for informational purposes only and does not replace the role of a certified financial advisor, planner, or any licensed financial professional. Users are solely responsible for any financial decisions made based on the information provided. Please consult a qualified financial professional before making significant financial decisions.
+            DocuIntelli AI provides financial insights for informational purposes only and does not replace the role of a certified financial advisor, planner, or any licensed financial professional.
           </Text>
         </View>
 
-        {/* Bottom spacer for tab bar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
@@ -548,39 +561,131 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.slate[50],
   },
-  stockpulseCard: {
+  // ── Compact Header ──
+  headerCompact: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate[100],
+  },
+  addBankPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary[50],
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+  },
+  addBankPillText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.primary[600],
+  },
+
+  // ── Empty State ──
+  emptyState: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  featureGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    padding: spacing.md,
+  },
+  featureCard: {
+    flex: 1,
+    minWidth: '45%' as any,
     backgroundColor: colors.white,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.primary[200],
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    borderColor: colors.slate[200],
+    padding: spacing.lg,
+    gap: spacing.sm,
+    opacity: 0.7,
+    position: 'relative',
   },
-  stockpulseIcon: {
+  featureIconCircle: {
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.primary[50],
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stockpulseTitle: {
+  featureTitle: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     color: colors.slate[900],
   },
-  stockpulseSubtitle: {
+  featureSubtitle: {
     fontSize: typography.fontSize.xs,
     color: colors.slate[500],
+    lineHeight: 16,
+  },
+  featureLock: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+  },
+  connectCTA: {
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    shadowColor: colors.primary[600],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  connectCTAGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.xl,
+  },
+  connectCTAText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.white,
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  securityText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
+  },
+  accountCount: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
+    textAlign: 'center',
+  },
+
+  // ── StockPulse Banner ──
+  stockpulseBanner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+  },
+  stockpulseBannerGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  stockpulseBannerTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.white,
+  },
+  stockpulseBannerSubtitle: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
     marginTop: 2,
   },
   scroll: {
@@ -588,10 +693,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: spacing['3xl'],
-  },
-  headerGradient: {
-    padding: spacing.lg,
-    gap: spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
@@ -652,7 +753,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
   },
   bottomSpacer: {
-    height: 80, // space for tab bar
+    height: 80,
   },
   cancelBanner: {
     flexDirection: 'row',
@@ -706,32 +807,5 @@ const styles = StyleSheet.create({
   pollingSubtext: {
     fontSize: typography.fontSize.sm,
     color: colors.slate[500],
-  },
-  crownBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#d97706',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#d97706',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  proBadgeText: {
-    fontSize: 10,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.white,
   },
 });
