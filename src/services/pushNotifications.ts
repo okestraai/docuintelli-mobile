@@ -48,6 +48,18 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       description: 'Payment and subscription updates',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
+
+    await Notifications.setNotificationChannelAsync('security', {
+      name: 'Security Alerts',
+      description: 'Login alerts and security notifications',
+      importance: Notifications.AndroidImportance.HIGH,
+    });
+
+    await Notifications.setNotificationChannelAsync('stockpulse', {
+      name: 'StockPulse Alerts',
+      description: 'Stock score changes and trading alerts',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
   }
 
   // Check existing permissions
@@ -103,10 +115,37 @@ export function setupNotificationListeners() {
   // Handle notification tap (app was in background or killed)
   const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data;
+    const type = data?.type as string;
 
-    // Route based on notification data
+    // Route based on notification type, then data fields
+    const typeRoutes: Record<string, string> = {
+      esign_received: '/esign/sign-auth',
+      esign_completed: '/esign/sign-auth',
+      esign_declined: '/esign/sign-auth',
+      esign_reminder: '/esign/sign-auth',
+      emergency_invite: '/emergency-invite',
+      emergency_request: '/shared-with-me',
+      emergency_granted: '/shared-with-me',
+      emergency_denied: '/shared-with-me',
+      billing_trial_ending: '/billing',
+      billing_payment_failed: '/billing',
+      billing_plan_changed: '/billing',
+      stockpulse_conviction: '/stockpulse',
+      stockpulse_score_alert: '/stockpulse',
+      stockpulse_simulator_pnl: '/stockpulse',
+      stockpulse_backtest_done: '/stockpulse',
+      life_event_milestone: '/life-events',
+      cloud_import_done: '/(tabs)/vault',
+      security_new_device: '/settings/devices',
+      security_password_changed: '/settings/security',
+      shared_doc_access: '/shared-with-me',
+      engagement_digest: '/audit',
+    };
+
     if (data?.documentId) {
       router.push({ pathname: '/document/[id]', params: { id: data.documentId as string } });
+    } else if (type && typeRoutes[type]) {
+      router.push(typeRoutes[type] as any);
     } else if (data?.route) {
       router.push(data.route as any);
     }

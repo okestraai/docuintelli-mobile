@@ -12,6 +12,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
+import { useNotifications } from '../src/hooks/useNotifications';
 import { setupDeepLinkListener } from '../src/services/deepLinking';
 import { ToastProvider, ToastRenderer } from '../src/contexts/ToastContext';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
@@ -39,6 +40,9 @@ export default function RootLayout() {
 
   // Initialize push notifications when authenticated
   usePushNotifications();
+
+  // Poll for notification unread count (60s interval, pauses when backgrounded)
+  useNotifications();
 
   useEffect(() => {
     const boot = async () => {
