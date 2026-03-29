@@ -45,6 +45,12 @@ export function handleDeepLink(url: string) {
     return;
   }
 
+  // Handle cloud storage OAuth callback (safety net if openAuthSessionAsync misses it)
+  if (parsed.path === 'vault' && parsed.queryParams?.cloud_connected) {
+    router.replace('/(tabs)/vault');
+    return;
+  }
+
   // Handle e-signature signing links (docuintelli://sign/{token})
   if (parsed.path?.startsWith('sign/')) {
     const signingToken = parsed.path.replace('sign/', '');

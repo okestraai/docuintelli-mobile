@@ -45,12 +45,13 @@ import Button from '../../src/components/ui/Button';
 import ConfirmModal from '../../src/components/subscription/ConfirmModal';
 import GradientIcon from '../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../src/components/ui/LoadingSpinner';
+import { WebView } from 'react-native-webview';
 import { CloudProviderIcon } from '../../src/components/CloudProviderIcon';
 import { CloudFileBrowserModal } from '../../src/components/CloudFileBrowserModal';
 import { GoogleDrivePickerModal } from '../../src/components/GoogleDrivePickerModal';
 import {
   getCloudProviders,
-  connectProvider,
+  getConnectUrl,
   disconnectProvider,
   CloudProvider,
 } from '../../src/lib/cloudStorageApi';
@@ -165,11 +166,17 @@ export default function VaultScreen() {
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
   const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [showCloudBrowser, setShowCloudBrowser] = useState(false);
-  const [showGoogleDrivePicker, setShowGoogleDrivePicker] = useState(false);
   const [activeCloudProvider, setActiveCloudProvider] = useState<{ name: string; displayName: string } | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<CloudProvider | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [cloudConnecting, setCloudConnecting] = useState(false);
+
+  // Google Drive Picker
+  const [showGoogleDrivePicker, setShowGoogleDrivePicker] = useState(false);
+
+  // OAuth WebView state
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null);
+  const [oauthProvider, setOauthProvider] = useState<{ name: string; displayName: string } | null>(null);
 
   // Load cloud providers on mount
   const loadCloudProviders = useCallback(async () => {
@@ -183,38 +190,61 @@ export default function VaultScreen() {
 
   useEffect(() => { if (cloudEnabled) loadCloudProviders(); }, [cloudEnabled, loadCloudProviders]);
 
+  // Handle OAuth WebView navigation — detect when OAuth is complete
+  const handleOAuthNavigation = useCallback((navState: { url: string }) => {
+    const url = navState.url;
+    // Backend redirects to docuintelli.com/vault?cloud_connected=... after OAuth
+    if (url.includes('cloud_connected=') || url.includes('docuintelli.com/vault')) {
+      // OAuth completed — close WebView and check connection
+      setOauthUrl(null);
+      const provider = oauthProvider;
+      setOauthProvider(null);
+      if (provider) {
+        (async () => {
+          try {
+            const providers = await getCloudProviders();
+            setCloudProviders(providers);
+            const updated = providers.find(p => p.name === provider.name);
+            if (updated?.connected) {
+              showToast(`${provider.displayName} connected!`, 'success');
+              if (provider.name === 'google_drive') {
+                setShowGoogleDrivePicker(true);
+              } else {
+                setActiveCloudProvider(provider);
+                setShowCloudBrowser(true);
+              }
+            } else {
+              showToast(`${provider.displayName} not connected. Please try again.`, 'warning');
+            }
+          } catch (err: any) {
+            showToast(err.message || 'Failed to check connection', 'error');
+          }
+        })();
+      }
+      return false; // prevent loading the redirect URL
+    }
+    return true;
+  }, [oauthProvider, showToast]);
+
   const handlePickProvider = useCallback(async (provider: CloudProvider) => {
     setShowCloudPicker(false);
-    if (provider.name === 'google_drive') {
-      if (provider.connected) {
+    if (provider.connected) {
+      if (provider.name === 'google_drive') {
+        // Google Drive uses the Picker API (required for drive.file scope)
         setShowGoogleDrivePicker(true);
       } else {
-        // Need to connect first via backend OAuth
-        setCloudConnecting(true);
-        try {
-          const connected = await connectProvider(provider.name);
-          if (connected) {
-            await loadCloudProviders();
-            setShowGoogleDrivePicker(true);
-          }
-        } catch (err: any) {
-          showToast(err.message || 'Failed to connect', 'error');
-        } finally {
-          setCloudConnecting(false);
-        }
+        setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
+        setShowCloudBrowser(true);
       }
-    } else if (provider.connected) {
-      setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
-      setShowCloudBrowser(true);
+      return;
     } else {
-      // OAuth flow via in-app browser
+      // Open OAuth in an in-app WebView
       setCloudConnecting(true);
       try {
-        const connected = await connectProvider(provider.name);
-        if (connected) {
-          await loadCloudProviders();
-          setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
-          setShowCloudBrowser(true);
+        const url = await getConnectUrl(provider.name);
+        if (url) {
+          setOauthProvider({ name: provider.name, displayName: provider.displayName });
+          setOauthUrl(url);
         }
       } catch (err: any) {
         showToast(err.message || 'Failed to connect', 'error');
@@ -222,7 +252,7 @@ export default function VaultScreen() {
         setCloudConnecting(false);
       }
     }
-  }, [loadCloudProviders, showToast]);
+  }, [showToast]);
 
   const handleDisconnect = useCallback(async () => {
     if (!disconnectTarget) return;
@@ -325,7 +355,14 @@ export default function VaultScreen() {
             <View key={p.name} style={styles.connectedPill}>
               <TouchableOpacity
                 style={styles.connectedPillContent}
-                onPress={() => { setActiveCloudProvider({ name: p.name, displayName: p.displayName }); setShowCloudBrowser(true); }}
+                onPress={() => {
+                  if (p.name === 'google_drive') {
+                    setShowGoogleDrivePicker(true);
+                  } else {
+                    setActiveCloudProvider({ name: p.name, displayName: p.displayName });
+                    setShowCloudBrowser(true);
+                  }
+                }}
                 activeOpacity={0.7}
               >
                 <CloudProviderIcon provider={p.name} size={14} />
@@ -813,15 +850,15 @@ export default function VaultScreen() {
         loading={disconnecting}
       />
 
-      {/* Google Drive — Picker API via WebView */}
+      {/* Google Drive — Picker API (required for drive.file scope) */}
       <GoogleDrivePickerModal
         visible={showGoogleDrivePicker}
         onClose={() => setShowGoogleDrivePicker(false)}
         onImportComplete={() => { refetch(); }}
       />
 
-      {/* Dropbox / other providers — custom file browser */}
-      {activeCloudProvider && activeCloudProvider.name !== 'google_drive' && (
+      {/* Cloud file browser — used for non-Google Drive providers */}
+      {activeCloudProvider && (
         <CloudFileBrowserModal
           visible={showCloudBrowser}
           onClose={() => { setShowCloudBrowser(false); setActiveCloudProvider(null); }}
@@ -830,6 +867,48 @@ export default function VaultScreen() {
           onImportComplete={() => { refetch(); }}
         />
       )}
+
+      {/* OAuth WebView modal — handles Google/cloud provider sign-in in-app */}
+      <RNModal
+        visible={!!oauthUrl}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+        onRequestClose={() => { setOauthUrl(null); setOauthProvider(null); }}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.white }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+            borderBottomWidth: 1, borderBottomColor: colors.slate[200],
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Cloud size={20} color={colors.primary[600]} />
+              <Text style={{ fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold as any, color: colors.slate[900] }}>
+                Connect {oauthProvider?.displayName || 'Cloud Storage'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => { setOauthUrl(null); setOauthProvider(null); }}
+              style={{ padding: spacing.xs }}
+            >
+              <Text style={{ fontSize: typography.fontSize.sm, color: colors.slate[500] }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          {oauthUrl && (
+            <WebView
+              source={{ uri: oauthUrl }}
+              style={{ flex: 1 }}
+              javaScriptEnabled
+              domStorageEnabled
+              thirdPartyCookiesEnabled
+              sharedCookiesEnabled
+              onShouldStartLoadWithRequest={(request) => handleOAuthNavigation({ url: request.url })}
+              onNavigationStateChange={(navState) => handleOAuthNavigation(navState)}
+              userAgent="Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            />
+          )}
+        </View>
+      </RNModal>
     </SafeAreaView>
   );
 }

@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
+import * as WebBrowser from 'expo-web-browser';
 import { ArrowLeft, Shield, Monitor } from 'lucide-react-native';
 import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
@@ -21,6 +22,10 @@ import PersistentTabBar from '../src/components/PersistentTabBar';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, MAX_APP_WIDTH } from '../src/theme/spacing';
+
+// Complete any pending auth sessions (OAuth redirects back to the app).
+// Must run at the module top level before any component renders.
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const { initialized, loading, initialize, setSession, session } = useAuthStore();

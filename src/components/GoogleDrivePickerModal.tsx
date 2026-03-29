@@ -8,10 +8,12 @@ import {
   StyleSheet,
   Modal as RNModal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { X, Cloud, Check, AlertCircle } from 'lucide-react-native';
 import { CloudProviderIcon } from './CloudProviderIcon';
 import { importCloudFiles, getPickerToken, ImportResult } from '../lib/cloudStorageApi';
+import { GOOGLE_PICKER_API_KEY } from '../lib/config';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -55,7 +57,7 @@ const PICKER_MIME_TYPES = [
 ].join(',');
 
 /** Generate Picker HTML that uses a pre-fetched OAuth token (no GIS needed) */
-function getPickerHTML(oauthToken: string, appId: string, mimeTypes: string): string {
+function getPickerHTML(oauthToken: string, appId: string, apiKey: string, mimeTypes: string): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -64,43 +66,55 @@ function getPickerHTML(oauthToken: string, appId: string, mimeTypes: string): st
   <style>
     body { margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #f8fafc; font-family: -apple-system, sans-serif; }
     .loading { text-align: center; color: #64748b; font-size: 14px; }
+    .error { text-align: center; color: #dc2626; font-size: 14px; padding: 20px; }
     .spinner { width: 24px; height: 24px; border: 3px solid #e2e8f0; border-top-color: #059669; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="loading">
+  <div class="loading" id="status">
     <div class="spinner"></div>
     <div>Opening Google Drive...</div>
   </div>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://apis.google.com/js/api.js"
+    onerror="document.getElementById('status').innerHTML='<div class=error>Failed to load Google APIs</div>'">
+  </script>
   <script>
-    gapi.load('picker', function() {
-      var docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-        .setIncludeFolders(true)
-        .setSelectFolderEnabled(false)
-        .setMimeTypes('${mimeTypes}');
+    function initPicker() {
+      try {
+        var docsView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+          .setIncludeFolders(true)
+          .setSelectFolderEnabled(false)
+          .setMimeTypes('${mimeTypes}');
 
-      var picker = new google.picker.PickerBuilder()
-        .addView(docsView)
-        .setOAuthToken('${oauthToken}')
-        .setAppId('${appId}')
-        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
-        .setTitle('Select documents to import')
-        .setCallback(function(data) {
-          if (data.action === google.picker.Action.PICKED) {
-            var files = data.docs.map(function(doc) {
-              return { id: doc.id, name: doc.name, mimeType: doc.mimeType };
-            });
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'picked', files: files }));
-          } else if (data.action === google.picker.Action.CANCEL) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cancel' }));
-          }
-        })
-        .build();
+        var picker = new google.picker.PickerBuilder()
+          .addView(docsView)
+          .setOAuthToken('${oauthToken}')
+          .setDeveloperKey('${apiKey}')
+          .setAppId('${appId}')
+          .setOrigin(window.location.protocol + '//' + window.location.host)
+          .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+          .setTitle('Select documents to import')
+          .setCallback(function(data) {
+            if (data.action === google.picker.Action.PICKED) {
+              var files = data.docs.map(function(doc) {
+                return { id: doc.id, name: doc.name, mimeType: doc.mimeType };
+              });
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'picked', files: files }));
+            } else if (data.action === google.picker.Action.CANCEL) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cancel' }));
+            }
+          })
+          .build();
 
-      picker.setVisible(true);
-    });
+        picker.setVisible(true);
+      } catch(e) {
+        document.getElementById('status').innerHTML = '<div class="error">Picker error: ' + e.message + '</div>';
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: e.message }));
+      }
+    }
+
+    gapi.load('picker', initPicker);
   </script>
 </body>
 </html>`;
@@ -135,7 +149,7 @@ export function GoogleDrivePickerModal({
   const fetchTokenAndBuildPicker = useCallback(async () => {
     try {
       const token = await getPickerToken('google_drive');
-      const html = getPickerHTML(token, GOOGLE_APP_ID, PICKER_MIME_TYPES);
+      const html = getPickerHTML(token, GOOGLE_APP_ID, GOOGLE_PICKER_API_KEY, PICKER_MIME_TYPES);
       setPickerHTML(html);
       setPhase('picker');
     } catch (err: any) {
@@ -190,7 +204,7 @@ export function GoogleDrivePickerModal({
 
   return (
     <RNModal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -230,12 +244,15 @@ export function GoogleDrivePickerModal({
         {/* Phase: Picker WebView */}
         {phase === 'picker' && pickerHTML && (
           <WebView
-            source={{ html: pickerHTML }}
+            source={{ html: pickerHTML, baseUrl: 'https://docuintelli.com' }}
             style={styles.webview}
             onMessage={handleWebViewMessage}
             javaScriptEnabled
             domStorageEnabled
             thirdPartyCookiesEnabled
+            sharedCookiesEnabled
+            originWhitelist={['*']}
+            mixedContentMode="compatibility"
             userAgent="Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
           />
         )}
@@ -328,7 +345,7 @@ export function GoogleDrivePickerModal({
             </TouchableOpacity>
           </View>
         )}
-      </View>
+      </SafeAreaView>
     </RNModal>
   );
 }

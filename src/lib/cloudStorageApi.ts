@@ -3,8 +3,6 @@
  * Mirrors web src/lib/cloudStorageApi.ts but uses expo-web-browser for OAuth
  * and AsyncStorage-based auth for API calls.
  */
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { Platform } from 'react-native';
 import { auth } from './auth';
 import { API_BASE } from './config';
@@ -82,42 +80,23 @@ export async function getCloudProviders(): Promise<CloudProvider[]> {
 }
 
 /**
- * Initiate OAuth connection flow using expo-web-browser.
- * Opens the provider's auth page in an in-app browser,
- * waits for the redirect back, and returns the connected provider name.
+ * Build the OAuth connect URL for a provider.
+ * On web, navigates directly. On native, returns the URL for use in a WebView.
  */
-export async function connectProvider(provider: string): Promise<string | null> {
+export async function getConnectUrl(provider: string): Promise<string | null> {
   const { data: { session } } = await auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
   const token = encodeURIComponent(session.access_token);
-
-  // On native: use the app's custom scheme (docuintelli://) so the browser
-  // redirects back into the app after OAuth completes.
-  // On web: use the web vault URL.
-  const appRedirectUri = Platform.OS === 'web'
-    ? `${API_BASE}/vault`
-    : makeRedirectUri({ scheme: 'docuintelli', path: 'vault' });
-
-  const redirectTo = encodeURIComponent(appRedirectUri);
+  const redirectTo = encodeURIComponent(`${API_BASE}/vault?cloud_connected=${provider}`);
   const connectUrl = `${BACKEND_URL}/${provider}/connect?token=${token}&redirect_to=${redirectTo}`;
 
-  const result = await WebBrowser.openAuthSessionAsync(connectUrl, appRedirectUri);
-
-  if (result.type === 'success' && result.url) {
-    // Parse the returned URL to check for cloud_connected param
-    try {
-      const url = new URL(result.url);
-      const connected = url.searchParams.get('cloud_connected');
-      return connected || provider;
-    } catch {
-      // If URL parsing fails (custom scheme), try manual parsing
-      const match = result.url.match(/cloud_connected=([^&]+)/);
-      return match ? match[1] : provider;
-    }
+  if (Platform.OS === 'web') {
+    window.location.href = connectUrl;
+    return null;
   }
 
-  return null;
+  return connectUrl;
 }
 
 /** Disconnect a cloud storage provider */

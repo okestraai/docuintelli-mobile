@@ -16,7 +16,11 @@ interface SimulatorCardProps {
 }
 
 export default function SimulatorCard({ pick, onClose, onPress, closing }: SimulatorCardProps) {
-  const isPositive = pick.pnl_dollars >= 0;
+  const pnlDollars = Number(pick.pnl_dollars) || 0;
+  const pnlPercent = Number(pick.pnl_percent) || 0;
+  const entryPrice = Number(pick.entry_price) || 0;
+  const currentPrice = Number(pick.current_price) || 0;
+  const isPositive = pnlDollars >= 0;
   const pnlColor = isPositive ? colors.primary[600] : colors.error[600];
   const PnlIcon = isPositive ? TrendingUp : TrendingDown;
 
@@ -28,11 +32,11 @@ export default function SimulatorCard({ pick, onClose, onPress, closing }: Simul
           <View style={styles.left}>
             <View style={styles.tickerRow}>
               <Text style={styles.ticker}>{pick.ticker}</Text>
-              <ConvictionBadge conviction={pick.current_ai_conviction || pick.ai_conviction_at_entry} />
+              <ConvictionBadge conviction={pick.current_ai_conviction || pick.ai_conviction_at_entry || 'Hold'} />
             </View>
             <Text style={styles.companyName} numberOfLines={1}>{pick.company_name}</Text>
             <Text style={styles.meta}>
-              Entry ${pick.entry_price.toFixed(2)} → ${pick.current_price.toFixed(2)}
+              Entry ${entryPrice.toFixed(2)} → ${currentPrice.toFixed(2)}
             </Text>
           </View>
 
@@ -41,11 +45,11 @@ export default function SimulatorCard({ pick, onClose, onPress, closing }: Simul
             <View style={[styles.pnlBadge, { backgroundColor: isPositive ? colors.primary[50] : colors.error[50] }]}>
               <PnlIcon size={12} color={pnlColor} strokeWidth={2} />
               <Text style={[styles.pnlText, { color: pnlColor }]}>
-                {isPositive ? '+' : ''}{pick.pnl_percent.toFixed(1)}%
+                {isPositive ? '+' : ''}{pnlPercent.toFixed(1)}%
               </Text>
             </View>
             <Text style={[styles.pnlDollars, { color: pnlColor }]}>
-              {isPositive ? '+' : ''}${pick.pnl_dollars.toFixed(2)}
+              {isPositive ? '+' : ''}${pnlDollars.toFixed(2)}
             </Text>
             {pick.status === 'active' && (
               <TouchableOpacity

@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Svg, { Path, Line, Text as SvgText, Rect } from 'react-native-svg';
 import {
   BarChart3, TrendingUp, TrendingDown, Search, SlidersHorizontal, X,
-  Target, BookmarkPlus, Bookmark, RefreshCw, Sparkles, AlertTriangle,
+  Target, RefreshCw, Sparkles, AlertTriangle,
   Eye, Briefcase, FlaskConical, Play, ChevronRight,
   DollarSign, Percent, ArrowRight, Clock, Check,
   ChevronDown, ChevronUp, Bell, Plus, Shield, Leaf,
@@ -28,8 +29,7 @@ import ScoreRing from '../src/components/stockpulse/ScoreRing';
 import ConvictionBadge from '../src/components/stockpulse/ConvictionBadge';
 import {
   getRecommendations, scoreStock, getSimulator, addSimulatorPick,
-  closeSimulatorPick, refreshSimulator, getWatchlist, addToWatchlist,
-  removeFromWatchlist, constructPortfolio, getBacktestRuns, getActiveBacktest,
+  closeSimulatorPick, refreshSimulator, constructPortfolio, getBacktestRuns, getActiveBacktest,
   getBacktestResult, startBacktest, getClosedPicks, getTickerHistory,
   getForecast, getConvictionChanges,
   type Recommendation, type CIRAScore, type SimulatorPick, type SimulatorSummary,
@@ -44,7 +44,7 @@ import { spacing, borderRadius } from '../src/theme/spacing';
 // TAB DEFINITIONS — mirrors web StockPulseApp.tsx exactly
 // ═══════════════════════════════════════════════════════════════════
 
-type TabId = 'dashboard' | 'invest' | 'portfolio' | 'simulator' | 'backtest' | 'watchlist';
+type TabId = 'dashboard' | 'invest' | 'portfolio' | 'simulator' | 'backtest';
 
 const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: 'dashboard', label: 'Screener', icon: BarChart3 },
@@ -52,7 +52,6 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
   { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
   { id: 'simulator', label: 'Simulator', icon: Target },
   { id: 'backtest', label: 'Backtest', icon: FlaskConical },
-  { id: 'watchlist', label: 'Watchlist', icon: Bookmark },
 ];
 
 type SortOption = 'score_high' | 'score_low' | 'price_high' | 'price_low' | 'alpha' | 'market_cap' | 'mos_high';
@@ -174,12 +173,6 @@ function StockPulseContent() {
   const [btEndDate, setBtEndDate] = useState('2025-12-31');
   const [btFreq, setBtFreq] = useState<'quarterly' | 'monthly'>('quarterly');
 
-  // ── Watchlist state ──
-  const [watchlist, setWatchlist] = useState<string[]>([]);
-  const [wlLoading, setWlLoading] = useState(false);
-  const [wlTickerInput, setWlTickerInput] = useState('');
-  const [addingWl, setAddingWl] = useState(false);
-
   // ── Company detail modal ──
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [companyData, setCompanyData] = useState<CIRAScore | null>(null);
@@ -269,18 +262,6 @@ function StockPulseContent() {
     }
   }, []);
 
-  const loadWatchlist = useCallback(async () => {
-    try {
-      setWlLoading(true);
-      const data = await getWatchlist();
-      setWatchlist(data.tickers || []);
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to load watchlist', 'error');
-    } finally {
-      setWlLoading(false);
-    }
-  }, []);
-
   const loadBacktests = useCallback(async () => {
     try {
       setBtLoading(true);
@@ -308,7 +289,6 @@ function StockPulseContent() {
   useEffect(() => {
     if (activeTab === 'simulator' && simPicks.length === 0 && !simLoading) loadSimulator();
     if (activeTab === 'portfolio' && portfolioPicks.length === 0 && !portfolioLoading) loadPortfolio();
-    if (activeTab === 'watchlist' && watchlist.length === 0 && !wlLoading) loadWatchlist();
     if (activeTab === 'backtest' && btRuns.length === 0 && !btLoading) loadBacktests();
   }, [activeTab]);
 
@@ -447,35 +427,6 @@ function StockPulseContent() {
   };
 
   // ────────────────────────────────────────────────────────────────
-  // WATCHLIST ACTIONS
-  // ────────────────────────────────────────────────────────────────
-
-  const handleAddToWatchlist = async () => {
-    const ticker = wlTickerInput.trim().toUpperCase();
-    if (!ticker) return;
-    setAddingWl(true);
-    try {
-      const data = await addToWatchlist(ticker);
-      setWatchlist(data.tickers || []);
-      setWlTickerInput('');
-      showToast(`Added ${ticker}`, 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to add', 'error');
-    } finally {
-      setAddingWl(false);
-    }
-  };
-
-  const handleRemoveFromWatchlist = async (ticker: string) => {
-    try {
-      const data = await removeFromWatchlist(ticker);
-      setWatchlist(data.tickers || []);
-      showToast(`Removed ${ticker}`, 'success');
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to remove', 'error');
-    }
-  };
-
   // ────────────────────────────────────────────────────────────────
   // FILTER + SORT (DASHBOARD)
   // ────────────────────────────────────────────────────────────────
@@ -582,7 +533,7 @@ function StockPulseContent() {
     else if (activeTab === 'simulator') loadSimulator().then(() => setRefreshing(false));
     else if (activeTab === 'portfolio') loadPortfolio().then(() => setRefreshing(false));
     else if (activeTab === 'backtest') loadBacktests().then(() => setRefreshing(false));
-    else loadWatchlist().then(() => setRefreshing(false));
+    else setRefreshing(false);
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -987,34 +938,34 @@ function StockPulseContent() {
                   <View style={s.simSumRow}>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>Invested</Text>
-                      <Text style={s.simSumValue}>${simSummary.total_invested.toLocaleString()}</Text>
+                      <Text style={s.simSumValue}>${Number(simSummary.total_invested || 0).toLocaleString()}</Text>
                     </View>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>Current</Text>
-                      <Text style={s.simSumValue}>${simSummary.current_value.toLocaleString()}</Text>
+                      <Text style={s.simSumValue}>${Number(simSummary.current_value || 0).toLocaleString()}</Text>
                     </View>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>P&L</Text>
-                      <Text style={[s.simSumValue, { color: simSummary.total_pnl_dollars >= 0 ? colors.primary[600] : colors.error[600] }]}>
-                        {simSummary.total_pnl_dollars >= 0 ? '+' : ''}{simSummary.total_pnl_percent.toFixed(1)}%
+                      <Text style={[s.simSumValue, { color: Number(simSummary.total_pnl_dollars || 0) >= 0 ? colors.primary[600] : colors.error[600] }]}>
+                        {Number(simSummary.total_pnl_dollars || 0) >= 0 ? '+' : ''}{Number(simSummary.total_pnl_percent || 0).toFixed(1)}%
                       </Text>
                     </View>
                   </View>
                   <View style={s.simSumRow}>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>Win Rate</Text>
-                      <Text style={s.simSumValue}>{simSummary.win_rate.toFixed(0)}%</Text>
+                      <Text style={s.simSumValue}>{Number(simSummary.win_rate || 0).toFixed(0)}%</Text>
                     </View>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>Best</Text>
                       <Text style={[s.simSumValue, { color: colors.primary[600] }]}>
-                        {simSummary.best_pick ? `${simSummary.best_pick.ticker} +${simSummary.best_pick.pnl_percent.toFixed(0)}%` : '\u2013'}
+                        {simSummary.best_pick ? `${simSummary.best_pick.ticker} +${Number(simSummary.best_pick.pnl_percent || 0).toFixed(0)}%` : '\u2013'}
                       </Text>
                     </View>
                     <View style={s.simSumItem}>
                       <Text style={s.simSumLabel}>Worst</Text>
                       <Text style={[s.simSumValue, { color: colors.error[600] }]}>
-                        {simSummary.worst_pick ? `${simSummary.worst_pick.ticker} ${simSummary.worst_pick.pnl_percent.toFixed(0)}%` : '\u2013'}
+                        {simSummary.worst_pick ? `${simSummary.worst_pick.ticker} ${Number(simSummary.worst_pick.pnl_percent || 0).toFixed(0)}%` : '\u2013'}
                       </Text>
                     </View>
                   </View>
@@ -1043,6 +994,8 @@ function StockPulseContent() {
               <View style={s.stockList}>
                 {simTickerGroups.map(group => {
                   const isExpanded = expandedSimTicker === group.ticker;
+                  const groupPnl = Number(group.pnl) || 0;
+                  const groupPnlPct = Number(group.pnlPct) || 0;
                   return (
                     <Card key={group.ticker}>
                       <TouchableOpacity onPress={() => setExpandedSimTicker(isExpanded ? null : group.ticker)} activeOpacity={0.7}>
@@ -1056,14 +1009,14 @@ function StockPulseContent() {
                               )}
                             </View>
                             <Text style={s.posName} numberOfLines={1}>{group.companyName}</Text>
-                            <Text style={s.posSector}>{group.totalShares} shares \u00B7 avg ${group.avgEntryPrice.toFixed(2)}</Text>
+                            <Text style={s.posSector}>{group.totalShares} shares \u00B7 avg ${Number(group.avgEntryPrice || 0).toFixed(2)}</Text>
                           </View>
                           <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={[s.simSumValue, { color: group.pnl >= 0 ? colors.primary[600] : colors.error[600], fontSize: typography.fontSize.base }]}>
-                              {group.pnl >= 0 ? '+' : ''}${Math.abs(group.pnl).toFixed(0)}
+                            <Text style={[s.simSumValue, { color: groupPnl >= 0 ? colors.primary[600] : colors.error[600], fontSize: typography.fontSize.base }]}>
+                              {groupPnl >= 0 ? '+' : ''}${Math.abs(groupPnl).toFixed(0)}
                             </Text>
-                            <Text style={[s.posSector, { color: group.pnlPct >= 0 ? colors.primary[600] : colors.error[600] }]}>
-                              {group.pnlPct >= 0 ? '+' : ''}{group.pnlPct.toFixed(1)}%
+                            <Text style={[s.posSector, { color: groupPnlPct >= 0 ? colors.primary[600] : colors.error[600] }]}>
+                              {groupPnlPct >= 0 ? '+' : ''}{groupPnlPct.toFixed(1)}%
                             </Text>
                             {isExpanded ? <ChevronUp size={16} color={colors.slate[400]} /> : <ChevronDown size={16} color={colors.slate[400]} />}
                           </View>
@@ -1076,15 +1029,15 @@ function StockPulseContent() {
                           <View style={s.simSumRow}>
                             <View style={s.simSumItem}>
                               <Text style={s.simSumLabel}>Invested</Text>
-                              <Text style={s.simSumValue}>${group.totalAllocated.toFixed(0)}</Text>
+                              <Text style={s.simSumValue}>${Number(group.totalAllocated || 0).toFixed(0)}</Text>
                             </View>
                             <View style={s.simSumItem}>
                               <Text style={s.simSumLabel}>Current</Text>
-                              <Text style={s.simSumValue}>${group.currentValue.toFixed(0)}</Text>
+                              <Text style={s.simSumValue}>${Number(group.currentValue || 0).toFixed(0)}</Text>
                             </View>
                             <View style={s.simSumItem}>
                               <Text style={s.simSumLabel}>Avg Score</Text>
-                              <ScoreRing score={group.avgScore} size={28} />
+                              <ScoreRing score={Number(group.avgScore) || 0} size={28} />
                             </View>
                           </View>
 
@@ -1094,17 +1047,17 @@ function StockPulseContent() {
                           </Text>
                           {group.entries.map((entry: SimulatorPick) => {
                             const entryShares = Number(entry.shares) || 1;
-                            const entryAllocated = Number(entry.allocated_amount) || Number(entry.entry_price) * entryShares;
-                            const entryCurrentVal = group.currentPrice * entryShares;
+                            const entryAllocated = Number(entry.allocated_amount) || Number(entry.entry_price || 0) * entryShares;
+                            const entryCurrentVal = (Number(group.currentPrice) || 0) * entryShares;
                             const entryPnl = entryCurrentVal - entryAllocated;
                             return (
                               <View key={entry.id} style={s.simEntryRow}>
                                 <View style={{ flex: 1 }}>
                                   <Text style={s.simEntryText}>
-                                    {entryShares} share{entryShares !== 1 ? 's' : ''} @ ${Number(entry.entry_price).toFixed(2)}
+                                    {entryShares} share{entryShares !== 1 ? 's' : ''} @ ${Number(entry.entry_price || 0).toFixed(2)}
                                   </Text>
                                   <Text style={s.posSector}>
-                                    Score: {Math.round(Number(entry.ai_score_at_entry))} \u00B7 {entry.source || 'manual'} \u00B7 {entry.created_at?.slice(0, 10)}
+                                    Score: {Math.round(Number(entry.ai_score_at_entry) || 0)} \u00B7 {entry.source || 'manual'} \u00B7 {entry.created_at?.slice(0, 10) || ''}
                                   </Text>
                                 </View>
                                 <Text style={[s.simSumValue, { color: entryPnl >= 0 ? colors.primary[600] : colors.error[600] }]}>
@@ -1118,7 +1071,7 @@ function StockPulseContent() {
                           })}
 
                           {/* AI thesis */}
-                          {(group.entries[0] as any).pick_reasoning && (
+                          {(group.entries[0] as any)?.pick_reasoning && (
                             <View style={s.thesisBox}>
                               <Text style={s.filterTitle}>AI Thesis</Text>
                               <Text style={s.reasoning}>{(group.entries[0] as any).pick_reasoning}</Text>
@@ -1319,39 +1272,6 @@ function StockPulseContent() {
           </>
         )}
 
-        {/* ══════════ WATCHLIST TAB ══════════ */}
-        {activeTab === 'watchlist' && (
-          <>
-            <Card>
-              <Text style={s.sectionTitle}>Add to Watchlist</Text>
-              <View style={s.addRow}>
-                <TextInput style={s.addInput} placeholder="Enter ticker (e.g. MSFT)" placeholderTextColor={colors.slate[400]} value={wlTickerInput} onChangeText={setWlTickerInput} autoCapitalize="characters" />
-                <Button title={addingWl ? '...' : 'Add'} onPress={handleAddToWatchlist} disabled={addingWl || !wlTickerInput.trim()} size="sm" />
-              </View>
-            </Card>
-
-            {wlLoading ? <LoadingSpinner /> : watchlist.length === 0 ? (
-              <EmptyState icon={Bookmark} title="Watchlist is empty" text="Add tickers to track them" />
-            ) : (
-              <Card padded={false}>
-                {watchlist.map((ticker, index) => (
-                  <React.Fragment key={ticker}>
-                    {index > 0 && <View style={s.divider} />}
-                    <View style={s.wlRow}>
-                      <TouchableOpacity style={s.wlTicker} onPress={() => openCompany(ticker)} activeOpacity={0.7}>
-                        <Text style={s.wlTickerText}>{ticker}</Text>
-                        <Eye size={14} color={colors.primary[600]} strokeWidth={2} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={s.wlRemoveBtn} onPress={() => handleRemoveFromWatchlist(ticker)} hitSlop={8}>
-                        <X size={14} color={colors.error[500]} strokeWidth={2} />
-                      </TouchableOpacity>
-                    </View>
-                  </React.Fragment>
-                ))}
-              </Card>
-            )}
-          </>
-        )}
       </ScrollView>
 
       {/* ── Company Detail Modal ── */}
@@ -1933,6 +1853,9 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
   const [historyLoading, setHistoryLoading] = useState(false);
   const [newsEvents, setNewsEvents] = useState<any[]>([]);
   const [rerunning, setRerunning] = useState(false);
+  const [forecastData, setForecastData] = useState<any>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastHorizon, setForecastHorizon] = useState<string>('3M');
 
   // Reset tab when modal opens
   useEffect(() => {
@@ -1941,6 +1864,7 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
       setExpandedDimensions(new Set());
       setTickerHistoryData([]);
       setNewsEvents([]);
+      setForecastData(null);
     }
   }, [visible, ticker]);
 
@@ -1998,6 +1922,18 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
       setTickerHistoryData(result.history || []);
     } catch { /* skip */ }
     setHistoryLoading(false);
+  };
+
+  const loadForecast = async (horizon: string) => {
+    if (!ticker) return;
+    setForecastLoading(true);
+    setForecastHorizon(horizon);
+    try {
+      const result = await getForecast(ticker, horizon);
+      console.log('[Forecast API response]', JSON.stringify(result).slice(0, 500));
+      setForecastData(result);
+    } catch (err) { console.log('[Forecast error]', err); }
+    setForecastLoading(false);
   };
 
   const handleRerun = async () => {
@@ -2224,20 +2160,14 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
 
             {/* Forecast tab */}
             {companyTab === 'forecast' && (
-              <>
-                {data.llm_forecast ? (
-                  <Card>
-                    <Text style={s.sectionTitle}>Price Scenarios</Text>
-                    <View style={s.forecastGrid}>
-                      <ForecastItem label="Bull" text={data.llm_forecast.bull} color={colors.primary[600]} />
-                      <ForecastItem label="Base" text={data.llm_forecast.base} color={colors.slate[600]} />
-                      <ForecastItem label="Bear" text={data.llm_forecast.bear} color={colors.error[600]} />
-                    </View>
-                  </Card>
-                ) : (
-                  <EmptyState icon={TrendingUp} title="No forecast available" text="Forecast data will appear after analysis" />
-                )}
-              </>
+              <ForecastTab
+                ticker={data.ticker}
+                forecastData={forecastData}
+                forecastLoading={forecastLoading}
+                forecastHorizon={forecastHorizon}
+                loadForecast={loadForecast}
+                llmForecast={data.llm_forecast}
+              />
             )}
 
             {/* Events tab */}
@@ -2321,21 +2251,210 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
                 icon={<Target size={16} color={colors.white} strokeWidth={2} />}
                 fullWidth
               />
-              <Button
-                title="Add to Watchlist"
-                onPress={async () => {
-                  try { await addToWatchlist(data.ticker); showToast(`Added ${data.ticker} to watchlist`, 'success'); }
-                  catch (err: any) { showToast(err?.message || 'Failed', 'error'); }
-                }}
-                variant="outline"
-                icon={<BookmarkPlus size={16} color={colors.primary[600]} strokeWidth={2} />}
-                fullWidth
-              />
             </View>
           </ScrollView>
         ) : null}
       </SafeAreaView>
     </Modal>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FORECAST TAB + CHART
+// ═══════════════════════════════════════════════════════════════════
+
+function ForecastChart({ historical, forecast }: { historical: any[]; forecast: any[] }) {
+  const W = Dimensions.get('window').width - 64;
+  const H = 180;
+  const PAD = { top: 10, bottom: 25, left: 45, right: 10 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const histPts = (historical || []).map((p: any) => ({ price: Number(p.close || p.price || 0), date: p.date }));
+  const fcPts = (forecast || []).map((p: any) => ({ target: Number(p.target || p.price || 0), upper: Number(p.upper || p.target || p.price || 0), lower: Number(p.lower || p.target || p.price || 0), date: p.date }));
+
+  if (histPts.length === 0 && fcPts.length === 0) return null;
+
+  const allPrices = [...histPts.map((p: any) => p.price), ...fcPts.map((p: any) => p.upper), ...fcPts.map((p: any) => p.lower)].filter(Boolean);
+  const minP = Math.min(...allPrices) * 0.97;
+  const maxP = Math.max(...allPrices) * 1.03;
+  const totalPts = histPts.length + fcPts.length;
+  const xScale = (i: number) => PAD.left + (i / Math.max(totalPts - 1, 1)) * chartW;
+  const yScale = (v: number) => PAD.top + chartH - ((v - minP) / (maxP - minP || 1)) * chartH;
+
+  // Historical line
+  let histPath = '';
+  histPts.forEach((p: any, i: number) => { histPath += `${i === 0 ? 'M' : 'L'}${xScale(i).toFixed(1)},${yScale(p.price).toFixed(1)}`; });
+
+  // Forecast line + band
+  const fcStart = histPts.length;
+  let fcPath = histPts.length > 0 ? `M${xScale(fcStart - 1).toFixed(1)},${yScale(histPts[histPts.length - 1].price).toFixed(1)}` : '';
+  let bandPath = '';
+  if (fcPts.length > 0) {
+    // Upper line forward
+    bandPath = `M${xScale(fcStart).toFixed(1)},${yScale(fcPts[0].upper).toFixed(1)}`;
+    fcPts.forEach((p: any, i: number) => {
+      const x = xScale(fcStart + i);
+      fcPath += `L${x.toFixed(1)},${yScale(p.target).toFixed(1)}`;
+      bandPath += `L${x.toFixed(1)},${yScale(p.upper).toFixed(1)}`;
+    });
+    // Lower line backward
+    for (let i = fcPts.length - 1; i >= 0; i--) {
+      bandPath += `L${xScale(fcStart + i).toFixed(1)},${yScale(fcPts[i].lower).toFixed(1)}`;
+    }
+    bandPath += 'Z';
+  }
+
+  // Y-axis labels
+  const yLabels = [minP, minP + (maxP - minP) / 2, maxP].map(v => ({ v, y: yScale(v) }));
+
+  // X-axis labels
+  const allDates = [...histPts.map((p: any) => p.date), ...fcPts.map((p: any) => p.date)];
+  const xLabels = [0, Math.floor(totalPts / 2), totalPts - 1].filter(i => i < allDates.length).map(i => ({
+    x: xScale(i), label: allDates[i] ? new Date(allDates[i]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+  }));
+
+  // Today line
+  const todayX = histPts.length > 0 ? xScale(histPts.length - 1) : 0;
+
+  return (
+    <Svg width={W} height={H}>
+      {/* Y grid + labels */}
+      {yLabels.map((l, i) => (
+        <React.Fragment key={i}>
+          <Line x1={PAD.left} y1={l.y} x2={W - PAD.right} y2={l.y} stroke={colors.slate[200]} strokeWidth={0.5} />
+          <SvgText x={PAD.left - 4} y={l.y + 4} fontSize={10} fill={colors.slate[400]} textAnchor="end">${l.v.toFixed(0)}</SvgText>
+        </React.Fragment>
+      ))}
+      {/* X labels */}
+      {xLabels.map((l, i) => (
+        <SvgText key={i} x={l.x} y={H - 4} fontSize={9} fill={colors.slate[400]} textAnchor="middle">{l.label}</SvgText>
+      ))}
+      {/* Confidence band */}
+      {bandPath ? <Path d={bandPath} fill={colors.primary[100]} opacity={0.4} /> : null}
+      {/* Today line */}
+      {todayX > 0 && <Line x1={todayX} y1={PAD.top} x2={todayX} y2={PAD.top + chartH} stroke={colors.slate[300]} strokeWidth={1} strokeDasharray="4,3" />}
+      {todayX > 0 && <SvgText x={todayX} y={PAD.top - 2} fontSize={9} fill={colors.slate[400]} textAnchor="middle">Today</SvgText>}
+      {/* Historical line */}
+      {histPath ? <Path d={histPath} fill="none" stroke={colors.slate[900]} strokeWidth={2} /> : null}
+      {/* Forecast line */}
+      {fcPath ? <Path d={fcPath} fill="none" stroke={colors.primary[600]} strokeWidth={2} strokeDasharray="5,3" /> : null}
+    </Svg>
+  );
+}
+
+function ForecastTab({ ticker, forecastData, forecastLoading, forecastHorizon, loadForecast, llmForecast }: {
+  ticker: string;
+  forecastData: any;
+  forecastLoading: boolean;
+  forecastHorizon: string;
+  loadForecast: (h: string) => void;
+  llmForecast?: { bull: string; base: string; bear: string };
+}) {
+  useEffect(() => { if (!forecastData && !forecastLoading) loadForecast(forecastHorizon); }, []);
+
+  const fc = forecastData || {};
+  const currentPrice = Number(fc.current_price || fc.currentPrice || 0);
+  const targetPrice = Number(fc.consensus_target || fc.target_price || fc.consensusTarget || 0);
+  const projReturn = Number(fc.projected_return || fc.projectedReturn || 0);
+  const aiBias = fc.ai_bias || fc.aiBias || '';
+  const histPrices = fc.historical_prices || fc.historicalPrices || fc.history || [];
+  const fcPoints = fc.forecast_points || fc.forecastPoints || fc.points || [];
+  const scenarios = fc.scenarios || {};
+
+  return (
+    <>
+      {/* Horizon selector */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: spacing.md }}>
+        {['1M', '3M', '6M', '1Y'].map(h => (
+          <TouchableOpacity
+            key={h}
+            onPress={() => loadForecast(h)}
+            style={{
+              paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+              borderRadius: borderRadius.lg,
+              backgroundColor: forecastHorizon === h ? colors.primary[600] : colors.slate[100],
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold as any, color: forecastHorizon === h ? colors.white : colors.slate[600] }}>{h}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {forecastLoading ? <LoadingSpinner /> : forecastData ? (
+        <>
+          {/* Summary stats */}
+          <Card>
+            <Text style={s.sectionTitle}>Price Forecast & Projection</Text>
+            {fc.generated_at && (
+              <Text style={[s.posSector, { marginBottom: spacing.md }]}>
+                Generated {new Date(fc.generated_at).toLocaleDateString()}
+              </Text>
+            )}
+            <View style={s.simSumRow}>
+              <View style={s.simSumItem}>
+                <Text style={s.simSumLabel}>Current</Text>
+                <Text style={s.simSumValue}>${currentPrice.toFixed(2)}</Text>
+              </View>
+              <View style={s.simSumItem}>
+                <Text style={s.simSumLabel}>Target</Text>
+                <Text style={[s.simSumValue, { color: colors.primary[600] }]}>${targetPrice.toFixed(2)}</Text>
+              </View>
+              <View style={s.simSumItem}>
+                <Text style={s.simSumLabel}>Return</Text>
+                <Text style={[s.simSumValue, { color: projReturn >= 0 ? colors.primary[600] : colors.error[600] }]}>
+                  {projReturn >= 0 ? '+' : ''}{projReturn.toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+            {aiBias ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md }}>
+                <TrendingUp size={14} color={aiBias === 'Bullish' ? colors.primary[600] : aiBias === 'Bearish' ? colors.error[600] : colors.slate[500]} strokeWidth={2} />
+                <Text style={{ fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold as any, color: aiBias === 'Bullish' ? colors.primary[600] : aiBias === 'Bearish' ? colors.error[600] : colors.slate[600] }}>
+                  AI Bias: {aiBias}
+                </Text>
+              </View>
+            ) : null}
+          </Card>
+
+          {/* Chart */}
+          {(histPrices.length > 0 || fcPoints.length > 0) && (
+            <Card>
+              <ForecastChart historical={histPrices} forecast={fcPoints} />
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginTop: spacing.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 16, height: 2, backgroundColor: colors.slate[900] }} />
+                  <Text style={{ fontSize: typography.fontSize.xs, color: colors.slate[500] }}>Historical</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 16, height: 2, backgroundColor: colors.primary[600], borderStyle: 'dashed' }} />
+                  <Text style={{ fontSize: typography.fontSize.xs, color: colors.slate[500] }}>Forecast</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 12, height: 8, backgroundColor: colors.primary[100], opacity: 0.6, borderRadius: 2 }} />
+                  <Text style={{ fontSize: typography.fontSize.xs, color: colors.slate[500] }}>85% Band</Text>
+                </View>
+              </View>
+            </Card>
+          )}
+
+          {/* Scenario Analysis */}
+          {(scenarios.bull || scenarios.base || scenarios.bear || llmForecast) && (
+            <Card>
+              <Text style={s.sectionTitle}>Scenario Analysis</Text>
+              <View style={s.forecastGrid}>
+                <ForecastItem label="Bull Case" text={scenarios.bull || llmForecast?.bull || 'N/A'} color={colors.primary[600]} />
+                <ForecastItem label="Base Case" text={scenarios.base || llmForecast?.base || 'N/A'} color={colors.slate[600]} />
+                <ForecastItem label="Bear Case" text={scenarios.bear || llmForecast?.bear || 'N/A'} color={colors.error[600]} />
+              </View>
+            </Card>
+          )}
+        </>
+      ) : (
+        <EmptyState icon={TrendingUp} title="No forecast available" text="Forecast data will appear after analysis" />
+      )}
+    </>
   );
 }
 
@@ -2474,12 +2593,7 @@ const s = StyleSheet.create({
   alertMsg: { fontSize: typography.fontSize.xs, color: colors.slate[500], marginTop: 2 },
   alertTicker: { fontSize: typography.fontSize.xs, color: colors.primary[600], fontWeight: typography.fontWeight.semibold, marginTop: 2 },
 
-  // Watchlist
   divider: { height: 1, backgroundColor: colors.slate[100], marginHorizontal: spacing.lg },
-  wlRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14 },
-  wlTicker: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  wlTickerText: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.slate[900] },
-  wlRemoveBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.error[50], alignItems: 'center', justifyContent: 'center' },
 
   // Backtest
   btRunningBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, padding: spacing.sm, backgroundColor: colors.info[50], borderRadius: borderRadius.md },
