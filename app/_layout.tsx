@@ -20,6 +20,7 @@ import AnimatedSplash from '../src/components/ui/AnimatedSplash';
 import OfflineBanner from '../src/components/ui/OfflineBanner';
 import DunningBanner from '../src/components/ui/DunningBanner';
 import PersistentTabBar from '../src/components/PersistentTabBar';
+import { GoalBubbleProvider } from '../src/contexts/GoalBubbleContext';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, MAX_APP_WIDTH } from '../src/theme/spacing';
@@ -160,6 +161,7 @@ export default function RootLayout() {
       <StatusBar style="dark" translucent={false} />
       <OfflineBanner />
       {session && <DunningBanner />}
+      <GoalBubbleProvider>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -248,6 +250,7 @@ export default function RootLayout() {
 
       {/* Persistent bottom navigation — visible on all pages */}
       <PersistentTabBar />
+      </GoalBubbleProvider>
 
       {/* Toast rendered inside the app shell so it centers within 480px on web */}
       <ToastRenderer />

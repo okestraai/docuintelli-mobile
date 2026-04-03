@@ -18,6 +18,7 @@ import Badge from '../src/components/ui/Badge';
 import Button from '../src/components/ui/Button';
 import GradientIcon from '../src/components/ui/GradientIcon';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
+
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
@@ -99,6 +100,7 @@ const getDefaultCadence = (category: string): number => {
 export function AuditContent({ embedded }: { embedded?: boolean }) {
   const { data, loading, error, refresh } = useWeeklyAudit();
   const { dismissGap, setCadence, actionLoading } = useEngagementActions();
+
   const [expandedSection, setExpandedSection] = useState<string | null>('nearing_expiration');
   const [cadenceModal, setCadenceModal] = useState<{ docId: string; docName: string; category: string } | null>(null);
   const [selectedCadence, setSelectedCadence] = useState<number>(365);
@@ -215,6 +217,7 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
 
   const auditBody = (
     <>
+
           {/* Health summary grid */}
           <View style={styles.summaryGrid}>
             {(['healthy', 'watch', 'risk', 'critical'] as const).map(key => {
@@ -237,6 +240,7 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
               );
             })}
           </View>
+
 
           {/* Preparedness score card */}
           <Card>

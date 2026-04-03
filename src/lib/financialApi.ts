@@ -99,6 +99,8 @@ export interface FinancialSummary {
   net_cash_flow: number;
 }
 
+export type TransactionClassification = 'income' | 'expense' | 'transfer' | 'ignore';
+
 export interface TransactionDetail {
   transaction_id: string;
   name: string;
@@ -107,6 +109,8 @@ export interface TransactionDetail {
   date: string;
   category_detailed: string | null;
   user_tags: string[];
+  classification?: TransactionClassification;
+  heuristic_classification?: TransactionClassification;
 }
 
 export interface DetectedLoanPrompt {
@@ -486,6 +490,48 @@ export async function removeIncomeStreamTag(merchantStem: string, tag: string): 
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Failed to remove income tag' }));
+    throw new Error(err.error || err.message);
+  }
+}
+
+// ── Transaction Classification ─────────────────────────────────
+
+/** Set or update how a transaction is classified */
+export async function setTransactionClassification(
+  transactionId: string,
+  classification: TransactionClassification,
+): Promise<void> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const res = await fetch(
+    `${API_BASE}/api/financial/transactions/${encodeURIComponent(transactionId)}/classification`,
+    {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ classification }),
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to set classification' }));
+    throw new Error(err.error || err.message);
+  }
+}
+
+/** Remove a classification override (revert to auto) */
+export async function removeTransactionClassification(transactionId: string): Promise<void> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const res = await fetch(
+    `${API_BASE}/api/financial/transactions/${encodeURIComponent(transactionId)}/classification`,
+    {
+      method: 'DELETE',
+      headers,
+    },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to remove classification' }));
     throw new Error(err.error || err.message);
   }
 }

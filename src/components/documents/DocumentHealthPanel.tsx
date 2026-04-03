@@ -26,6 +26,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { useGoalBubble } from '../../hooks/useGoalBubble';
 import { useDocumentHealth, useEngagementActions } from '../../hooks/useEngagement';
 import type { HealthState } from '../../lib/engagementApi';
 
@@ -84,6 +85,12 @@ export default function DocumentHealthPanel({
 }: DocumentHealthPanelProps) {
   const { data, loading, error, refresh } = useDocumentHealth(documentId);
   const { actionLoading, updateMetadata, setCadence } = useEngagementActions();
+  const { completeStepById } = useGoalBubble();
+
+  // Complete 'check-health' goal step on mount
+  React.useEffect(() => {
+    completeStepById('check-health');
+  }, []);
 
   const [showMetadataForm, setShowMetadataForm] = useState(false);
   const [showCadenceSelector, setShowCadenceSelector] = useState(false);
@@ -133,6 +140,7 @@ export default function DocumentHealthPanel({
         ...(confirm ? { metadataConfirmed: true } : {}),
       });
       setShowMetadataForm(false);
+      completeStepById('complete-metadata');
       refresh();
       onRefreshDocument?.();
     } catch {
@@ -145,6 +153,7 @@ export default function DocumentHealthPanel({
     try {
       await setCadence(documentId, selectedCadence);
       setShowCadenceSelector(false);
+      completeStepById('set-cadence');
       refresh();
       onRefreshDocument?.();
     } catch {
@@ -198,6 +207,7 @@ export default function DocumentHealthPanel({
 
   return (
     <View style={styles.container}>
+
       {/* 0. Metadata Confirmation Card */}
       {showConfirmation && !showMetadataForm && (
         <Card style={styles.confirmCard}>
@@ -412,6 +422,7 @@ export default function DocumentHealthPanel({
         </View>
       )}
 
+
       {/* 4. Metadata Form (collapsible) */}
       {showMetadataForm && (
         <Card style={styles.formCard}>
@@ -474,6 +485,7 @@ export default function DocumentHealthPanel({
           </View>
         </Card>
       )}
+
 
       {/* 5. Review Cadence Selector (collapsible) */}
       {showCadenceSelector && (

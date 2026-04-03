@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { PieChart, ChevronDown, ChevronRight, Plus, X as XIcon } from 'lucide-react-native';
-import type { CategoryBreakdown, TransactionDetail } from '../../lib/financialApi';
+import type { CategoryBreakdown, TransactionDetail, TransactionClassification } from '../../lib/financialApi';
 import {
   getTransactionsByCategory,
   getTagOptions,
   addTransactionTag,
   removeTransactionTag,
+  setTransactionClassification,
+  removeTransactionClassification,
 } from '../../lib/financialApi';
 import CollapsibleSection from './CollapsibleSection';
 import TagPicker from '../ui/TagPicker';
@@ -40,6 +42,7 @@ export default function SpendingBreakdown({ categories }: SpendingBreakdownProps
   const [txnCache, setTxnCache] = useState<Record<string, TransactionDetail[]>>({});
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [pickerTxnId, setPickerTxnId] = useState<string | null>(null);
+  const [classifyTxnId, setClassifyTxnId] = useState<string | null>(null);
 
   useEffect(() => {
     getTagOptions().then(opts => setTagOptions(opts.transaction_tags)).catch(() => {});
@@ -117,6 +120,78 @@ export default function SpendingBreakdown({ categories }: SpendingBreakdownProps
     } catch { /* best effort */ }
   };
 
+  const CLASSIFICATION_OPTIONS: { value: TransactionClassification; label: string; color: string; bg: string; border: string }[] = [
+    { value: 'expense', label: 'Expense', color: colors.error[600], bg: colors.error[50], border: colors.error[200] },
+    { value: 'income', label: 'Income', color: colors.primary[600], bg: colors.primary[50], border: colors.primary[200] },
+    { value: 'transfer', label: 'Transfer', color: colors.info[600], bg: colors.info[50], border: colors.info[200] },
+    { value: 'ignore', label: 'Ignore', color: colors.slate[500], bg: colors.slate[50], border: colors.slate[200] },
+  ];
+
+  const handleClassify = async (txn: TransactionDetail, classification: TransactionClassification) => {
+    const prev = txn.classification;
+    // Optimistic update
+    setTxnCache(cache => {
+      const updated = { ...cache };
+      for (const key in updated) {
+        updated[key] = updated[key].map(t =>
+          t.transaction_id === txn.transaction_id ? { ...t, classification } : t
+        );
+      }
+      return updated;
+    });
+    setClassifyTxnId(null);
+    try {
+      await setTransactionClassification(txn.transaction_id, classification);
+    } catch {
+      // Revert
+      setTxnCache(cache => {
+        const updated = { ...cache };
+        for (const key in updated) {
+          updated[key] = updated[key].map(t =>
+            t.transaction_id === txn.transaction_id ? { ...t, classification: prev } : t
+          );
+        }
+        return updated;
+      });
+    }
+  };
+
+  const handleResetClassification = async (txn: TransactionDetail) => {
+    const prev = txn.classification;
+    setTxnCache(cache => {
+      const updated = { ...cache };
+      for (const key in updated) {
+        updated[key] = updated[key].map(t =>
+          t.transaction_id === txn.transaction_id ? { ...t, classification: undefined } : t
+        );
+      }
+      return updated;
+    });
+    setClassifyTxnId(null);
+    try {
+      await removeTransactionClassification(txn.transaction_id);
+    } catch {
+      setTxnCache(cache => {
+        const updated = { ...cache };
+        for (const key in updated) {
+          updated[key] = updated[key].map(t =>
+            t.transaction_id === txn.transaction_id ? { ...t, classification: prev } : t
+          );
+        }
+        return updated;
+      });
+    }
+  };
+
+  // Find transaction for classify picker
+  let classifyTxn: TransactionDetail | undefined;
+  if (classifyTxnId) {
+    for (const key in txnCache) {
+      classifyTxn = txnCache[key].find(t => t.transaction_id === classifyTxnId);
+      if (classifyTxn) break;
+    }
+  }
+
   // Find transaction for picker
   let pickerTxn: TransactionDetail | undefined;
   if (pickerTxnId) {
@@ -182,8 +257,24 @@ export default function SpendingBreakdown({ categories }: SpendingBreakdownProps
                             </Text>
                           </View>
                           <Text style={styles.txnAmount}>{formatCurrency(txn.amount)}</Text>
-                          {/* Tags */}
+                          {/* Classification + Tags */}
                           <View style={styles.txnTagRow}>
+                            {/* Classification chip */}
+                            {(() => {
+                              const effective = txn.classification || txn.heuristic_classification || 'expense';
+                              const isOverridden = !!txn.classification;
+                              const opt = CLASSIFICATION_OPTIONS.find(o => o.value === effective) || CLASSIFICATION_OPTIONS[0];
+                              return (
+                                <TouchableOpacity
+                                  onPress={() => setClassifyTxnId(txn.transaction_id)}
+                                  style={[styles.classChip, { backgroundColor: opt.bg, borderColor: opt.border }, isOverridden && styles.classChipOverridden]}
+                                >
+                                  <Text style={[styles.classChipText, { color: opt.color }]}>
+                                    {opt.label}{isOverridden ? ' ✓' : ''}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })()}
                             {txnTags.map(tag => (
                               <TouchableOpacity
                                 key={tag}
@@ -223,6 +314,31 @@ export default function SpendingBreakdown({ categories }: SpendingBreakdownProps
         onSelect={(tag) => pickerTxn && handleAddTag(pickerTxn, tag)}
         onClose={() => setPickerTxnId(null)}
       />
+
+      {/* Classification picker modal */}
+      {(() => {
+        const effectiveCls = classifyTxn?.classification || classifyTxn?.heuristic_classification || 'expense';
+        const isOverridden = !!classifyTxn?.classification;
+        const options = CLASSIFICATION_OPTIONS.filter(o => o.value !== effectiveCls).map(o => o.label);
+        if (isOverridden) options.push('Reset to auto');
+        return (
+          <TagPicker
+            visible={!!classifyTxnId}
+            title={isOverridden ? 'Change Classification' : 'Classify Transaction'}
+            options={options}
+            existingTags={[]}
+            onSelect={(label) => {
+              if (label === 'Reset to auto') {
+                if (classifyTxn) handleResetClassification(classifyTxn);
+              } else {
+                const opt = CLASSIFICATION_OPTIONS.find(o => o.label === label);
+                if (opt && classifyTxn) handleClassify(classifyTxn, opt.value);
+              }
+            }}
+            onClose={() => setClassifyTxnId(null)}
+          />
+        );
+      })()}
     </CollapsibleSection>
   );
 }
@@ -340,6 +456,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: typography.fontWeight.medium,
     color: colors.primary[700],
+  },
+  classChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderRadius: borderRadius.sm,
+  },
+  classChipOverridden: {
+    borderWidth: 1.5,
+  },
+  classChipText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.semibold,
   },
   addTagBtn: {
     width: 18,

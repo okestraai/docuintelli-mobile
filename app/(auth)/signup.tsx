@@ -21,6 +21,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { sendSignupOTP, signInWithGoogle } from '../../src/lib/auth';
+import { validatePassword } from '../../src/utils/validatePassword';
 import { useAuthStore } from '../../src/store/authStore';
 import Button from '../../src/components/ui/Button';
 import Input from '../../src/components/ui/Input';
@@ -47,8 +48,9 @@ export default function SignupScreen() {
       setError('Passwords do not match');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwError = validatePassword(password);
+    if (pwError) {
+      setError(pwError);
       return;
     }
 

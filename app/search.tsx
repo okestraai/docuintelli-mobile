@@ -16,6 +16,7 @@ import GradientIcon from '../src/components/ui/GradientIcon';
 import Badge from '../src/components/ui/Badge';
 import Card from '../src/components/ui/Card';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
+import { useGoalBubble } from '../src/hooks/useGoalBubble';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
@@ -139,6 +140,7 @@ const ResultRow = React.memo(function ResultRow({
 export default function SearchScreen() {
   const { subscription, loading: subLoading } = useSubscription();
   const isPro = subscription?.plan === 'pro';
+  const { completeStepById } = useGoalBubble();
 
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
@@ -191,6 +193,7 @@ export default function SearchScreen() {
       setQueryTimeMs(response.query_time_ms);
       setResultQuery(q);
       setHasSearched(true);
+      completeStepById('vault-search');
     } catch (err: any) {
       if (controller.signal.aborted) return;
       if (err.code === 'FEATURE_NOT_AVAILABLE') {
@@ -333,6 +336,7 @@ export default function SearchScreen() {
             )}
           </View>
         </View>
+
 
         {/* Category filter chips */}
         <View style={styles.filterWrapper}>

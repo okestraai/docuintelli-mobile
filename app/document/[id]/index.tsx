@@ -53,6 +53,7 @@ import Badge from '../../../src/components/ui/Badge';
 import GradientIcon from '../../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../../src/components/ui/LoadingSpinner';
 import DocumentHealthPanel from '../../../src/components/documents/DocumentHealthPanel';
+import { useGoalBubble } from '../../../src/hooks/useGoalBubble';
 import { fetchDocumentRelationships } from '../../../src/lib/engagementApi';
 import { updateDocumentMetadata, appendFileToDocument } from '../../../src/lib/api';
 import { colors } from '../../../src/theme/colors';
@@ -145,6 +146,7 @@ export default function DocumentViewerScreen() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const { isStarterOrAbove } = useSubscription();
+  const { completeStepById } = useGoalBubble();
   const [doc, setDoc] = useState<SupabaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -191,6 +193,7 @@ export default function DocumentViewerScreen() {
         }
         const data = await res.json();
         setDoc(data.document);
+        completeStepById('view-doc');
       } catch (err) {
         console.error('Error loading document:', err);
         setLoadError(err instanceof Error ? err.message : 'Failed to load document');

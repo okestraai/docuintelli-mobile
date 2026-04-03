@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Lock, Eye, EyeOff } from 'lucide-react-native';
 import { auth } from '../../src/lib/auth';
+import { validatePassword } from '../../src/utils/validatePassword';
 import Button from '../../src/components/ui/Button';
 import Input from '../../src/components/ui/Input';
 import { colors } from '../../src/theme/colors';
@@ -22,8 +23,9 @@ export default function ResetPasswordScreen() {
   const handleUpdatePassword = async () => {
     setError(null);
 
-    if (!newPassword || newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    const pwError = validatePassword(newPassword);
+    if (pwError) {
+      setError(pwError);
       return;
     }
     if (newPassword !== confirmPassword) {

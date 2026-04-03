@@ -24,6 +24,7 @@ import Button from '../src/components/ui/Button';
 import Card from '../src/components/ui/Card';
 import GradientIcon from '../src/components/ui/GradientIcon';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
+import { useGoalBubble } from '../src/hooks/useGoalBubble';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
@@ -92,6 +93,7 @@ export default function UploadScreen() {
     }
   }, [cloudEnabled]);
 
+  const { completeStepById } = useGoalBubble();
   const isFree = subscription?.plan === 'free';
 
   const handlePickFile = async () => {
@@ -229,6 +231,7 @@ export default function UploadScreen() {
       }
 
       showToast(isRenewal ? 'Renewal uploaded successfully' : 'Document uploaded successfully', 'success');
+      if (expirationDate) completeStepById('set-expiration');
       goBack('/(tabs)/vault');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Upload failed', 'error');
@@ -460,6 +463,7 @@ export default function UploadScreen() {
                   <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary[600] }}>Add More Files</Text>
                 </TouchableOpacity>
 
+
                 {/* Merge checkbox — visible when 2+ files */}
                 {allFilesCount >= 2 && (
                   <TouchableOpacity
@@ -639,6 +643,7 @@ export default function UploadScreen() {
           <View style={{ height: spacing['2xl'] }} />
         </ScrollView>
       </SafeAreaView>
+
     </>
   );
 }

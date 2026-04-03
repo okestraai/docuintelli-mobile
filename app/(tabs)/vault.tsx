@@ -64,6 +64,7 @@ import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
 
+
 import { useSubscription } from '../../src/hooks/useSubscription';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
@@ -124,6 +125,8 @@ export default function VaultScreen() {
   const cloudEnabled = subscription?.plan === 'pro';
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
+
+
   // Tab state
   const [activeTab, setActiveTab] = useState<VaultTab>(tab === 'health' ? 'health' : 'documents');
   const hasSetInitialTab = useRef(false);
@@ -138,12 +141,22 @@ export default function VaultScreen() {
       if (!user?.email) return;
       getMySignatures()
         .then((res) => {
-          const count = res.data.received.filter(
-            (r: any) => r.signer_status !== 'signed' && r.signer_status !== 'declined'
+          const received = res.data.received || [];
+          const sent = res.data.sent || [];
+          console.log('[Signatures] received:', received.length, 'sent:', sent.length);
+          console.log('[Signatures] received statuses:', received.map((r: any) => `${r.signer_status}/${r.request_status}`));
+          console.log('[Signatures] sent statuses:', sent.map((r: any) => r.status));
+          // Match web logic exactly
+          const pendingReceived = received.filter(
+            (r: any) => r.signer_status !== 'signed' && r.request_status === 'pending'
           ).length;
-          setPendingSignatureCount(count);
+          const pendingSent = sent.filter(
+            (r: any) => r.status === 'pending'
+          ).length;
+          console.log('[Signatures] pendingReceived:', pendingReceived, 'pendingSent:', pendingSent);
+          setPendingSignatureCount(pendingReceived + pendingSent);
         })
-        .catch(() => {});
+        .catch((err) => { console.log('[Signatures] error:', err); });
     }, [user?.email])
   );
 
@@ -406,8 +419,8 @@ export default function VaultScreen() {
               Signatures
             </Text>
             {pendingSignatureCount > 0 && (
-              <View style={[styles.tabBadge, { backgroundColor: colors.error[100] }, activeTab === 'signatures' && { backgroundColor: colors.error[500] }]}>
-                <Text style={[styles.tabBadgeText, { color: colors.error[600] }, activeTab === 'signatures' && { color: '#fff' }]}>
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>
                   {pendingSignatureCount}
                 </Text>
               </View>
@@ -425,6 +438,7 @@ export default function VaultScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
     </>
   );
 
@@ -503,6 +517,7 @@ export default function VaultScreen() {
           );
         }}
       />
+
 
       {/* Results count when filtered */}
       {(search.trim() || selectedCategory !== 'all') && (
@@ -909,6 +924,7 @@ export default function VaultScreen() {
           )}
         </View>
       </RNModal>
+
     </SafeAreaView>
   );
 }
@@ -990,6 +1006,20 @@ const styles = StyleSheet.create({
   },
   tabBadgeTextActive: {
     color: colors.primary[700],
+  },
+  pendingBadge: {
+    backgroundColor: colors.error[500],
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold as any,
+    color: colors.white,
   },
 
   // ── Header ─────────────────────────────────────────────────────────

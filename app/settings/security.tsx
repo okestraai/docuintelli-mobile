@@ -23,6 +23,7 @@ import {
   auth,
   changePassword,
 } from '../../src/lib/auth';
+import { validatePassword } from '../../src/utils/validatePassword';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import Input from '../../src/components/ui/Input';
@@ -58,7 +59,7 @@ export default function SecurityScreen() {
   });
 
   const passwordErrors = {
-    newPassword: newPassword.length > 0 && newPassword.length < 6 ? 'Must be at least 6 characters' : undefined,
+    newPassword: newPassword.length > 0 ? validatePassword(newPassword) ?? undefined : undefined,
     confirmPassword:
       confirmPassword.length > 0 && confirmPassword !== newPassword
         ? 'Passwords do not match'
@@ -67,7 +68,7 @@ export default function SecurityScreen() {
 
   const canChangePassword =
     currentPassword.length > 0 &&
-    newPassword.length >= 6 &&
+    validatePassword(newPassword) === null &&
     confirmPassword === newPassword;
 
   const handleChangePassword = async () => {

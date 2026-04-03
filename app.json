@@ -69,9 +69,7 @@
       "typedRoutes": true
     },
     "owner": "okestraai",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/0ad81a6e-b653-42f6-98c0-c1ed7fbb8b47"
     }

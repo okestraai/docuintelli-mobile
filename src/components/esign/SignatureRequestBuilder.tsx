@@ -28,6 +28,7 @@ import FieldPlacementView from './FieldPlacementView';
 import SignatureInput from './SignatureInput';
 import { colors } from '../../theme/colors';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { useGoalBubble } from '../../hooks/useGoalBubble';
 import { FIELD_TYPE_LABELS } from '../../types/esignature';
 import type { SignerEntry, PlacedField, FieldType, SelfSignFieldValue } from '../../types/esignature';
 import * as esignApi from '../../lib/esignatureApi';
@@ -55,6 +56,13 @@ export default function SignatureRequestBuilder({
   onClose,
   onSuccess,
 }: SignatureRequestBuilderProps) {
+  const { completeStepById } = useGoalBubble();
+
+  // Complete 'click-signature' goal step on mount
+  useEffect(() => {
+    completeStepById('click-signature');
+  }, []);
+
   // Step state
   const [currentStep, setCurrentStep] = useState<Step>('signers');
 
@@ -76,6 +84,14 @@ export default function SignatureRequestBuilder({
   // Submission
   const [isSending, setIsSending] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+
+  // Complete goal steps when signers/fields change
+  useEffect(() => {
+    if (signers.length > 0) completeStepById('add-signer');
+  }, [signers]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (fields.length > 0) completeStepById('place-fields');
+  }, [fields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch a fresh SAS-signed PDF URL on mount (the route param URL may have expired)
   const [freshPdfUrl, setFreshPdfUrl] = useState<string | null>(null);
@@ -223,6 +239,7 @@ export default function SignatureRequestBuilder({
       }
 
       setIsComplete(true);
+      completeStepById('send-request');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to send request');
     } finally {
@@ -285,6 +302,7 @@ export default function SignatureRequestBuilder({
         })}
       </View>
 
+
       {/* Fields step: full-screen modal for reliable scrolling */}
       <Modal
         visible={currentStep === 'fields'}
@@ -324,6 +342,7 @@ export default function SignatureRequestBuilder({
               <Text style={styles.hintInline}>Tap a signer to start</Text>
             )}
           </View>
+
 
           {/* PDF with field palette — fills remaining modal space */}
           {!freshPdfUrl ? (
@@ -370,6 +389,7 @@ export default function SignatureRequestBuilder({
               multiline
               numberOfLines={3}
             />
+
 
             <Text style={styles.sectionLabel}>Signers</Text>
             <SignerManager
