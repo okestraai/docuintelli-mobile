@@ -8,6 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { ArrowLeft, Shield, Monitor } from 'lucide-react-native';
 import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
+import { API_BASE } from '../src/lib/config';
 import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
@@ -15,6 +16,7 @@ import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { setupDeepLinkListener } from '../src/services/deepLinking';
 import { ToastProvider, ToastRenderer } from '../src/contexts/ToastContext';
+import { SubscriptionProvider } from '../src/contexts/SubscriptionContext';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import AnimatedSplash from '../src/components/ui/AnimatedSplash';
 import OfflineBanner from '../src/components/ui/OfflineBanner';
@@ -47,18 +49,40 @@ export default function RootLayout() {
 
   useEffect(() => {
     const boot = async () => {
-      // On web, check for OAuth callback tokens in the URL query params.
-      // After Google OAuth, the backend redirects back with ?access_token=...&refresh_token=...
+      // On web, check for OAuth callback in the URL query params.
+      // Backend redirects back with ?auth_code=... (secure exchange flow)
       if (Platform.OS === 'web') {
         const params = new URLSearchParams(window.location.search);
+        const authCode = params.get('auth_code');
+
+        if (authCode) {
+          // Exchange the short-lived auth code for real tokens
+          try {
+            const res = await fetch(`${API_BASE}/api/auth/exchange-code`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: authCode }),
+            });
+            if (res.ok) {
+              const { access_token, refresh_token } = await res.json();
+              if (access_token && refresh_token) {
+                await auth.setSession({ access_token, refresh_token });
+              }
+            }
+          } catch (e) {
+            console.error('[OAuth] Failed to exchange auth code:', e);
+          }
+
+          // Clean code from URL so it isn't bookmarked or leaked via Referer
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }
+
+        // Legacy fallback: direct tokens in URL (for backwards compatibility)
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
-
         if (accessToken && refreshToken) {
-          // Store the tokens and establish the session
           await auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-
-          // Clean tokens from URL so they aren't bookmarked or leaked via Referer
           const cleanUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, '', cleanUrl);
         }
@@ -156,6 +180,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
     <ToastProvider>
+    <SubscriptionProvider>
     <View style={[{ flex: 1 }, Platform.OS === 'web' && webShell.outer]}>
       <View style={[{ flex: 1 }, Platform.OS === 'web' && webShell.inner]}>
       <StatusBar style="dark" translucent={false} />
@@ -289,6 +314,7 @@ export default function RootLayout() {
       )}
       </View>
     </View>
+    </SubscriptionProvider>
     </ToastProvider>
     </SafeAreaProvider>
   );

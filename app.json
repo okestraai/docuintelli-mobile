@@ -17,15 +17,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.docuintelli.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "DocuIntelli needs camera access to scan documents",
-        "NSFaceIDUsageDescription": "Use Face ID to quickly unlock DocuIntelli"
+        "NSFaceIDUsageDescription": "Use Face ID to quickly unlock DocuIntelli",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#059669"
+        "backgroundColor": "#064e3b"
       },
       "package": "com.docuintelli.app",
       "permissions": [
@@ -50,7 +52,8 @@
       "expo-notifications",
       "expo-sqlite",
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "apiBase": "https://docuintelli.com",

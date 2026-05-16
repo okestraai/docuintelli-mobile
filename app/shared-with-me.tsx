@@ -915,9 +915,9 @@ function EventDetailPanel({ event, onRefreshParent, onViewDocument }: {
           {event.access_policy === 'time_delayed' && (
             <Text style={styles.policyDescription}>
               This event uses a <Text style={styles.policyDescBold}>time-delayed policy</Text>.
-              After requesting, there will be a{' '}
-              <Text style={styles.policyDescBold}>{event.delay_hours}-hour</Text> cooldown
-              before access is granted. The owner can veto during this period.
+              After requesting, access will be granted on{' '}
+              <Text style={styles.policyDescBold}>{event.delay_until ? new Date(event.delay_until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the scheduled date'}</Text>{' '}
+              unless the owner vetoes.
             </Text>
           )}
           {event.access_policy === 'approval' && (

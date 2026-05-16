@@ -19,6 +19,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import { API_BASE } from './config';
 
@@ -625,8 +626,39 @@ export const auth = {
       const result = await WebBrowser.openAuthSessionAsync(oauthUrl, redirectTo);
 
       if (result.type === 'success') {
-        // Parse tokens from the callback URL fragment (#access_token=...&refresh_token=...)
-        const fragment = result.url.split('#')[1];
+        // Parse the callback URL for auth_code or direct tokens
+        const callbackUrl = result.url;
+        const queryString = callbackUrl.split('?')[1]?.split('#')[0];
+        const fragment = callbackUrl.split('#')[1];
+
+        // Try auth_code exchange first (new secure backend flow)
+        const qp = queryString ? new URLSearchParams(queryString) : null;
+        const authCode = qp?.get('auth_code');
+
+        if (authCode) {
+          // Exchange the short-lived auth code for real tokens
+          const exchangeRes = await fetch(`${API_BASE}/api/auth/exchange-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: authCode }),
+          });
+          if (exchangeRes.ok) {
+            const { access_token, refresh_token } = await exchangeRes.json();
+            if (access_token && refresh_token) {
+              const user = userFromToken(access_token);
+              if (user) {
+                await storeTokens(access_token, refresh_token, user);
+                cacheTokens(access_token, refresh_token, user);
+                startAutoRefresh();
+                const session: AuthSession = { access_token, refresh_token, user };
+                fireEvent('SIGNED_IN', session);
+                return { data: { session, user }, error: null };
+              }
+            }
+          }
+        }
+
+        // Fallback: check for direct tokens in fragment (#access_token=...&refresh_token=...)
         if (fragment) {
           const params = new URLSearchParams(fragment);
           const access_token = params.get('access_token');
@@ -645,12 +677,10 @@ export const auth = {
           }
         }
 
-        // Also check query params (?access_token=...&refresh_token=...)
-        const queryString = result.url.split('?')[1]?.split('#')[0];
-        if (queryString) {
-          const params = new URLSearchParams(queryString);
-          const access_token = params.get('access_token');
-          const refresh_token = params.get('refresh_token');
+        // Fallback: check query params for direct tokens
+        if (qp) {
+          const access_token = qp.get('access_token');
+          const refresh_token = qp.get('refresh_token');
 
           if (access_token && refresh_token) {
             const user = userFromToken(access_token);
@@ -994,6 +1024,68 @@ export const signInWithGoogle = async () => {
   });
   if (error) throw error;
   return data;
+};
+
+/**
+ * Sign in with Apple — iOS only.
+ * Uses expo-apple-authentication to get an identity token,
+ * then sends it to the backend for verification and JWT exchange.
+ */
+export const signInWithApple = async () => {
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+  });
+
+  if (!credential.identityToken) {
+    throw new Error('No identity token returned from Apple');
+  }
+
+  // Send to backend for verification and user creation/lookup
+  const res = await fetch(`${API_BASE}/api/auth/apple`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      identity_token: credential.identityToken,
+      full_name: credential.fullName
+        ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+        : undefined,
+      email: credential.email, // Only provided on first sign-in
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Apple authentication failed');
+  }
+
+  const accessToken = data.access_token;
+  const refreshToken = data.refresh_token;
+
+  if (!accessToken) {
+    throw new Error('No access token in Apple auth response');
+  }
+
+  const user = userFromToken(accessToken) || {
+    id: data.user?.id || '',
+    email: data.user?.email || credential.email || '',
+    user_metadata: data.user?.user_metadata || {},
+  };
+
+  const session: AuthSession = {
+    access_token: accessToken,
+    refresh_token: refreshToken || '',
+    user,
+  };
+
+  await storeTokens(accessToken, refreshToken || '', user);
+  cacheTokens(accessToken, refreshToken || '', user);
+  startAutoRefresh();
+  fireEvent('SIGNED_IN', session);
+
+  return { session, user };
 };
 
 export const signOut = async () => {

@@ -88,7 +88,13 @@ export async function getConnectUrl(provider: string): Promise<string | null> {
   if (!session) throw new Error('Not authenticated');
 
   const token = encodeURIComponent(session.access_token);
-  const redirectTo = encodeURIComponent(`${API_BASE}/vault?cloud_connected=${provider}`);
+  // On native (iOS & Android), redirect to the app's custom scheme so the
+  // system browser / in-app WebView recognises the callback and returns to the app.
+  // Web still uses the web vault URL.
+  const redirectTarget = Platform.OS === 'web'
+    ? `${API_BASE}/vault?cloud_connected=${provider}`
+    : `docuintelli://vault?cloud_connected=${provider}`;
+  const redirectTo = encodeURIComponent(redirectTarget);
   const connectUrl = `${BACKEND_URL}/${provider}/connect?token=${token}&redirect_to=${redirectTo}`;
 
   if (Platform.OS === 'web') {

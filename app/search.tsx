@@ -138,8 +138,7 @@ const ResultRow = React.memo(function ResultRow({
 // ---- Main screen ----
 
 export default function SearchScreen() {
-  const { subscription, loading: subLoading } = useSubscription();
-  const isPro = subscription?.plan === 'pro';
+  const { isPro, loading: subLoading } = useSubscription();
   const { completeStepById } = useGoalBubble();
 
   const [query, setQuery] = useState('');
@@ -294,7 +293,7 @@ export default function SearchScreen() {
           <View style={styles.headerTextBlock}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={styles.headerTitle}>Global Search</Text>
-              {!isPro && (
+              {!subLoading && !isPro && (
                 <View style={styles.proBadge}>
                   <Crown size={10} color={colors.white} strokeWidth={2.5} />
                   <Text style={styles.proBadgeText}>PRO</Text>

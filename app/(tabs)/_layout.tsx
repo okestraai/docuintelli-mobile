@@ -9,10 +9,6 @@ export default function TabLayout() {
   const { user, initialized } = useAuthStore();
 
   // Redirect to login if auth is fully initialized and there's no user.
-  // Uses useEffect instead of <Redirect> to avoid a race condition:
-  // when navigating here from the login screen, the Zustand store update
-  // may not have been consumed by this component's first render yet.
-  // useEffect runs after mount, giving React time to read the latest store state.
   useEffect(() => {
     if (initialized && !user) {
       router.replace('/(auth)/login');

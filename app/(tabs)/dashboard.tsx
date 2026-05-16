@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Platform,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -95,8 +96,9 @@ export default function DashboardScreen() {
   const { user } = useAuthStore();
   const { isAuthenticated } = useAuth();
   const { documents, loading, refetch } = useDocuments(isAuthenticated);
-  const { subscription, loading: subLoading, documentCount, canAskQuestion, isPro, isStarterOrAbove, refreshSubscription } = useSubscription();
+  const { subscription, loading: subLoading, documentCount, canAskQuestion, isPro, isStarterOrAbove, refreshSubscription, error: subError } = useSubscription();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingReady, setOnboardingReady] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const initialFocus = useRef(true);
@@ -129,13 +131,36 @@ export default function DashboardScreen() {
   // Check if onboarding is complete and fetch display name
   useEffect(() => {
     if (!user?.id) return;
-    getUserProfile().then(profile => {
-      if (profile?.display_name) setProfileName(profile.display_name);
-      if (!isOnboardingComplete(profile)) {
-        setShowOnboarding(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await getUserProfile();
+        if (cancelled) return;
+        if (profile?.display_name) setProfileName(profile.display_name);
+        const complete = isOnboardingComplete(profile);
+        if (!complete) {
+          setShowOnboarding(true);
+        }
+      } catch {
+        if (!cancelled) setShowOnboarding(true);
+      } finally {
+        if (!cancelled) setOnboardingReady(true);
       }
-    }).catch(() => {});
+    })();
+    return () => { cancelled = true; };
   }, [user?.id]);
+
+  // Block dashboard render until onboarding check completes
+  if (!onboardingReady && user?.id) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary[600]} />
+        </View>
+        <OnboardingModal visible={showOnboarding} onComplete={() => { setShowOnboarding(false); setOnboardingReady(true); }} />
+      </SafeAreaView>
+    );
+  }
 
   const displayName =
     profileName || user?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'User';
@@ -255,7 +280,7 @@ export default function DashboardScreen() {
               subtitle="Find anything"
               cardWidth={actionCardWidth}
               onPress={() => router.push('/search')}
-              locked={!isPro}
+              locked={!subLoading && !isPro}
               requiredPlan="pro"
             />
             <QuickAction
@@ -264,7 +289,7 @@ export default function DashboardScreen() {
               subtitle="Ask anything"
               cardWidth={actionCardWidth}
               onPress={() => router.push('/(tabs)/chat')}
-              locked={!isPro}
+              locked={!subLoading && !isPro}
               requiredPlan="pro"
             />
           </View>
@@ -525,7 +550,7 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
-    <OnboardingModal visible={showOnboarding} onComplete={() => setShowOnboarding(false)} />
+    <OnboardingModal visible={showOnboarding} onComplete={() => { setShowOnboarding(false); setOnboardingReady(true); }} />
     </>
   );
 }

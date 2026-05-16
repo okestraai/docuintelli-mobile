@@ -51,9 +51,7 @@ import { router, useFocusEffect } from 'expo-router';
 
 export default function FinancialInsightsScreen() {
   const { isAuthenticated } = useAuth();
-  const { subscription, isStarterOrAbove, bankAccountLimit, loading: subLoading } = useSubscription();
-
-  const isPro = subscription?.plan === 'pro';
+  const { subscription, isStarterOrAbove, isPro, bankAccountLimit, loading: subLoading } = useSubscription();
   const { showToast } = useToast();
 
   const [summary, setSummary] = useState<FinancialSummary | null>(null);

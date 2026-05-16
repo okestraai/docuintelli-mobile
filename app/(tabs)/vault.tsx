@@ -45,6 +45,7 @@ import Button from '../../src/components/ui/Button';
 import ConfirmModal from '../../src/components/subscription/ConfirmModal';
 import GradientIcon from '../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../src/components/ui/LoadingSpinner';
+import * as WebBrowser from 'expo-web-browser';
 import { WebView } from 'react-native-webview';
 import { CloudProviderIcon } from '../../src/components/CloudProviderIcon';
 import { CloudFileBrowserModal } from '../../src/components/CloudFileBrowserModal';
@@ -55,6 +56,7 @@ import {
   disconnectProvider,
   CloudProvider,
 } from '../../src/lib/cloudStorageApi';
+import { API_BASE } from '../../src/lib/config';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
@@ -206,8 +208,8 @@ export default function VaultScreen() {
   // Handle OAuth WebView navigation — detect when OAuth is complete
   const handleOAuthNavigation = useCallback((navState: { url: string }) => {
     const url = navState.url;
-    // Backend redirects to docuintelli.com/vault?cloud_connected=... after OAuth
-    if (url.includes('cloud_connected=') || url.includes('docuintelli.com/vault')) {
+    // Backend redirects to docuintelli://vault?cloud_connected=... after OAuth
+    if (url.startsWith('docuintelli://') || url.includes('cloud_connected=') || url.includes('docuintelli.com/vault')) {
       // OAuth completed — close WebView and check connection
       setOauthUrl(null);
       const provider = oauthProvider;
@@ -251,11 +253,38 @@ export default function VaultScreen() {
       }
       return;
     } else {
-      // Open OAuth in an in-app WebView
+      // Open OAuth flow
       setCloudConnecting(true);
       try {
         const url = await getConnectUrl(provider.name);
-        if (url) {
+        if (!url) return;
+
+        if (Platform.OS === 'ios') {
+          // iOS: use system browser — Google blocks OAuth in embedded WebViews
+          // Redirect to custom scheme so browser closes and returns to app
+          const result = await WebBrowser.openAuthSessionAsync(
+            url,
+            `docuintelli://vault?cloud_connected=${provider.name}`
+          );
+          setCloudConnecting(false);
+          if (result.type === 'success' && result.url?.includes('cloud_connected=')) {
+            const providers = await getCloudProviders();
+            setCloudProviders(providers);
+            const updated = providers.find(p => p.name === provider.name);
+            if (updated?.connected) {
+              showToast(`${provider.displayName} connected!`, 'success');
+              if (provider.name === 'google_drive') {
+                setShowGoogleDrivePicker(true);
+              } else {
+                setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
+                setShowCloudBrowser(true);
+              }
+            } else {
+              showToast(`${provider.displayName} not connected. Please try again.`, 'warning');
+            }
+          }
+        } else {
+          // Android: use in-app WebView (works fine)
           setOauthProvider({ name: provider.name, displayName: provider.displayName });
           setOauthUrl(url);
         }

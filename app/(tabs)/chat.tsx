@@ -25,8 +25,7 @@ interface ChatMessage {
 }
 
 export default function GlobalChatScreen() {
-  const { subscription, loading: subLoading } = useSubscription();
-  const isPro = subscription?.plan === 'pro';
+  const { isPro, loading: subLoading } = useSubscription();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -196,14 +195,14 @@ export default function GlobalChatScreen() {
                 <GradientIcon size={72}>
                   <MessageSquare size={36} color={colors.white} />
                 </GradientIcon>
-                {!isPro && (
+                {!subLoading && !isPro && (
                   <View style={styles.crownBadge}>
                     <Crown size={12} color={colors.white} strokeWidth={2.5} />
                   </View>
                 )}
               </View>
               <Text style={styles.emptyTitle}>Ask me anything</Text>
-              {!isPro && (
+              {!subLoading && !isPro && (
                 <View style={styles.proBadgeRow}>
                   <View style={styles.proBadge}>
                     <Crown size={10} color={colors.white} strokeWidth={2.5} />

@@ -20,7 +20,8 @@ import {
   EyeOff,
   ArrowRight,
 } from 'lucide-react-native';
-import { sendSignupOTP, signInWithGoogle } from '../../src/lib/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { sendSignupOTP, signInWithGoogle, signInWithApple } from '../../src/lib/auth';
 import { validatePassword } from '../../src/utils/validatePassword';
 import { useAuthStore } from '../../src/store/authStore';
 import Button from '../../src/components/ui/Button';
@@ -37,6 +38,7 @@ export default function SignupScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignup = async () => {
@@ -84,6 +86,24 @@ export default function SignupScreen() {
       setError(err instanceof Error ? err.message : 'Google sign-in failed');
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    setError(null);
+
+    try {
+      const result = await signInWithApple();
+      if (result?.session) {
+        useAuthStore.getState().setSession(result.session);
+      }
+      router.replace('/(tabs)/dashboard');
+    } catch (err: unknown) {
+      if ((err as any)?.code === 'ERR_REQUEST_CANCELED') return;
+      setError(err instanceof Error ? err.message : 'Apple sign-in failed');
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -238,6 +258,17 @@ export default function SignupScreen() {
               )}
               <Text style={styles.googleText}>Continue with Google</Text>
             </TouchableOpacity>
+
+            {/* Apple Sign In — iOS only */}
+            {Platform.OS === 'ios' && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={borderRadius.lg}
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+              />
+            )}
           </View>
 
           {/* Privacy Promise Card */}
@@ -431,6 +462,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.slate[700],
+  },
+
+  /* ---- Apple Button ---- */
+  appleButton: {
+    height: 50,
+    width: '100%',
   },
 
   /* ---- Privacy Card ---- */

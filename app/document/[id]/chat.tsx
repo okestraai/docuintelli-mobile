@@ -8,12 +8,12 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StatusBar,
   Animated,
   Easing,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { goBack } from '../../../src/utils/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -305,7 +305,7 @@ export default function DocumentChatScreen() {
   const showSuggestions = messages.length === 0;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <Stack.Screen options={{ headerShown: false }} />
 

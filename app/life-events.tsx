@@ -610,7 +610,7 @@ export default function LifeEventsScreen() {
                     <View style={styles.intakeQuestionNumber}>
                       <Text style={styles.intakeQuestionNumberText}>{idx + 1}</Text>
                     </View>
-                    <Text style={styles.intakeLabel}>{q.label}</Text>
+                    <Text style={[styles.intakeLabel, !intakeAnswers[q.id] && { color: colors.warning[700] }]}>{q.label}</Text>
                   </View>
                   {q.type === 'select' && q.options ? (
                     <View style={styles.intakeOptions}>
@@ -665,23 +665,38 @@ export default function LifeEventsScreen() {
                 </View>
               ))}
 
-              <View style={styles.intakeActions}>
-                <Button
-                  title="Cancel"
-                  onPress={() => setSubView('list')}
-                  variant="outline"
-                  style={{ flex: 1 }}
-                  icon={<ChevronLeft size={16} color={colors.slate[700]} strokeWidth={2} />}
-                />
-                <Button
-                  title="Generate Checklist"
-                  onPress={() => handleCreateEvent(selectedTemplateId, intakeAnswers)}
-                  loading={detailLoading}
-                  disabled={detailLoading}
-                  style={{ flex: 2 }}
-                  iconRight={<ChevronRight size={16} color={colors.white} strokeWidth={2} />}
-                />
-              </View>
+              {(() => {
+                const allAnswered = tmpl.intakeQuestions.every(q => intakeAnswers[q.id] !== undefined && intakeAnswers[q.id] !== '');
+                const unansweredCount = tmpl.intakeQuestions.filter(q => !intakeAnswers[q.id]).length;
+                return (
+                  <>
+                    {!allAnswered && (
+                      <Text style={{ fontSize: 12, color: colors.warning[600], textAlign: 'center', marginBottom: 8 }}>
+                        {unansweredCount === tmpl.intakeQuestions.length
+                          ? 'Please answer all questions to continue'
+                          : `${unansweredCount} unanswered question${unansweredCount > 1 ? 's' : ''} remaining`}
+                      </Text>
+                    )}
+                    <View style={styles.intakeActions}>
+                      <Button
+                        title="Cancel"
+                        onPress={() => setSubView('list')}
+                        variant="outline"
+                        style={{ flex: 1 }}
+                        icon={<ChevronLeft size={16} color={colors.slate[700]} strokeWidth={2} />}
+                      />
+                      <Button
+                        title="Generate Checklist"
+                        onPress={() => handleCreateEvent(selectedTemplateId, intakeAnswers)}
+                        loading={detailLoading}
+                        disabled={detailLoading || !allAnswered}
+                        style={{ flex: 2 }}
+                        iconRight={<ChevronRight size={16} color={colors.white} strokeWidth={2} />}
+                      />
+                    </View>
+                  </>
+                );
+              })()}
             </Card>
           </ScrollView>
         </SafeAreaView>

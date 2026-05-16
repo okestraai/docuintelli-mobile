@@ -20,7 +20,8 @@ import {
   EyeOff,
   ArrowRight,
 } from 'lucide-react-native';
-import { signIn, signInWithGoogle } from '../../src/lib/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { signIn, signInWithGoogle, signInWithApple } from '../../src/lib/auth';
 import { useAuthStore } from '../../src/store/authStore';
 import { useAppStore } from '../../src/store/appStore';
 import Button from '../../src/components/ui/Button';
@@ -35,6 +36,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
@@ -88,6 +90,30 @@ export default function LoginScreen() {
       setError(err instanceof Error ? err.message : 'Google sign-in failed');
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    setError(null);
+
+    try {
+      const result = await signInWithApple();
+      if (result?.session) {
+        useAuthStore.getState().setSession(result.session);
+      }
+      const pending = useAppStore.getState().consumePendingRedirect();
+      if (pending) {
+        router.replace({ pathname: pending.route as any, params: pending.params });
+      } else {
+        router.replace('/(tabs)/dashboard');
+      }
+    } catch (err: unknown) {
+      // User cancelled — don't show error
+      if ((err as any)?.code === 'ERR_REQUEST_CANCELED') return;
+      setError(err instanceof Error ? err.message : 'Apple sign-in failed');
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -226,6 +252,17 @@ export default function LoginScreen() {
               )}
               <Text style={styles.googleText}>Continue with Google</Text>
             </TouchableOpacity>
+
+            {/* Apple Sign In — iOS only */}
+            {Platform.OS === 'ios' && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={borderRadius.lg}
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+              />
+            )}
           </View>
 
           {/* Footer */}
@@ -400,6 +437,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.slate[700],
+  },
+
+  /* ---- Apple Button ---- */
+  appleButton: {
+    height: 50,
+    width: '100%',
   },
 
   /* ---- Footer ---- */

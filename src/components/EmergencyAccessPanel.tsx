@@ -60,7 +60,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
   // Grant form
   const [selectedContactId, setSelectedContactId] = useState('');
   const [selectedPolicy, setSelectedPolicy] = useState<AccessPolicy>('approval');
-  const [delayHours, setDelayHours] = useState(72);
+  const [delayUntil, setDelayUntil] = useState('');
   const [grantNotes, setGrantNotes] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -69,7 +69,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
   const [invRows, setInvRows] = useState<InvRow[]>([{ email: '', name: '', relationship: '' }]);
   const [invNotes, setInvNotes] = useState('');
   const [invPolicy, setInvPolicy] = useState<AccessPolicy>('approval');
-  const [invDelayHours, setInvDelayHours] = useState(72);
+  const [invDelayUntil, setInvDelayUntil] = useState('');
   const [invLoading, setInvLoading] = useState(false);
   const [invSuccess, setInvSuccess] = useState<string | null>(null);
   const [invError, setInvError] = useState<string | null>(null);
@@ -124,7 +124,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
     try {
       setCreateLoading(true);
       await createGrant(lifeEventId, selectedContactId, selectedPolicy,
-        selectedPolicy === 'time_delayed' ? delayHours : undefined,
+        selectedPolicy === 'time_delayed' ? delayUntil : undefined,
         grantNotes || undefined);
       setShowModal(false);
       resetForm();
@@ -165,7 +165,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
           lifeEventId,
           contact.id,
           invPolicy,
-          invPolicy === 'time_delayed' ? invDelayHours : undefined,
+          invPolicy === 'time_delayed' ? invDelayUntil : undefined,
           invNotes || undefined
         );
         count++;
@@ -177,7 +177,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
       );
       setInvRows([{ email: '', name: '', relationship: '' }]);
       setInvNotes('');
-      setInvPolicy('approval'); setInvDelayHours(72);
+      setInvPolicy('approval'); setInvDelayUntil('');
       loadData();
     } catch (err) {
       setInvError(err instanceof Error ? err.message : 'Failed to invite');
@@ -263,10 +263,10 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
 
   const resetForm = () => {
     setSelectedContactId(''); setSelectedPolicy('approval');
-    setDelayHours(72); setGrantNotes('');
+    setDelayUntil(''); setGrantNotes('');
     setInvRows([{ email: '', name: '', relationship: '' }]);
     setInvNotes('');
-    setInvPolicy('approval'); setInvDelayHours(72);
+    setInvPolicy('approval'); setInvDelayUntil('');
     setInvSuccess(null); setInvError(null);
   };
 
@@ -508,6 +508,29 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
                     ))}
                   </View>
 
+                  {selectedPolicy === 'time_delayed' && (
+                    <View style={{ marginTop: spacing.md }}>
+                      <Text style={s.label}>Grant access on date</Text>
+                      <TextInput
+                        style={s.input}
+                        value={delayUntil ? delayUntil.split('T')[0] : ''}
+                        onChangeText={(text) => {
+                          if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+                            setDelayUntil(new Date(text + 'T00:00:00').toISOString());
+                          } else {
+                            setDelayUntil(text as any);
+                          }
+                        }}
+                        placeholder="YYYY-MM-DD (e.g., 2027-01-15)"
+                        placeholderTextColor={colors.slate[400]}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                      <Text style={{ fontSize: 11, color: colors.slate[400], marginTop: 4 }}>
+                        Access will be auto-granted on this date unless you veto.
+                      </Text>
+                    </View>
+                  )}
+
                   <Text style={[s.label, { marginTop: spacing.lg }]}>Instructions <Text style={{ color: colors.slate[400], fontWeight: typography.fontWeight.normal }}>(optional)</Text></Text>
                   <TextInput
                     style={[s.input, { height: 60, textAlignVertical: 'top' }]}
@@ -524,7 +547,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
                       title={createLoading ? 'Granting...' : 'Grant Access'}
                       onPress={handleCreateGrant}
                       loading={createLoading}
-                      disabled={!selectedContactId || createLoading}
+                      disabled={!selectedContactId || createLoading || (selectedPolicy === 'time_delayed' && !delayUntil)}
                       icon={<Shield size={14} color={colors.white} />}
                     />
                   </View>
@@ -646,12 +669,35 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
                 ))}
               </View>
 
+              {invPolicy === 'time_delayed' && (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={s.label}>Grant access on date</Text>
+                  <TextInput
+                    style={s.input}
+                    value={invDelayUntil ? invDelayUntil.split('T')[0] : ''}
+                    onChangeText={(text) => {
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+                        setInvDelayUntil(new Date(text + 'T00:00:00').toISOString());
+                      } else {
+                        setInvDelayUntil(text as any);
+                      }
+                    }}
+                    placeholder="YYYY-MM-DD (e.g., 2027-01-15)"
+                    placeholderTextColor={colors.slate[400]}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                  <Text style={{ fontSize: 11, color: colors.slate[400], marginTop: 4 }}>
+                    Access will be auto-granted on this date unless you veto.
+                  </Text>
+                </View>
+              )}
+
               <View style={{ marginTop: spacing.lg }}>
                 <Button
                   title={invLoading ? 'Sending...' : invRows.filter(r => r.email.trim() && r.name.trim()).length > 1 ? 'Send Invitations' : 'Send Invitation'}
                   onPress={handleInvite}
                   loading={invLoading}
-                  disabled={!invRows.some(r => r.email.trim() && r.name.trim()) || invLoading}
+                  disabled={!invRows.some(r => r.email.trim() && r.name.trim()) || invLoading || (invPolicy === 'time_delayed' && !invDelayUntil)}
                   icon={<Send size={14} color={colors.white} />}
                 />
               </View>

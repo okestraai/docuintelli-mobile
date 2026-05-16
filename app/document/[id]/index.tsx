@@ -888,7 +888,7 @@ export default function DocumentViewerScreen() {
 
       {/* Edit Modal */}
       <Modal visible={showEdit} animationType="slide" presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'} onRequestClose={() => setShowEdit(false)}>
-        <View style={{ flex: 1, backgroundColor: colors.white }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }} edges={['top']}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.slate[200] }}>
             <TouchableOpacity onPress={() => setShowEdit(false)} activeOpacity={0.7}>
               <X size={22} color={colors.slate[600]} />
@@ -965,7 +965,7 @@ export default function DocumentViewerScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -1328,7 +1328,7 @@ const styles = StyleSheet.create({
   },
   fullScreenFloatingClose: {
     position: 'absolute',
-    top: spacing.md,
+    top: spacing['3xl'],
     left: spacing.md,
     zIndex: 100,
     elevation: 100,

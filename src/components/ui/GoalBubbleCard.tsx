@@ -243,20 +243,17 @@ export default function GoalBubbleCard() {
       {/* Progress bar */}
       <View style={styles.progressRow}>
         <View style={styles.progressTrack}>
-          <Animated.View style={[styles.progressFillWrap]}>
+          <Animated.View style={[styles.progressFillWrap, {
+            width: progressAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
+          }]}>
             <LinearGradient
               colors={[...colors.gradient.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[
-                styles.progressFill,
-                {
-                  width: progressAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                },
-              ]}
+              style={styles.progressFill}
             />
           </Animated.View>
         </View>

@@ -49,6 +49,7 @@ export interface EmergencyAccessGrant {
   trusted_contact_id: string;
   access_policy: 'immediate' | 'time_delayed' | 'approval';
   delay_hours: number;
+  delay_until: string | null;
   is_active: boolean;
   request_status: 'none' | 'pending' | 'approved' | 'denied' | 'auto_granted' | 'vetoed';
   access_requested_at: string | null;
@@ -92,11 +93,11 @@ export async function getGrantsForEvent(lifeEventId: string): Promise<EmergencyA
 }
 
 export async function createGrant(
-  lifeEventId: string, contactId: string, accessPolicy: string, delayHours?: number, notes?: string
+  lifeEventId: string, contactId: string, accessPolicy: string, delayUntil?: string, notes?: string
 ): Promise<EmergencyAccessGrant> {
   const data = await apiFetch<{ success: boolean; grant: EmergencyAccessGrant }>(`/events/${lifeEventId}/grants`, {
     method: 'POST',
-    body: JSON.stringify({ contact_id: contactId, access_policy: accessPolicy, delay_hours: delayHours, notes }),
+    body: JSON.stringify({ contact_id: contactId, access_policy: accessPolicy, delay_until: delayUntil, notes }),
   });
   return data.grant;
 }
@@ -127,6 +128,7 @@ export interface SharedEventSummary {
   owner_email: string;
   access_policy: string;
   delay_hours: number;
+  delay_until: string | null;
   request_status: string;
   access_granted_at: string | null;
   cooldown_ends_at: string | null;
