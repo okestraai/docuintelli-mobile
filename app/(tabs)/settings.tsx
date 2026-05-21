@@ -17,6 +17,7 @@ import {
   Smartphone,
   LifeBuoy,
   Landmark,
+  FileText,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { getUserProfile } from '../../src/lib/auth';
@@ -188,6 +189,33 @@ export default function SettingsScreen() {
           icon={<LogOut size={18} color={colors.slate[600]} strokeWidth={1.8} />}
           fullWidth
         />
+
+        {/* Legal */}
+        <Card padded={false}>
+          {[
+            { label: 'Privacy Policy', page: 'privacy' },
+            { label: 'Terms of Service', page: 'terms' },
+            { label: 'Cookie Policy', page: 'cookies' },
+            { label: 'FAQ', page: 'faq' },
+          ].map((item, index) => (
+            <React.Fragment key={item.page}>
+              {index > 0 && <View style={styles.divider} />}
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push({ pathname: '/legal', params: { page: item.page } })}
+                activeOpacity={0.6}
+              >
+                <View style={[styles.menuIconWrap, { backgroundColor: colors.slate[100] }]}>
+                  <FileText size={18} color={colors.slate[500]} strokeWidth={1.8} />
+                </View>
+                <View style={styles.menuContent}>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                </View>
+                <ChevronRight size={18} color={colors.slate[400]} strokeWidth={1.8} />
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
+        </Card>
 
         {/* App info */}
         <View style={styles.appInfo}>

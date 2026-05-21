@@ -104,15 +104,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def ksFile = System.getenv('KEYSTORE_PATH') ?: findProperty('DOCUINTELLI_KEYSTORE_FILE') ?: false
+            if (ksFile) {
+                storeFile file(ksFile)
+                storePassword System.getenv('KEYSTORE_PASSWORD') ?: findProperty('DOCUINTELLI_KEYSTORE_PASSWORD') ?: ''
+                keyAlias System.getenv('KEY_ALIAS') ?: findProperty('DOCUINTELLI_KEY_ALIAS') ?: 'docuintelli'
+                keyPassword System.getenv('KEY_PASSWORD') ?: findProperty('DOCUINTELLI_KEY_PASSWORD') ?: ''
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release.storeFile ? signingConfigs.release : signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

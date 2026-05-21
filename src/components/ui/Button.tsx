@@ -78,6 +78,9 @@ export default function Button({
         disabled={isDisabled}
         activeOpacity={0.8}
         style={[fullWidth && styles.fullWidth, style]}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ disabled: isDisabled }}
       >
         <LinearGradient
           colors={isDisabled ? [colors.slate[300], colors.slate[300]] : [...colors.gradient.primary]}
@@ -104,6 +107,9 @@ export default function Button({
         fullWidth && styles.fullWidth,
         style,
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled }}
     >
       {content}
     </TouchableOpacity>

@@ -21,7 +21,7 @@ interface ModalProps {
 
 export default function Modal({ visible, onClose, title, children }: ModalProps) {
   return (
-    <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose} accessibilityViewIsModal>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
@@ -31,7 +31,7 @@ export default function Modal({ visible, onClose, title, children }: ModalProps)
           {title && (
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <TouchableOpacity onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
                 <Text style={styles.close}>X</Text>
               </TouchableOpacity>
             </View>

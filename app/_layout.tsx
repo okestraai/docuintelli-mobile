@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
 import * as WebBrowser from 'expo-web-browser';
+import * as SplashScreen from 'expo-splash-screen';
 import { ArrowLeft, Shield, Monitor } from 'lucide-react-native';
 import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
@@ -15,8 +16,10 @@ import { useBiometrics } from '../src/hooks/useBiometrics';
 import { usePushNotifications } from '../src/hooks/usePushNotifications';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { setupDeepLinkListener } from '../src/services/deepLinking';
+import { configureRevenueCat, loginUser, logoutUser } from '../src/lib/iapService';
 import { ToastProvider, ToastRenderer } from '../src/contexts/ToastContext';
 import { SubscriptionProvider } from '../src/contexts/SubscriptionContext';
+import ErrorBoundary from '../src/components/ErrorBoundary';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import AnimatedSplash from '../src/components/ui/AnimatedSplash';
 import OfflineBanner from '../src/components/ui/OfflineBanner';
@@ -26,6 +29,10 @@ import { GoalBubbleProvider } from '../src/contexts/GoalBubbleContext';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, MAX_APP_WIDTH } from '../src/theme/spacing';
+
+// Keep the native splash screen visible until we're ready to show our custom AnimatedSplash.
+// This prevents a white flash between the OS splash and the JS-side splash.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Complete any pending auth sessions (OAuth redirects back to the app).
 // Must run at the module top level before any component renders.
@@ -91,6 +98,15 @@ export default function RootLayout() {
       // Now initialize (reads tokens from storage)
       await initialize();
 
+      // Configure RevenueCat for native IAP
+      if (Platform.OS !== 'web') {
+        await configureRevenueCat();
+        const currentSession = useAuthStore.getState().session;
+        if (currentSession?.user?.id) {
+          loginUser(currentSession.user.id).catch(() => {});
+        }
+      }
+
       // On web, check for e-signature hash route from email links (/#/sign/{token})
       if (Platform.OS === 'web') {
         const hash = window.location.hash;
@@ -121,6 +137,14 @@ export default function RootLayout() {
       data: { subscription },
     } = auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
+      // Sync RevenueCat user with auth state
+      if (Platform.OS !== 'web') {
+        if (sess?.user?.id) {
+          loginUser(sess.user.id).catch(() => {});
+        } else {
+          logoutUser().catch(() => {});
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -178,6 +202,7 @@ export default function RootLayout() {
   }
 
   return (
+    <ErrorBoundary>
     <SafeAreaProvider>
     <ToastProvider>
     <SubscriptionProvider>
@@ -215,10 +240,6 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="scan"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen
           name="upload"
           options={{
             presentation: 'modal',
@@ -251,6 +272,10 @@ export default function RootLayout() {
           options={{ headerShown: true, title: 'Billing' }}
         />
         <Stack.Screen name="settings" />
+        <Stack.Screen
+          name="legal"
+          options={{ headerShown: true, title: 'Legal' }}
+        />
         <Stack.Screen
           name="help"
           options={{ headerShown: true, title: 'Help Center' }}
@@ -309,6 +334,17 @@ export default function RootLayout() {
                 {unlocking ? 'Authenticating...' : 'Unlock'}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={lockStyles.fallbackButton}
+              onPress={async () => {
+                const { signOut } = useAuthStore.getState();
+                await signOut();
+                setLocked(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={lockStyles.fallbackText}>Sign out instead</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -317,6 +353,7 @@ export default function RootLayout() {
     </SubscriptionProvider>
     </ToastProvider>
     </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 
@@ -387,5 +424,14 @@ const lockStyles = StyleSheet.create({
     color: colors.white,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
+  },
+  fallbackButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  fallbackText: {
+    color: colors.slate[400],
+    fontSize: typography.fontSize.sm,
+    textDecorationLine: 'underline',
   },
 });

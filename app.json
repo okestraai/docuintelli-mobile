@@ -20,6 +20,7 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "DocuIntelli needs camera access to scan documents",
+        "NSPhotoLibraryUsageDescription": "DocuIntelli needs photo library access to attach images to your documents",
         "NSFaceIDUsageDescription": "Use Face ID to quickly unlock DocuIntelli",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -33,7 +34,6 @@
       "permissions": [
         "CAMERA",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
       ]
@@ -53,16 +53,10 @@
       "expo-sqlite",
       "expo-asset",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-secure-store"
     ],
     "extra": {
-      "apiBase": "https://docuintelli.com",
-      "stripeStarterPriceId": "price_1T74wFC3E3PM7vYrxK1BVuv4",
-      "stripeProPriceId": "price_1T74wsC3E3PM7vYrdHRTqCN6",
-      "stripeStarterYearlyPriceId": "price_1T74yFC3E3PM7vYriHeVLQaE",
-      "stripeProYearlyPriceId": "price_1T74yoC3E3PM7vYruh4dgv5r",
-      "googleClientId": "245301325809-emr4s94virgtp6amdh3gf2t84t1sfo6l.apps.googleusercontent.com",
-      "googlePickerApiKey": "AIzaSyBUGWZ79MPsCOKiys5VndvdTP_4BYzAwtw",
       "eas": {
         "projectId": "0ad81a6e-b653-42f6-98c0-c1ed7fbb8b47"
       },

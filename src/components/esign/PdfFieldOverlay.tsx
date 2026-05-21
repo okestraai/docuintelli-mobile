@@ -583,9 +583,8 @@ export default function PdfFieldOverlay({
             onMessage={handleNativeMessage}
             javaScriptEnabled
             domStorageEnabled
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            allowUniversalAccessFromFileURLs
+            originWhitelist={['https://*']}
+            mixedContentMode="never"
           />
 
           <FieldOverlays

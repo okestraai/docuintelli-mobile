@@ -58,6 +58,14 @@ import {
 import { useToast } from '../src/contexts/ToastContext';
 import { API_BASE } from '../src/lib/config';
 import { fetchPlanPrices } from '../src/lib/api';
+import {
+  isNativeIAP,
+  getOfferings,
+  purchaseByPackageId,
+  restorePurchases,
+  getManageSubscriptionsUrl,
+} from '../src/lib/iapService';
+import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
@@ -76,7 +84,18 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'usage', label: 'Usage' },
 ];
 
-function buildPlans(starterPrice: number, proPrice: number) {
+function formatPrice(amount: number): string {
+  return amount % 1 === 0 ? `$${amount}` : `$${amount.toFixed(2)}`;
+}
+
+function buildPlans(
+  starterMonthly: number,
+  proMonthly: number,
+  starterYearly: number,
+  proYearly: number,
+  billingCycle: 'monthly' | 'yearly',
+) {
+  const isYearly = billingCycle === 'yearly';
   return [
     {
       id: 'free' as const,
@@ -95,8 +114,8 @@ function buildPlans(starterPrice: number, proPrice: number) {
     {
       id: 'starter' as const,
       name: 'Starter',
-      price: `$${starterPrice % 1 === 0 ? starterPrice : starterPrice.toFixed(2)}`,
-      period: '/month',
+      price: isYearly ? formatPrice(starterYearly) : formatPrice(starterMonthly),
+      period: isYearly ? '/year' : '/month',
       features: [
         '25 documents',
         '30 uploads/month',
@@ -109,13 +128,14 @@ function buildPlans(starterPrice: number, proPrice: number) {
         'Life Events (3 active)',
         'Weekly Audit',
         'Email notifications',
+        ...(isYearly ? ['Save ~17% vs monthly'] : []),
       ],
     },
     {
       id: 'pro' as const,
       name: 'Pro',
-      price: `$${proPrice % 1 === 0 ? proPrice : proPrice.toFixed(2)}`,
-      period: '/month',
+      price: isYearly ? formatPrice(proYearly) : formatPrice(proMonthly),
+      period: isYearly ? '/year' : '/month',
       features: [
         '100 documents',
         '150 uploads/month',
@@ -129,6 +149,7 @@ function buildPlans(starterPrice: number, proPrice: number) {
         'Document Health',
         'Global Search',
         'Priority support',
+        ...(isYearly ? ['Save ~17% vs monthly'] : []),
       ],
     },
   ];
@@ -219,14 +240,21 @@ export default function BillingScreen() {
     onConfirm: () => {},
   });
 
-  // Dynamic plan prices from Stripe API
-  const [plans, setPlans] = useState(() => buildPlans(9, 15));
+  // Billing cycle toggle + dynamic prices
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [prices, setPrices] = useState({ starterMonthly: 9, proMonthly: 15, starterYearly: 90, proYearly: 150 });
+  const [plans, setPlans] = useState(() => buildPlans(9, 15, 90, 150, 'monthly'));
 
   useEffect(() => {
-    fetchPlanPrices().then((prices) => {
-      setPlans(buildPlans(prices.starter.monthly, prices.pro.monthly));
+    fetchPlanPrices().then((p) => {
+      setPrices({ starterMonthly: p.starter.monthly, proMonthly: p.pro.monthly, starterYearly: p.starter.yearly, proYearly: p.pro.yearly });
+      setPlans(buildPlans(p.starter.monthly, p.pro.monthly, p.starter.yearly, p.pro.yearly, billingCycle));
     });
   }, []);
+
+  useEffect(() => {
+    setPlans(buildPlans(prices.starterMonthly, prices.proMonthly, prices.starterYearly, prices.proYearly, billingCycle));
+  }, [billingCycle, prices]);
 
   // Refreshing flag for pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -378,13 +406,24 @@ export default function BillingScreen() {
 
     if (planId === subscription.plan) return;
 
-    // Free user selecting a paid plan -> checkout in InAppBrowser
+    // Free user selecting a paid plan
     if (subscription.plan === 'free') {
       setActionLoading(true);
       try {
-        const checkoutUrl = await createCheckoutSession(planId as 'starter' | 'pro');
-        openStripePopup(checkoutUrl, 'Checkout');
+        if (isNativeIAP) {
+          // Native: use RevenueCat in-app purchase
+          const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+          await purchaseByPackageId(packageId);
+          await refreshSubscription();
+          showToast(`Subscribed to ${capitalize(planId)}!`, 'success');
+        } else {
+          // Web: use Stripe checkout
+          const checkoutUrl = await createCheckoutSession(planId as 'starter' | 'pro', billingCycle);
+          openStripePopup(checkoutUrl, 'Checkout');
+        }
       } catch (err: any) {
+        // RevenueCat throws "PURCHASE_CANCELLED" when user cancels — don't show error
+        if (err?.userCancelled || err?.code === 'PURCHASE_CANCELLED') return;
         showToast(err.message || 'Failed to start checkout', 'error');
       } finally {
         setActionLoading(false);
@@ -456,12 +495,31 @@ export default function BillingScreen() {
   };
 
   const handleOpenPortal = async () => {
+    if (isNativeIAP) {
+      // Native: open platform subscription management
+      Linking.openURL(getManageSubscriptionsUrl());
+      return;
+    }
     setActionLoading(true);
     try {
       const portalUrl = await getCustomerPortalUrl();
       openStripePopup(portalUrl, 'Manage Billing');
     } catch (err: any) {
       showToast(err.message || 'Failed to open billing portal', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (!isNativeIAP) return;
+    setActionLoading(true);
+    try {
+      await restorePurchases();
+      await refreshSubscription();
+      showToast('Purchases restored', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to restore purchases', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -815,6 +873,27 @@ export default function BillingScreen() {
 
         {/* Available Plans */}
         <Text style={styles.sectionHeading}>Available Plans</Text>
+
+        {/* Billing Cycle Toggle */}
+        <View style={styles.cycleToggleContainer}>
+          <TouchableOpacity
+            style={[styles.cycleToggle, billingCycle === 'monthly' && styles.cycleToggleActive]}
+            onPress={() => setBillingCycle('monthly')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.cycleToggleText, billingCycle === 'monthly' && styles.cycleToggleTextActive]}>Monthly</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.cycleToggle, billingCycle === 'yearly' && styles.cycleToggleActive]}
+            onPress={() => setBillingCycle('yearly')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.cycleToggleText, billingCycle === 'yearly' && styles.cycleToggleTextActive]}>Yearly</Text>
+            <View style={styles.saveBadge}>
+              <Text style={styles.saveBadgeText}>Save 17%</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
         {plans.map((plan) => {
           const isCurrent = plan.id === currentPlan;
           const isUpgrade = (PLAN_RANK[plan.id] ?? 0) > (PLAN_RANK[currentPlan] ?? 0);
@@ -837,6 +916,28 @@ export default function BillingScreen() {
             />
           );
         })}
+
+        {/* Restore Purchases — Apple requires this */}
+        {isNativeIAP && (
+          <Button
+            title="Restore Purchases"
+            onPress={handleRestorePurchases}
+            variant="ghost"
+            size="md"
+            loading={actionLoading}
+            disabled={actionLoading}
+          />
+        )}
+
+        {/* Subscription terms disclosure — Apple requires this on native */}
+        {isNativeIAP && (
+          <Text style={styles.subscriptionTerms}>
+            {billingCycle === 'yearly'
+              ? 'Subscription auto-renews yearly unless cancelled at least 24 hours before the renewal date.'
+              : 'Subscription auto-renews monthly unless cancelled at least 24 hours before the renewal date.'
+            }{' '}Payment will be charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account.
+          </Text>
+        )}
       </View>
     );
   };
@@ -1436,6 +1537,59 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.slate[900],
     marginTop: spacing.sm,
+  },
+
+  // Billing cycle toggle
+  cycleToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.slate[100],
+    borderRadius: borderRadius.lg,
+    padding: 3,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  cycleToggle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: borderRadius.md,
+    gap: 6,
+  },
+  cycleToggleActive: {
+    backgroundColor: colors.white,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  cycleToggleText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[500],
+  },
+  cycleToggleTextActive: {
+    color: colors.slate[900],
+  },
+  saveBadge: {
+    backgroundColor: colors.primary[100],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  saveBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary[700],
+  },
+  subscriptionTerms: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: spacing.md,
   },
 
   // Payment card

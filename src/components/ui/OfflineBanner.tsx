@@ -14,7 +14,11 @@ export default function OfflineBanner() {
   if (isOnline) return null;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
+    <View
+      style={[styles.container, { paddingTop: insets.top + spacing.sm }]}
+      accessibilityRole="alert"
+      accessibilityLabel="You're offline. Some features may be unavailable."
+    >
       <View style={styles.content}>
         <WifiOff size={16} color={colors.warning[800]} strokeWidth={2} />
         <Text style={styles.text}>You're offline. Some features may be unavailable.</Text>

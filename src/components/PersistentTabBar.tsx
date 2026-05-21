@@ -47,7 +47,7 @@ const TABS = [
 ];
 
 // Screens where the tab bar should be hidden (auth, splash, full-screen flows)
-const HIDDEN_ON = ['/', '/index', '/login', '/signup', '/forgot-password'];
+const HIDDEN_ON = ['/', '/index', '/login', '/signup', '/forgot-password', '/legal'];
 const HIDDEN_PREFIXES = ['/(auth)', '/esign'];
 
 export default function PersistentTabBar() {
@@ -86,6 +86,9 @@ export default function PersistentTabBar() {
             style={styles.tab}
             onPress={() => router.navigate(tab.route as any)}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel={locked ? `${tab.label}, requires upgrade` : tab.label}
+            accessibilityState={{ selected: active }}
           >
             <View style={{ position: 'relative' }}>
               <Icon

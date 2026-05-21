@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Lock, ArrowRight, Zap } from 'lucide-react-native';
 import Button from './ui/Button';
+import { isNativeIAP, getLocalizedPrice } from '../lib/iapService';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
@@ -23,7 +24,17 @@ export default function ProFeatureGate({
   price,
 }: ProFeatureGateProps) {
   const isStarter = requiredPlan === 'starter';
-  const displayPrice = price ?? (isStarter ? 9 : 15);
+  const fallbackPrice = price ?? (isStarter ? 9 : 15);
+  const [localizedPrice, setLocalizedPrice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isNativeIAP) {
+      const pkgId = isStarter ? 'starter_monthly' : 'pro_monthly';
+      getLocalizedPrice(pkgId).then(setLocalizedPrice).catch(() => {});
+    }
+  }, [isStarter]);
+
+  const displayPrice = localizedPrice || `$${fallbackPrice}`;
   const badgeLabel = isStarter ? 'STARTER FEATURE' : 'PRO FEATURE';
   const buttonLabel = isStarter ? 'Upgrade to Starter' : 'Upgrade to Pro';
   const GateIcon = isStarter ? Zap : Crown;
@@ -68,7 +79,7 @@ export default function ProFeatureGate({
         />
 
         <Text style={styles.priceHint}>
-          Starting at ${displayPrice}/mo · Cancel anytime
+          Starting at {displayPrice}/mo · Cancel anytime
         </Text>
       </View>
     </View>

@@ -54,6 +54,7 @@ export default function Input({
             rightIcon ? styles.inputWithRightIcon : undefined,
           ]}
           placeholderTextColor={colors.slate[400]}
+          accessibilityLabel={label || textInputProps.placeholder}
           onFocus={(e) => {
             setFocused(true);
             textInputProps.onFocus?.(e);
@@ -65,7 +66,13 @@ export default function Input({
           {...textInputProps}
         />
         {rightIcon && (
-          <TouchableOpacity onPress={onRightIconPress} style={styles.iconRight} hitSlop={8}>
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            style={styles.iconRight}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={textInputProps.secureTextEntry ? 'Toggle password visibility' : undefined}
+          >
             {rightIcon}
           </TouchableOpacity>
         )}

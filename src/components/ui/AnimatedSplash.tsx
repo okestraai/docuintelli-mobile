@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -72,6 +73,9 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
   const overallOpacity = useSharedValue(1);
 
   useEffect(() => {
+    // Hide the native splash screen now that the animated one is mounted
+    SplashScreen.hideAsync().catch(() => {});
+
     // Phase 1: Logo scales in with a bounce (0-600ms)
     logoOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
     logoScale.value = withSequence(

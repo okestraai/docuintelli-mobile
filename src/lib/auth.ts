@@ -2,14 +2,14 @@
  * docuintelli-mobile/src/lib/auth.ts
  *
  * Mobile-specific authentication client that replaces Supabase Auth.
- * Stores JWT tokens in AsyncStorage (React Native) instead of localStorage.
- * Uses expo-web-browser for native Google OAuth and standard redirects for web.
+ * Stores JWT tokens in expo-secure-store (iOS Keychain / Android Keystore) on native,
+ * with AsyncStorage fallback on web. Uses expo-web-browser for native Google OAuth.
  *
  * Provides the same API shape as the web src/lib/auth.ts so that existing
  * consumers can migrate with minimal code changes.
  *
  * Key design decisions:
- * - Token storage: AsyncStorage for cross-platform persistence
+ * - Token storage: expo-secure-store on native (encrypted), AsyncStorage on web
  * - Auto-refresh: checks token expiry every 30 seconds, refreshes with 2-min buffer
  * - Event system: mirrors Supabase onAuthStateChange with SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED / INITIAL_SESSION
  * - Google OAuth: native uses expo-web-browser in-app browser; web uses full redirect
@@ -17,6 +17,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -28,6 +29,35 @@ import { API_BASE } from './config';
 const TOKEN_KEY = 'docuintelli_access_token';
 const REFRESH_TOKEN_KEY = 'docuintelli_refresh_token';
 const USER_KEY = 'docuintelli_auth_user';
+
+// ─── Secure Storage Helpers ───────────────────────────────────────────────────
+// expo-secure-store uses iOS Keychain / Android Keystore (encrypted).
+// On web it falls back to AsyncStorage since SecureStore is unavailable.
+
+const isNative = Platform.OS !== 'web';
+
+async function secureSet(key: string, value: string): Promise<void> {
+  if (isNative) {
+    await SecureStore.setItemAsync(key, value);
+  } else {
+    await AsyncStorage.setItem(key, value);
+  }
+}
+
+async function secureGet(key: string): Promise<string | null> {
+  if (isNative) {
+    return SecureStore.getItemAsync(key);
+  }
+  return AsyncStorage.getItem(key);
+}
+
+async function secureDelete(key: string): Promise<void> {
+  if (isNative) {
+    await SecureStore.deleteItemAsync(key);
+  } else {
+    await AsyncStorage.removeItem(key);
+  }
+}
 
 // ─── Auto-refresh Settings ────────────────────────────────────────────────────
 
@@ -98,10 +128,10 @@ export type AuthChangeCallback = (event: AuthEvent, session: AuthSession | null)
 // ─── Async Storage Abstraction ────────────────────────────────────────────────
 
 async function storeTokens(accessToken: string, refreshToken: string, user: AuthUser): Promise<void> {
-  await AsyncStorage.multiSet([
-    [TOKEN_KEY, accessToken],
-    [REFRESH_TOKEN_KEY, refreshToken],
-    [USER_KEY, JSON.stringify(user)],
+  await Promise.all([
+    secureSet(TOKEN_KEY, accessToken),
+    secureSet(REFRESH_TOKEN_KEY, refreshToken),
+    secureSet(USER_KEY, JSON.stringify(user)),
   ]);
 }
 
@@ -110,13 +140,14 @@ async function readTokens(): Promise<{
   refreshToken: string | null;
   user: AuthUser | null;
 }> {
-  const pairs = await AsyncStorage.multiGet([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
-  const accessToken = pairs[0][1];
-  const refreshToken = pairs[1][1];
+  const [accessToken, refreshToken, userRaw] = await Promise.all([
+    secureGet(TOKEN_KEY),
+    secureGet(REFRESH_TOKEN_KEY),
+    secureGet(USER_KEY),
+  ]);
   let user: AuthUser | null = null;
   try {
-    const raw = pairs[2][1];
-    if (raw) user = JSON.parse(raw);
+    if (userRaw) user = JSON.parse(userRaw);
   } catch {
     // Corrupted user data — treat as not authenticated
   }
@@ -124,7 +155,11 @@ async function readTokens(): Promise<{
 }
 
 async function clearTokens(): Promise<void> {
-  await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
+  await Promise.all([
+    secureDelete(TOKEN_KEY),
+    secureDelete(REFRESH_TOKEN_KEY),
+    secureDelete(USER_KEY),
+  ]);
 }
 
 // Synchronous in-memory cache for fast session access.

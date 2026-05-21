@@ -121,7 +121,7 @@ function getCategoryColor(category: DocumentCategory) {
 // ── Main Screen ──────────────────────────────────────────────────────
 export default function VaultScreen() {
   const { isAuthenticated, user } = useAuth();
-  const { documents, loading, deleteDocument, refetch } = useDocuments(isAuthenticated);
+  const { documents, loading, isFromCache, deleteDocument, refetch } = useDocuments(isAuthenticated);
   const { showToast } = useToast();
   const { subscription } = useSubscription();
   const cloudEnabled = subscription?.plan === 'pro';
@@ -566,6 +566,11 @@ export default function VaultScreen() {
   const renderHeader = () => (
     <View style={styles.headerSection}>
       {renderTitleAndTabs()}
+      {isFromCache && activeTab === 'documents' && (
+        <View style={styles.cacheBanner}>
+          <Text style={styles.cacheBannerText}>Showing cached data — you're offline</Text>
+        </View>
+      )}
       {activeTab === 'documents' && renderDocumentFilters()}
     </View>
   );
@@ -1054,6 +1059,20 @@ const styles = StyleSheet.create({
   // ── Header ─────────────────────────────────────────────────────────
   headerSection: {
     paddingTop: spacing.md,
+  },
+  cacheBanner: {
+    backgroundColor: colors.info[50],
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  cacheBannerText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.info[700],
+    textAlign: 'center',
+    fontWeight: typography.fontWeight.medium,
   },
   titleRow: {
     flexDirection: 'row',

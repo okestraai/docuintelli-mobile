@@ -185,7 +185,7 @@ export default function PlaidLinkModal({
             onMessage={handleWebViewMessage}
             onShouldStartLoadWithRequest={handleShouldStartLoad}
             onNavigationStateChange={handleNavigationStateChange}
-            originWhitelist={['https://*', 'http://*', 'plaidlink://*']}
+            originWhitelist={['https://*', 'plaidlink://*']}
             javaScriptEnabled
             domStorageEnabled
             thirdPartyCookiesEnabled

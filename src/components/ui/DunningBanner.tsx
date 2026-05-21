@@ -5,6 +5,7 @@ import { CreditCard, AlertTriangle, Clock, Trash2, X } from 'lucide-react-native
 import { router } from 'expo-router';
 import { auth } from '../../lib/auth';
 import { getCustomerPortalUrl } from '../../lib/subscriptionApi';
+import { isNativeIAP, getManageSubscriptionsUrl } from '../../lib/iapService';
 import { API_BASE } from '../../lib/config';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -52,12 +53,15 @@ export default function DunningBanner() {
   };
 
   const handleOpenStripePortal = async () => {
+    if (isNativeIAP) {
+      Linking.openURL(getManageSubscriptionsUrl());
+      return;
+    }
     setOpeningPortal(true);
     try {
       const url = await getCustomerPortalUrl();
       await Linking.openURL(url);
     } catch {
-      // Fallback to billing page
       router.navigate('/billing');
     } finally {
       setOpeningPortal(false);

@@ -305,8 +305,8 @@ export function GoogleDrivePickerModal({
             domStorageEnabled
             thirdPartyCookiesEnabled
             sharedCookiesEnabled
-            originWhitelist={['*']}
-            mixedContentMode="compatibility"
+            originWhitelist={['https://*']}
+            mixedContentMode="never"
             // Software rendering fixes touch event propagation in cross-origin
             // iframes on Android. Hardware acceleration causes coordinate
             // translation issues between the WebView and the Picker's iframe.

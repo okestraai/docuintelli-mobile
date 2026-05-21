@@ -98,7 +98,7 @@
       "Bash(curl -L -o \"/c/Users/Okestra AI Labs/docuintelli-mobile/build.apk\" \"https://expo.dev/artifacts/eas/6E1WyV262zMjHT7M6agfgo.apk\")",
       "Bash(npx ts-node -e ':*)",
       "Bash(npx tsx -e ':*)",
-      "Bash(PGPASSWORD='Fillmein09!' psql \"host=docuintelli.postgres.database.azure.com port=5432 dbname=docuintelli user=docuintelli_okestra sslmode=require\" -c \"SELECT id, name FROM documents WHERE name ILIKE '%employment%' OR name ILIKE '%offer%' LIMIT 10;\")",
+      "Bash(psql \"host=docuintelli.postgres.database.azure.com port=5432 dbname=docuintelli user=docuintelli_okestra sslmode=require\":*)",
       "Bash(ls \"/c/Users/Okestra AI Labs/Downloads/\"*google*)",
       "Bash(cmd.exe /c start \"\" \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\bin\\\\studio64.exe\" \"c:\\\\Users\\\\Okestra AI Labs\\\\docuintelli-mobile\\\\android\")",
       "Bash(./gradlew assembleRelease)",

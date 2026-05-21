@@ -4,7 +4,11 @@ import type { SupabaseDocument } from '../lib/auth';
 import { uploadDocumentFile, processURLContent, processManualContent } from '../lib/api';
 import type { DocumentUploadRequest } from '../lib/api';
 import { API_BASE } from '../lib/config';
+import { useAppStore } from '../store/appStore';
+import { useOfflineCache } from './useOfflineCache';
 import type { Document, DocumentCategory } from '../types/document';
+
+const DOCUMENTS_CACHE_KEY = 'documents';
 
 export type { DocumentUploadRequest };
 
@@ -12,6 +16,9 @@ export function useDocuments(isAuthenticated: boolean) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
+  const isOnline = useAppStore((s) => s.isOnline);
+  const { cacheData, getCachedData } = useOfflineCache();
 
   const uploadDocuments = async (items: DocumentUploadRequest[]): Promise<string[]> => {
     try {
@@ -75,6 +82,7 @@ export function useDocuments(isAuthenticated: boolean) {
     if (!isAuthenticated) {
       setDocuments([]);
       setLoading(false);
+      setIsFromCache(false);
       return;
     }
 
@@ -82,19 +90,32 @@ export function useDocuments(isAuthenticated: boolean) {
       setLoading(true);
       setError(null);
       const docs = await getDocuments();
-      setDocuments(docs.map(transformSupabaseDocument));
+      const transformed = docs.map(transformSupabaseDocument);
+      setDocuments(transformed);
+      setIsFromCache(false);
+      // Cache for offline use
+      cacheData(DOCUMENTS_CACHE_KEY, transformed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load documents');
+      // If fetch fails (likely offline), try cache
+      const cached = await getCachedData<Document[]>(DOCUMENTS_CACHE_KEY);
+      if (cached && cached.length > 0) {
+        setDocuments(cached);
+        setIsFromCache(true);
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load documents');
+        setIsFromCache(false);
+      }
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, cacheData, getCachedData]);
 
   useEffect(() => {
     refetchDocuments();
   }, [isAuthenticated, refetchDocuments]);
 
-  return { documents, loading, error, uploadDocuments, deleteDocument: deleteDocumentById, refetch: refetchDocuments };
+  return { documents, loading, error, isFromCache, uploadDocuments, deleteDocument: deleteDocumentById, refetch: refetchDocuments };
 }
 
 function transformSupabaseDocument(doc: SupabaseDocument): Document {
