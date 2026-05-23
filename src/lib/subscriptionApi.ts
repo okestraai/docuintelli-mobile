@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { auth } from './auth';
 import { API_BASE, APP_SCHEME, STRIPE_STARTER_PRICE_ID, STRIPE_PRO_PRICE_ID, STRIPE_STARTER_YEARLY_PRICE_ID, STRIPE_PRO_YEARLY_PRICE_ID } from './config';
 import { getDeviceId } from './deviceId';
@@ -207,6 +208,64 @@ export async function redeemCoupon(code: string): Promise<string> {
   const data = await res.json();
   if (!data.url) throw new Error('No checkout URL returned');
   return data.url;
+}
+
+// ── Native IAP Sync ──────────────────────────────────────────────────────────
+
+/**
+ * After a native IAP purchase/restore, sync the RC subscription state to the backend.
+ * Reads CustomerInfo from RevenueCat, extracts plan/expiry, and POSTs to the backend.
+ * Fails silently so it never blocks the purchase flow.
+ */
+export async function syncFromRevenueCat(): Promise<{ success: boolean }> {
+  if (Platform.OS === 'web') return { success: false };
+
+  try {
+    const { getCustomerInfo } = await import('./iapService');
+    const info = await getCustomerInfo();
+
+    // Determine active plan from entitlements
+    let plan: 'free' | 'starter' | 'pro' = 'free';
+    let entitlementId = '';
+    let expiresAt: string | null = null;
+    let billingCycle: 'monthly' | 'yearly' = 'monthly';
+
+    const proEntitlement = info.entitlements.active['docuintelli_pro'];
+    const starterEntitlement = info.entitlements.active['docuintelli_starter'];
+    const activeEntitlement = proEntitlement || starterEntitlement;
+
+    if (proEntitlement?.isActive) {
+      plan = 'pro';
+      entitlementId = 'docuintelli_pro';
+    } else if (starterEntitlement?.isActive) {
+      plan = 'starter';
+      entitlementId = 'docuintelli_starter';
+    }
+
+    if (activeEntitlement) {
+      expiresAt = activeEntitlement.expirationDate;
+      // Detect billing cycle from product identifier
+      const productId = activeEntitlement.productIdentifier || '';
+      billingCycle = productId.includes('yearly') ? 'yearly' : 'monthly';
+    }
+
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}/api/subscription/sync-iap`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        plan,
+        billing_cycle: billingCycle,
+        entitlement_id: entitlementId,
+        expires_at: expiresAt,
+      }),
+    });
+
+    if (!res.ok) return { success: false };
+    return { success: true };
+  } catch {
+    return { success: false };
+  }
 }
 
 // Get billing data (payment methods, invoices, transactions) from API

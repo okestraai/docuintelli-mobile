@@ -6,6 +6,7 @@
  */
 
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import Purchases, {
   type PurchasesOfferings,
   type PurchasesPackage,
@@ -18,14 +19,18 @@ const RC_GOOGLE_KEY = process.env.EXPO_PUBLIC_RC_GOOGLE_KEY || '';
 
 let isConfigured = false;
 
+// Detect Expo Go — RevenueCat native store is unavailable in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 /**
  * Configure RevenueCat SDK. Call once on app boot (after auth).
+ * Skips silently in Expo Go since native store APIs are unavailable.
  * @param appUserId - Your backend user ID to link purchases to accounts
  */
 export async function configureRevenueCat(appUserId?: string): Promise<void> {
-  if (Platform.OS === 'web' || isConfigured) return;
+  if (Platform.OS === 'web' || isConfigured || isExpoGo) return;
 
   const apiKey = Platform.OS === 'ios' ? RC_APPLE_KEY : RC_GOOGLE_KEY;
   if (!apiKey) {
@@ -37,8 +42,12 @@ export async function configureRevenueCat(appUserId?: string): Promise<void> {
     Purchases.setLogLevel(LOG_LEVEL.DEBUG);
   }
 
-  Purchases.configure({ apiKey, appUserID: appUserId || undefined });
-  isConfigured = true;
+  try {
+    await Promise.resolve(Purchases.configure({ apiKey, appUserID: appUserId || undefined }));
+    isConfigured = true;
+  } catch (err) {
+    console.warn('[IAP] Failed to configure RevenueCat:', err);
+  }
 }
 
 /**
@@ -164,9 +173,13 @@ export async function getActivePlan(): Promise<'free' | 'starter' | 'pro'> {
 export function onCustomerInfoUpdated(
   callback: (info: CustomerInfo) => void
 ): () => void {
-  if (Platform.OS === 'web') return () => {};
-  const listener = Purchases.addCustomerInfoUpdateListener(callback);
-  return () => listener.remove();
+  if (Platform.OS === 'web' || !isConfigured) return () => {};
+  try {
+    const listener = Purchases.addCustomerInfoUpdateListener(callback);
+    return () => listener?.remove?.();
+  } catch {
+    return () => {};
+  }
 }
 
 /**

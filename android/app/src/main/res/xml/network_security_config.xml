@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+
+  <!-- Production: pin docuintelli.com certificates -->
+  <domain-config>
+    <domain includeSubdomains="false">docuintelli.com</domain>
+    <pin-set expiration="2027-06-01">
+      <!-- Leaf certificate SPKI SHA-256 -->
+      <pin digest="SHA-256">sATf4+jHZQLPTTG7MKMCLS6/UYx+tUflX6i5zhlJgKI=</pin>
+      <!-- Intermediate CA SPKI SHA-256 (backup — survives leaf rotation) -->
+      <pin digest="SHA-256">kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</pin>
+    </pin-set>
+  </domain-config>
+
+  <!-- Development: allow cleartext for local backend -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">10.0.2.2</domain>
+  </domain-config>
+
+  <!-- Base config: disallow cleartext everywhere else -->
+  <base-config cleartextTrafficPermitted="false" />
+
+</network-security-config>

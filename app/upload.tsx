@@ -18,7 +18,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import { useDocuments } from '../src/hooks/useDocuments';
 import { uploadMergedDocument } from '../src/lib/api';
 import { useSubscription } from '../src/hooks/useSubscription';
-import { getCloudProviders, connectProvider as connectCloudProvider, type CloudProvider } from '../src/lib/cloudStorageApi';
+import { getCloudProviders, getConnectUrl as connectCloudProvider, type CloudProvider } from '../src/lib/cloudStorageApi';
 import { CloudProviderIcon } from '../src/components/CloudProviderIcon';
 import Button from '../src/components/ui/Button';
 import Card from '../src/components/ui/Card';
@@ -369,16 +369,15 @@ export default function UploadScreen() {
                       <Text style={styles.sourceBtnText}>Choose File</Text>
                     </TouchableOpacity>
 
-                    {cloudEnabled && cloudProviders.map(p => (
+                    {cloudEnabled && Platform.OS === 'web' && cloudProviders.map(p => (
                       <TouchableOpacity
                         key={p.name}
                         onPress={async () => {
                           if (p.connected) {
-                            // Navigate to vault to use cloud browser
                             router.push('/(tabs)/vault');
                           } else {
                             const url = await connectCloudProvider(p.name);
-                            if (url && Platform.OS === 'web') {
+                            if (url) {
                               window.location.href = url;
                             }
                           }

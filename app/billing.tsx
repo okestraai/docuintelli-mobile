@@ -65,6 +65,7 @@ import {
   restorePurchases,
   getManageSubscriptionsUrl,
 } from '../src/lib/iapService';
+import { syncFromRevenueCat } from '../src/lib/subscriptionApi';
 import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -246,10 +247,25 @@ export default function BillingScreen() {
   const [plans, setPlans] = useState(() => buildPlans(9, 15, 90, 150, 'monthly'));
 
   useEffect(() => {
-    fetchPlanPrices().then((p) => {
-      setPrices({ starterMonthly: p.starter.monthly, proMonthly: p.pro.monthly, starterYearly: p.starter.yearly, proYearly: p.pro.yearly });
-      setPlans(buildPlans(p.starter.monthly, p.pro.monthly, p.starter.yearly, p.pro.yearly, billingCycle));
-    });
+    if (isNativeIAP) {
+      // Native: load localized prices from RevenueCat (App Store / Play Store)
+      getOfferings().then((offerings) => {
+        const pkgs = offerings.current?.availablePackages ?? [];
+        const findPrice = (id: string) => pkgs.find((p) => p.identifier === id)?.product.price ?? 0;
+        const sm = findPrice('starter_monthly');
+        const pm = findPrice('pro_monthly');
+        const sy = findPrice('starter_yearly');
+        const py = findPrice('pro_yearly');
+        if (sm > 0 || pm > 0) {
+          setPrices({ starterMonthly: sm, proMonthly: pm, starterYearly: sy, proYearly: py });
+        }
+      }).catch(() => {}); // Fall back to hardcoded defaults
+    } else {
+      // Web: load prices from Stripe API
+      fetchPlanPrices().then((p) => {
+        setPrices({ starterMonthly: p.starter.monthly, proMonthly: p.pro.monthly, starterYearly: p.starter.yearly, proYearly: p.pro.yearly });
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -414,6 +430,7 @@ export default function BillingScreen() {
           // Native: use RevenueCat in-app purchase
           const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
           await purchaseByPackageId(packageId);
+          await syncFromRevenueCat().catch(() => {});
           await refreshSubscription();
           showToast(`Subscribed to ${capitalize(planId)}!`, 'success');
         } else {
@@ -435,36 +452,50 @@ export default function BillingScreen() {
     if (targetRank > currentRank) {
       setActionLoading(true);
       try {
-        const preview = await previewUpgrade(planId);
-        const proratedText = preview.prorated_amount
-          ? `You will be charged a prorated amount of ${formatCurrency(preview.prorated_amount)} (${preview.currency.toUpperCase()}) immediately.`
-          : 'Your plan will be upgraded immediately.';
+        if (isNativeIAP) {
+          // Native: purchase the higher-tier package via RevenueCat
+          // Apple/Google handles proration automatically within the subscription group
+          const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+          await purchaseByPackageId(packageId);
+          await syncFromRevenueCat().catch(() => {});
+          await refreshSubscription();
+          showToast(`Upgraded to ${capitalize(planId)}!`, 'success');
+        } else {
+          // Web: existing Stripe proration preview + upgrade flow
+          const preview = await previewUpgrade(planId);
+          const proratedText = preview.prorated_amount
+            ? `You will be charged a prorated amount of ${formatCurrency(preview.prorated_amount)} (${preview.currency.toUpperCase()}) immediately.`
+            : 'Your plan will be upgraded immediately.';
 
-        setActionLoading(false);
-        setConfirmModal({
-          visible: true,
-          title: `Upgrade to ${capitalize(planId)}`,
-          message: `${proratedText}\n\nYour new plan features will be available right away.`,
-          confirmLabel: 'Upgrade Now',
-          variant: 'primary',
-          onConfirm: async () => {
-            setActionLoading(true);
-            try {
-              await upgradeSubscription(planId);
-              await refreshSubscription();
-              await loadBillingData();
-              setConfirmModal((prev) => ({ ...prev, visible: false }));
-              showToast(`Upgraded to ${capitalize(planId)}!`, 'success');
-            } catch (err: any) {
-              showToast(err.message || 'Failed to upgrade', 'error');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        });
+          setActionLoading(false);
+          setConfirmModal({
+            visible: true,
+            title: `Upgrade to ${capitalize(planId)}`,
+            message: `${proratedText}\n\nYour new plan features will be available right away.`,
+            confirmLabel: 'Upgrade Now',
+            variant: 'primary',
+            onConfirm: async () => {
+              setActionLoading(true);
+              try {
+                await upgradeSubscription(planId);
+                await refreshSubscription();
+                await loadBillingData();
+                setConfirmModal((prev) => ({ ...prev, visible: false }));
+                showToast(`Upgraded to ${capitalize(planId)}!`, 'success');
+              } catch (err: any) {
+                showToast(err.message || 'Failed to upgrade', 'error');
+              } finally {
+                setActionLoading(false);
+              }
+            },
+          });
+        }
       } catch (err: any) {
+        if (err?.userCancelled || err?.code === 'PURCHASE_CANCELLED') return;
         setActionLoading(false);
-        showToast(err.message || 'Failed to preview upgrade', 'error');
+        showToast(err.message || 'Failed to upgrade', 'error');
+      } finally {
+        if (isNativeIAP) setActionLoading(false);
       }
       return;
     }
@@ -516,6 +547,7 @@ export default function BillingScreen() {
     setActionLoading(true);
     try {
       await restorePurchases();
+      await syncFromRevenueCat().catch(() => {});
       await refreshSubscription();
       showToast('Purchases restored', 'success');
     } catch (err: any) {
@@ -704,8 +736,8 @@ export default function BillingScreen() {
           </View>
         </Card>
 
-        {/* Coupon Code Section — free plan only */}
-        {currentPlan === 'free' && (
+        {/* Coupon Code Section — free plan only, web only (Apple prohibits Stripe checkout on native) */}
+        {currentPlan === 'free' && !isNativeIAP && (
           <Card style={styles.couponCard}>
             <View style={styles.couponHeader}>
               <View style={styles.couponIconWrap}>

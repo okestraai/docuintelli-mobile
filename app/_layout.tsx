@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppState, View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -20,9 +20,9 @@ import { configureRevenueCat, loginUser, logoutUser } from '../src/lib/iapServic
 import { ToastProvider, ToastRenderer } from '../src/contexts/ToastContext';
 import { SubscriptionProvider } from '../src/contexts/SubscriptionContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
-import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import AnimatedSplash from '../src/components/ui/AnimatedSplash';
 import OfflineBanner from '../src/components/ui/OfflineBanner';
+import CompromisedDeviceBanner from '../src/components/ui/CompromisedDeviceBanner';
 import DunningBanner from '../src/components/ui/DunningBanner';
 import PersistentTabBar from '../src/components/PersistentTabBar';
 import { GoalBubbleProvider } from '../src/contexts/GoalBubbleContext';
@@ -100,8 +100,8 @@ export default function RootLayout() {
 
       // Configure RevenueCat for native IAP
       if (Platform.OS !== 'web') {
-        await configureRevenueCat();
         const currentSession = useAuthStore.getState().session;
+        await configureRevenueCat(currentSession?.user?.id);
         if (currentSession?.user?.id) {
           loginUser(currentSession.user.id).catch(() => {});
         }
@@ -164,16 +164,43 @@ export default function RootLayout() {
     return cleanup;
   }, []);
 
-  // Biometric lock on app resume
+  // Jailbreak / Root detection — warn but never block
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    (async () => {
+      try {
+        const { checkDeviceCompromised } = await import('../src/services/deviceSecurity');
+        const compromised = await checkDeviceCompromised();
+        if (compromised) {
+          useAppStore.getState().setCompromised(true);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Biometric lock on app resume — only lock after being in background for >3 seconds
+  // Skips re-locking when biometric prompt, modals, or OAuth sheets cause brief transitions
+  const lastUnlockTime = useRef<number>(0);
+  const backgroundTimestamp = useRef<number>(0);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appState.current === 'active' && nextState.match(/inactive|background/)) {
+        backgroundTimestamp.current = Date.now();
+      }
+
       if (
         appState.current.match(/inactive|background/) &&
         nextState === 'active' &&
         biometricEnabled &&
         session
       ) {
-        setLocked(true);
+        const bgElapsed = Date.now() - backgroundTimestamp.current;
+        const unlockElapsed = Date.now() - lastUnlockTime.current;
+        // Only lock if backgrounded for >3s AND not just unlocked in the last 5s
+        if (bgElapsed > 3000 && unlockElapsed > 5000) {
+          setLocked(true);
+        }
       }
       appState.current = nextState;
     });
@@ -185,6 +212,7 @@ export default function RootLayout() {
     setUnlocking(true);
     const success = await promptBiometric();
     if (success) {
+      lastUnlockTime.current = Date.now();
       setLocked(false);
     }
     setUnlocking(false);
@@ -210,6 +238,7 @@ export default function RootLayout() {
       <View style={[{ flex: 1 }, Platform.OS === 'web' && webShell.inner]}>
       <StatusBar style="dark" translucent={false} />
       <OfflineBanner />
+      <CompromisedDeviceBanner />
       {session && <DunningBanner />}
       <GoalBubbleProvider>
       <Stack

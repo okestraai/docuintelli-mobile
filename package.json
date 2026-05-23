@@ -8,7 +8,16 @@
     "ios": "expo run:ios",
     "web": "expo start --web --port 5173",
     "test": "jest --watchAll",
-    "lint": "expo lint"
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "tsc --noEmit",
+    "build:preview": "eas build --profile preview --platform android",
+    "build:android": "eas build --profile production --platform android",
+    "build:ios": "eas build --profile production --platform ios",
+    "build:all": "eas build --profile production --platform all",
+    "submit:android": "eas submit --platform android",
+    "submit:ios": "eas submit --platform ios",
+    "update:preview": "eas update --branch preview",
+    "update:production": "eas update --branch production"
   },
   "jest": {
     "preset": "jest-expo"

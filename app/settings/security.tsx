@@ -16,7 +16,10 @@ import {
   EyeOff,
   AlertTriangle,
   Trash2,
+  Download,
 } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../src/store/authStore';
 import { useBiometrics } from '../../src/hooks/useBiometrics';
 import {
@@ -46,6 +49,8 @@ export default function SecurityScreen() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  // Export data
+  const [exporting, setExporting] = useState(false);
   // Delete account
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -93,6 +98,39 @@ export default function SecurityScreen() {
       setToast({ message: 'Failed to change password', type: 'error', visible: true });
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const { API_BASE } = require('../../src/lib/config');
+      const res = await fetch(`${API_BASE}/api/account/export`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to export data' }));
+        throw new Error(err.error || 'Failed to export data');
+      }
+
+      const json = await res.text();
+      const fileUri = FileSystem.documentDirectory + 'docuintelli-export.json';
+      await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'Save your data export' });
+      }
+
+      setToast({ message: 'Your data export is ready', type: 'success', visible: true });
+    } catch {
+      setToast({ message: 'Failed to export data', type: 'error', visible: true });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -223,6 +261,27 @@ export default function SecurityScreen() {
             </View>
           </Card>
         )}
+
+        {/* Export My Data */}
+        <Card>
+          <View style={styles.dangerHeader}>
+            <Download size={20} color={colors.primary[600]} strokeWidth={1.8} />
+            <Text style={[styles.dangerTitle, { color: colors.slate[900] }]}>Export My Data</Text>
+          </View>
+          <Text style={styles.dangerText}>
+            Download a copy of all your DocuIntelli data including documents, profile, and activity history.
+          </Text>
+          <Button
+            title="Export My Data"
+            onPress={handleExportData}
+            loading={exporting}
+            disabled={exporting}
+            variant="outline"
+            icon={<Download size={16} color={colors.slate[700]} strokeWidth={1.8} />}
+            fullWidth
+            style={{ marginTop: spacing.md }}
+          />
+        </Card>
 
         {/* Danger Zone */}
         <Card style={{ borderColor: colors.error[200] }}>

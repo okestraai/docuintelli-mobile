@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { auth } from '../lib/auth';
 import { API_BASE } from '../lib/config';
+import { syncFromRevenueCat } from '../lib/subscriptionApi';
+import { onCustomerInfoUpdated, isNativeIAP } from '../lib/iapService';
 import { useAuthStore } from '../store/authStore';
 import type { Subscription } from '../types/subscription';
 
@@ -131,6 +133,18 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         clearInterval(pollIntervalRef.current);
       }
     };
+  }, [session, fetchSubscription]);
+
+  // Listen for real-time RevenueCat subscription changes (native only)
+  useEffect(() => {
+    if (!isNativeIAP || !session) return;
+
+    const unsubscribe = onCustomerInfoUpdated(async () => {
+      await syncFromRevenueCat().catch(() => {});
+      await fetchSubscription();
+    });
+
+    return unsubscribe;
   }, [session, fetchSubscription]);
 
   const plan = subscription?.plan;

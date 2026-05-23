@@ -14,21 +14,23 @@ export function handleDeepLink(url: string) {
 
   if (!parsed.path) return;
 
+  // Normalize path — HTTPS Universal Links have a leading slash, custom scheme links don't
+  const path = parsed.path.replace(/^\//, '');
+
   // Handle Stripe checkout callbacks
-  if (parsed.path === 'checkout/success') {
+  if (path === 'checkout/success') {
     // Stripe checkout completed — navigate to billing with success state
     router.replace('/billing');
     return;
   }
 
-  if (parsed.path === 'checkout/cancel') {
-    // Stripe checkout was cancelled — navigate to billing
+  if (path === 'checkout/cancel') {
     router.replace('/billing');
     return;
   }
 
   // Handle password reset
-  if (parsed.path === 'reset-password') {
+  if (path === 'reset-password') {
     const token = parsed.queryParams?.token as string | undefined;
     if (token) {
       router.push({ pathname: '/(auth)/forgot-password', params: { token } });
@@ -37,7 +39,7 @@ export function handleDeepLink(url: string) {
   }
 
   // Handle emergency access invite
-  if (parsed.path === 'emergency-invite') {
+  if (path === 'emergency-invite') {
     const token = parsed.queryParams?.token as string | undefined;
     if (token) {
       router.push({ pathname: '/emergency-invite', params: { token } });
@@ -46,14 +48,14 @@ export function handleDeepLink(url: string) {
   }
 
   // Handle cloud storage OAuth callback (safety net if openAuthSessionAsync misses it)
-  if (parsed.path === 'vault' && parsed.queryParams?.cloud_connected) {
+  if (path === 'vault' && parsed.queryParams?.cloud_connected) {
     router.replace('/(tabs)/vault');
     return;
   }
 
-  // Handle e-signature signing links (docuintelli://sign/{token})
-  if (parsed.path?.startsWith('sign/')) {
-    const signingToken = parsed.path.replace('sign/', '');
+  // Handle e-signature signing links (docuintelli://sign/{token} or https://docuintelli.com/sign/{token})
+  if (path.startsWith('sign/')) {
+    const signingToken = path.replace('sign/', '');
     if (signingToken) {
       router.push({ pathname: '/esign/sign/[token]', params: { token: signingToken } });
     }

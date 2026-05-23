@@ -127,8 +127,6 @@ export default function VaultScreen() {
   const cloudEnabled = subscription?.plan === 'pro';
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
-
-
   // Tab state
   const [activeTab, setActiveTab] = useState<VaultTab>(tab === 'health' ? 'health' : 'documents');
   const hasSetInitialTab = useRef(false);
@@ -225,7 +223,7 @@ export default function VaultScreen() {
               if (provider.name === 'google_drive') {
                 setShowGoogleDrivePicker(true);
               } else {
-                setActiveCloudProvider(provider);
+                setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
                 setShowCloudBrowser(true);
               }
             } else {
@@ -245,7 +243,6 @@ export default function VaultScreen() {
     setShowCloudPicker(false);
     if (provider.connected) {
       if (provider.name === 'google_drive') {
-        // Google Drive uses the Picker API (required for drive.file scope)
         setShowGoogleDrivePicker(true);
       } else {
         setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
