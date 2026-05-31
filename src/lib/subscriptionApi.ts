@@ -14,8 +14,9 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
-// Cancel subscription at period end
+// Cancel subscription at period end (Stripe/web only)
 export async function cancelSubscription(): Promise<{ success: boolean }> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP subscription management on mobile');
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/subscription/cancel`, {
     method: 'POST', headers,
@@ -34,8 +35,9 @@ export async function reactivateSubscription(): Promise<{ success: boolean }> {
   return res.json();
 }
 
-// Upgrade subscription immediately (with proration)
+// Upgrade subscription immediately (Stripe/web only)
 export async function upgradeSubscription(newPlan: string): Promise<{ success: boolean }> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/subscription/upgrade`, {
     method: 'POST', headers,
@@ -56,8 +58,9 @@ export async function previewUpgrade(newPlan: string): Promise<{ prorated_amount
   return res.json();
 }
 
-// Schedule downgrade at period end
+// Schedule downgrade at period end (Stripe/web only)
 export async function downgradeSubscription(newPlan: string, documentsToKeep?: string[]): Promise<{ success: boolean }> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/subscription/downgrade`, {
     method: 'POST', headers,
@@ -75,11 +78,12 @@ export async function getSubscriptionDetails(): Promise<any> {
   return res.json();
 }
 
-// Get Stripe checkout URL for a new subscription (caller opens in InAppBrowser)
+// Get Stripe checkout URL for a new subscription (Stripe/web only)
 export async function createCheckoutSession(
   plan: 'starter' | 'pro',
   billingCycle: 'monthly' | 'yearly' = 'monthly'
 ): Promise<string> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const { data: { session } } = await auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -110,8 +114,9 @@ export async function createCheckoutSession(
   return url;
 }
 
-// Get Stripe customer portal URL (caller opens in InAppBrowser)
+// Get Stripe customer portal URL (Stripe/web only)
 export async function getCustomerPortalUrl(): Promise<string> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const { data: { session } } = await auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -146,8 +151,9 @@ export async function syncBillingData(): Promise<{ success: boolean; message?: s
   return res.json();
 }
 
-// Create Stripe upgrade checkout session (Starter → Pro)
+// Create Stripe upgrade checkout session (Stripe/web only)
 export async function createUpgradeCheckout(): Promise<string> {
+  if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const { data: { session } } = await auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -193,8 +199,9 @@ export async function validateCoupon(code: string): Promise<{
   return res.json();
 }
 
-// Redeem a coupon (creates Stripe checkout with trial period)
+// Redeem a coupon (Stripe/web only)
 export async function redeemCoupon(code: string): Promise<string> {
+  if (Platform.OS !== 'web') throw new Error('Coupons are not available on mobile');
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/coupons/redeem`, {
     method: 'POST', headers,

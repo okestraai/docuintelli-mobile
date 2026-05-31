@@ -78,12 +78,17 @@ import { spacing, borderRadius } from '../src/theme/spacing';
 type TabId = 'subscription' | 'payment' | 'transactions' | 'usage';
 type TransactionSubTab = 'invoices' | 'payments';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'subscription', label: 'Subscription' },
-  { id: 'payment', label: 'Payment' },
-  { id: 'transactions', label: 'Transactions' },
-  { id: 'usage', label: 'Usage' },
-];
+const TABS: { id: TabId; label: string }[] = isNativeIAP
+  ? [
+      { id: 'subscription', label: 'Subscription' },
+      { id: 'usage', label: 'Usage' },
+    ]
+  : [
+      { id: 'subscription', label: 'Subscription' },
+      { id: 'payment', label: 'Payment' },
+      { id: 'transactions', label: 'Transactions' },
+      { id: 'usage', label: 'Usage' },
+    ];
 
 function formatPrice(amount: number): string {
   return amount % 1 === 0 ? `$${amount}` : `$${amount.toFixed(2)}`;
@@ -363,6 +368,21 @@ export default function BillingScreen() {
   };
 
   const handleCancelSubscription = () => {
+    if (isNativeIAP) {
+      const platform = Platform.OS === 'ios' ? 'Apple' : 'Google Play';
+      setConfirmModal({
+        visible: true,
+        title: 'Cancel Subscription',
+        message: `To cancel your subscription, you need to manage it through your ${platform} account settings. You'll be redirected there now.`,
+        confirmLabel: `Open ${platform} Settings`,
+        variant: 'primary',
+        onConfirm: async () => {
+          setConfirmModal((prev) => ({ ...prev, visible: false }));
+          Linking.openURL(getManageSubscriptionsUrl());
+        },
+      });
+      return;
+    }
     setConfirmModal({
       visible: true,
       title: 'Cancel Subscription',
@@ -388,6 +408,10 @@ export default function BillingScreen() {
   };
 
   const handleReactivate = async () => {
+    if (isNativeIAP) {
+      Linking.openURL(getManageSubscriptionsUrl());
+      return;
+    }
     setActionLoading(true);
     try {
       await reactivateSubscription();
@@ -402,6 +426,10 @@ export default function BillingScreen() {
   };
 
   const handleCancelDowngrade = async () => {
+    if (isNativeIAP) {
+      Linking.openURL(getManageSubscriptionsUrl());
+      return;
+    }
     // Reactivating also clears a pending downgrade
     setActionLoading(true);
     try {
@@ -501,6 +529,33 @@ export default function BillingScreen() {
     }
 
     // Downgrade
+    if (isNativeIAP) {
+      setConfirmModal({
+        visible: true,
+        title: `Downgrade to ${capitalize(planId)}`,
+        message:
+          'Your downgrade will take effect at the end of your current billing period. You will retain access to your current plan features until then.',
+        confirmLabel: 'Downgrade',
+        variant: 'danger',
+        onConfirm: async () => {
+          setActionLoading(true);
+          try {
+            const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+            await purchaseByPackageId(packageId);
+            await syncFromRevenueCat().catch(() => {});
+            await refreshSubscription();
+            setConfirmModal((prev) => ({ ...prev, visible: false }));
+            showToast(`Downgraded to ${capitalize(planId)}`, 'success');
+          } catch (err: any) {
+            if (err?.userCancelled || err?.code === 'PURCHASE_CANCELLED') return;
+            showToast(err.message || 'Failed to downgrade', 'error');
+          } finally {
+            setActionLoading(false);
+          }
+        },
+      });
+      return;
+    }
     setConfirmModal({
       visible: true,
       title: `Downgrade to ${capitalize(planId)}`,
@@ -724,9 +779,11 @@ export default function BillingScreen() {
             <View style={[styles.infoCell, styles.infoCellBorder]}>
               <Text style={styles.infoCellLabel}>Payment</Text>
               <Text style={styles.infoCellValue}>
-                {defaultPaymentMethod
-                  ? `****${defaultPaymentMethod.last4 ?? '----'}`
-                  : 'None'}
+                {isNativeIAP
+                  ? (Platform.OS === 'ios' ? 'Apple' : 'Google Play')
+                  : defaultPaymentMethod
+                    ? `****${defaultPaymentMethod.last4 ?? '----'}`
+                    : 'None'}
               </Text>
             </View>
             <View style={styles.infoCell}>
@@ -883,24 +940,46 @@ export default function BillingScreen() {
 
         {/* Action buttons */}
         {subscription.status === 'active' && !subscription.cancel_at_period_end && currentPlan !== 'free' && (
-          <View style={styles.actionRow}>
-            <Button
-              title="Cancel Subscription"
-              onPress={handleCancelSubscription}
-              variant="outline"
-              size="md"
-              disabled={actionLoading}
-              style={styles.actionBtn}
-            />
-            <Button
-              title="Update Payment Method"
-              onPress={handleOpenPortal}
-              variant="ghost"
-              size="md"
-              disabled={actionLoading}
-              style={styles.actionBtn}
-            />
-          </View>
+          isNativeIAP ? (
+            <View style={styles.actionRow}>
+              <Button
+                title="Manage Subscription"
+                onPress={() => Linking.openURL(getManageSubscriptionsUrl())}
+                variant="outline"
+                size="md"
+                disabled={actionLoading}
+                style={styles.actionBtn}
+                icon={<ExternalLink size={16} color={colors.slate[700]} strokeWidth={2} />}
+              />
+              <Button
+                title="Cancel Subscription"
+                onPress={handleCancelSubscription}
+                variant="ghost"
+                size="md"
+                disabled={actionLoading}
+                style={styles.actionBtn}
+              />
+            </View>
+          ) : (
+            <View style={styles.actionRow}>
+              <Button
+                title="Cancel Subscription"
+                onPress={handleCancelSubscription}
+                variant="outline"
+                size="md"
+                disabled={actionLoading}
+                style={styles.actionBtn}
+              />
+              <Button
+                title="Update Payment Method"
+                onPress={handleOpenPortal}
+                variant="ghost"
+                size="md"
+                disabled={actionLoading}
+                style={styles.actionBtn}
+              />
+            </View>
+          )
         )}
 
         {/* Available Plans */}
