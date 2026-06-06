@@ -95,10 +95,8 @@ function formatPrice(amount: number): string {
 }
 
 function buildPlans(
-  starterMonthly: number,
-  proMonthly: number,
-  starterYearly: number,
-  proYearly: number,
+  starterPrice: string,
+  proPrice: string,
   billingCycle: 'monthly' | 'yearly',
 ) {
   const isYearly = billingCycle === 'yearly';
@@ -120,7 +118,7 @@ function buildPlans(
     {
       id: 'starter' as const,
       name: 'Starter',
-      price: isYearly ? formatPrice(starterYearly) : formatPrice(starterMonthly),
+      price: starterPrice,
       period: isYearly ? '/year' : '/month',
       features: [
         '25 documents',
@@ -140,7 +138,7 @@ function buildPlans(
     {
       id: 'pro' as const,
       name: 'Pro',
-      price: isYearly ? formatPrice(proYearly) : formatPrice(proMonthly),
+      price: proPrice,
       period: isYearly ? '/year' : '/month',
       features: [
         '100 documents',
@@ -248,34 +246,49 @@ export default function BillingScreen() {
 
   // Billing cycle toggle + dynamic prices
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [prices, setPrices] = useState({ starterMonthly: 9, proMonthly: 15, starterYearly: 90, proYearly: 150 });
-  const [plans, setPlans] = useState(() => buildPlans(9, 15, 90, 150, 'monthly'));
+  const [priceLabels, setPriceLabels] = useState({ starterMonthly: '$9', proMonthly: '$15', starterYearly: '$90', proYearly: '$150' });
+  const [plans, setPlans] = useState(() => buildPlans('$9', '$15', 'monthly'));
 
   useEffect(() => {
     if (isNativeIAP) {
-      // Native: load localized prices from RevenueCat (App Store / Play Store)
+      // Native: load localized price strings from RevenueCat (App Store / Play Store).
+      // Use product.priceString so the displayed price matches the App Store/Play
+      // sheet exactly (correct currency symbol + amount for the user's storefront).
       getOfferings().then((offerings) => {
         const pkgs = offerings.current?.availablePackages ?? [];
-        const findPrice = (id: string) => pkgs.find((p) => p.identifier === id)?.product.price ?? 0;
+        const findPrice = (id: string) => pkgs.find((p) => p.identifier === id)?.product.priceString;
         const sm = findPrice('starter_monthly');
         const pm = findPrice('pro_monthly');
         const sy = findPrice('starter_yearly');
         const py = findPrice('pro_yearly');
-        if (sm > 0 || pm > 0) {
-          setPrices({ starterMonthly: sm, proMonthly: pm, starterYearly: sy, proYearly: py });
+        if (sm || pm) {
+          setPriceLabels((prev) => ({
+            starterMonthly: sm ?? prev.starterMonthly,
+            proMonthly: pm ?? prev.proMonthly,
+            starterYearly: sy ?? prev.starterYearly,
+            proYearly: py ?? prev.proYearly,
+          }));
         }
       }).catch(() => {}); // Fall back to hardcoded defaults
     } else {
-      // Web: load prices from Stripe API
+      // Web: load prices from Stripe API (USD).
       fetchPlanPrices().then((p) => {
-        setPrices({ starterMonthly: p.starter.monthly, proMonthly: p.pro.monthly, starterYearly: p.starter.yearly, proYearly: p.pro.yearly });
+        setPriceLabels({
+          starterMonthly: formatPrice(p.starter.monthly),
+          proMonthly: formatPrice(p.pro.monthly),
+          starterYearly: formatPrice(p.starter.yearly),
+          proYearly: formatPrice(p.pro.yearly),
+        });
       });
     }
   }, []);
 
   useEffect(() => {
-    setPlans(buildPlans(prices.starterMonthly, prices.proMonthly, prices.starterYearly, prices.proYearly, billingCycle));
-  }, [billingCycle, prices]);
+    const isYearly = billingCycle === 'yearly';
+    const starter = isYearly ? priceLabels.starterYearly : priceLabels.starterMonthly;
+    const pro = isYearly ? priceLabels.proYearly : priceLabels.proMonthly;
+    setPlans(buildPlans(starter, pro, billingCycle));
+  }, [billingCycle, priceLabels]);
 
   // Refreshing flag for pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -1008,10 +1021,7 @@ export default function BillingScreen() {
         {plans.map((plan) => {
           const isCurrent = plan.id === currentPlan;
           const isUpgrade = (PLAN_RANK[plan.id] ?? 0) > (PLAN_RANK[currentPlan] ?? 0);
-          const disabled =
-            actionLoading ||
-            (subscription.status === 'canceled' && plan.id !== 'free') ||
-            false;
+          const disabled = actionLoading;
 
           return (
             <PlanCard
