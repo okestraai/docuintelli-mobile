@@ -543,6 +543,28 @@ export default function BillingScreen() {
 
     // Downgrade
     if (isNativeIAP) {
+      // Free is not a purchasable product on the App Store / Play Store. To reach
+      // Free, the user must cancel auto-renew in their store account; the plan then
+      // lapses to Free at the end of the current billing period (picked up on next
+      // syncFromRevenueCat). Apple/Google do not allow cancelling programmatically.
+      if (planId === 'free') {
+        setConfirmModal({
+          visible: true,
+          title: 'Cancel Subscription',
+          message:
+            `To move to the Free plan, cancel your subscription in your ` +
+            `${Platform.OS === 'ios' ? 'Apple' : 'Google Play'} account. ` +
+            `You'll keep your current features until the end of the billing period, ` +
+            `then return to Free automatically.`,
+          confirmLabel: 'Manage Subscription',
+          variant: 'primary',
+          onConfirm: () => {
+            setConfirmModal((prev) => ({ ...prev, visible: false }));
+            Linking.openURL(getManageSubscriptionsUrl());
+          },
+        });
+        return;
+      }
       setConfirmModal({
         visible: true,
         title: `Downgrade to ${capitalize(planId)}`,
