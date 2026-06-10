@@ -67,7 +67,7 @@ import SignatureRequestList from '../../src/components/esign/SignatureRequestLis
 import { getMySignatures } from '../../src/lib/esignatureApi';
 
 
-import { useSubscription } from '../../src/hooks/useSubscription';
+import { isSuperAdmin } from '../../src/lib/isSuperAdmin';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
 const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
@@ -123,8 +123,8 @@ export default function VaultScreen() {
   const { isAuthenticated, user } = useAuth();
   const { documents, loading, isFromCache, deleteDocument, refetch } = useDocuments(isAuthenticated);
   const { showToast } = useToast();
-  const { subscription } = useSubscription();
-  const cloudEnabled = subscription?.plan === 'pro';
+  // Cloud import (Google Drive / Dropbox / …) is restricted to the super admin.
+  const cloudEnabled = isSuperAdmin(user?.email);
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Tab state

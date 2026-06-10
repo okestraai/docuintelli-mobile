@@ -4,7 +4,6 @@ import {
   TextInput, Alert, Modal, Switch, FlatList, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import Svg, { Path, Line, Text as SvgText, Rect } from 'react-native-svg';
 import {
   BarChart3, TrendingUp, TrendingDown, Search, SlidersHorizontal, X,
@@ -16,13 +15,14 @@ import {
   Gem, Lightbulb, Home, Radio, Settings, LayoutGrid,
 } from 'lucide-react-native';
 import { useSubscription } from '../src/hooks/useSubscription';
+import { useIsSuperAdmin } from '../src/lib/isSuperAdmin';
 import { useToast } from '../src/contexts/ToastContext';
+import NotFoundView from '../src/components/ui/NotFoundView';
 import Card from '../src/components/ui/Card';
 import Badge from '../src/components/ui/Badge';
 import Button from '../src/components/ui/Button';
 import GradientIcon from '../src/components/ui/GradientIcon';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
-import ProFeatureGate from '../src/components/ProFeatureGate';
 import StockCard from '../src/components/stockpulse/StockCard';
 import SimulatorCard from '../src/components/stockpulse/SimulatorCard';
 import ScoreRing from '../src/components/stockpulse/ScoreRing';
@@ -80,17 +80,12 @@ const SECTOR_ICONS: Record<string, any> = {
 // ═══════════════════════════════════════════════════════════════════
 
 export default function StockPulseScreen() {
-  const { isPro, loading: subLoading } = useSubscription();
+  const { loading: subLoading } = useSubscription();
+  const superAdmin = useIsSuperAdmin();
 
-  if (!subLoading && !isPro) {
-    return (
-      <ProFeatureGate
-        featureName="StockPulse AI"
-        featureDescription="AI-powered stock research with CIRA v2 scoring, portfolio construction, paper trading simulator, backtesting, and real-time recommendations."
-        onUpgrade={() => router.push('/billing')}
-        requiredPlan="pro"
-      />
-    );
+  // StockPulse / Stock AI is restricted to the super admin — 404 for everyone else.
+  if (!superAdmin) {
+    return <NotFoundView />;
   }
 
   if (subLoading) return <LoadingSpinner fullScreen />;

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react-native';
 import InAppBrowser from '../src/components/ui/InAppBrowser';
 import { useAuth } from '../src/hooks/useAuth';
+import { useIsSuperAdmin } from '../src/lib/isSuperAdmin';
+import NotFoundView from '../src/components/ui/NotFoundView';
 import { useSubscription } from '../src/hooks/useSubscription';
 import { usePlaidLinkFlow } from '../src/hooks/usePlaidLinkFlow';
 import { useToast } from '../src/contexts/ToastContext';
@@ -53,6 +55,7 @@ export default function FinancialInsightsScreen() {
   const { isAuthenticated } = useAuth();
   const { subscription, isStarterOrAbove, isPro, bankAccountLimit, loading: subLoading } = useSubscription();
   const { showToast } = useToast();
+  const superAdmin = useIsSuperAdmin();
 
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
@@ -313,6 +316,12 @@ export default function FinancialInsightsScreen() {
   }
 
   const hasAccounts = connectedAccounts.length > 0;
+
+  // Financial area is restricted to the super admin — 404 for everyone else.
+  // Placed after all hooks so hook order stays stable.
+  if (!superAdmin) {
+    return <NotFoundView />;
+  }
 
   const FEATURE_PREVIEW = [
     { icon: TrendingUp, title: 'Spending Analysis', subtitle: 'See where your money goes', color: colors.primary[600], bg: colors.primary[50] },

@@ -148,7 +148,6 @@ function buildPlans(
         'Priority LLM queue',
         'E-Signatures (50/mo, 10 signers)',
         'Life Events (unlimited + AI)',
-        'Financial Insights & Goals',
         'Emergency Access',
         'Document Health',
         'Global Search',
@@ -823,7 +822,7 @@ export default function BillingScreen() {
             </View>
             <View style={styles.infoCell}>
               <Text style={styles.infoCellLabel}>Doc Limit</Text>
-              <Text style={styles.infoCellValue}>{subscription.document_limit}</Text>
+              <Text style={styles.infoCellValue}>{subscription.document_limit >= 99999 ? 'Unlimited' : subscription.document_limit}</Text>
             </View>
           </View>
         </Card>

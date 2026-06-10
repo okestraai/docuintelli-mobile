@@ -15,6 +15,7 @@ import {
   Lock, Zap, RefreshCw, Merge, Cloud,
 } from 'lucide-react-native';
 import { useAuth } from '../src/hooks/useAuth';
+import { isSuperAdmin } from '../src/lib/isSuperAdmin';
 import { useDocuments } from '../src/hooks/useDocuments';
 import { uploadMergedDocument } from '../src/lib/api';
 import { useSubscription } from '../src/hooks/useSubscription';
@@ -49,7 +50,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function UploadScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { uploadDocuments } = useDocuments(isAuthenticated);
   const { subscription, loading: subLoading, canUploadDocument, incrementMonthlyUploads, documentCount, isStarterOrAbove } = useSubscription();
   const { showToast } = useToast();
@@ -85,7 +86,8 @@ export default function UploadScreen() {
 
   // Cloud import
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
-  const cloudEnabled = subscription?.plan === 'pro';
+  // Cloud import (Google Drive / Dropbox / …) is restricted to the super admin.
+  const cloudEnabled = isSuperAdmin(user?.email);
 
   React.useEffect(() => {
     if (cloudEnabled) {
@@ -587,8 +589,8 @@ export default function UploadScreen() {
                 <View style={styles.warningContent}>
                   <Text style={styles.warningTitle}>Upload Limit Reached</Text>
                   <Text style={styles.warningText}>
-                    Your {subscription?.plan || 'current'} plan allows {subscription?.document_limit ?? 3} documents and{' '}
-                    {subscription?.monthly_upload_limit ?? 3} uploads/month.{' '}
+                    Your {subscription?.plan || 'current'} plan allows {(subscription?.document_limit ?? 3) >= 99999 ? 'unlimited' : (subscription?.document_limit ?? 3)} documents and{' '}
+                    {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads/month.{' '}
                     {isFree ? 'Upgrade to continue.' : 'You have reached your limit for this period.'}
                   </Text>
                 </View>
@@ -607,7 +609,7 @@ export default function UploadScreen() {
           )}
 
           {/* Approaching limit warning — all plans */}
-          {canUploadDocument && subscription && (subscription.monthly_uploads_used ?? 0) >= (subscription.monthly_upload_limit ?? 3) * 0.8 && (
+          {canUploadDocument && subscription && (subscription.monthly_upload_limit ?? 3) < 99999 && (subscription.monthly_uploads_used ?? 0) >= (subscription.monthly_upload_limit ?? 3) * 0.8 && (
             <View style={styles.approachingLimitRow}>
               <AlertTriangle size={14} color={colors.warning[600]} />
               <Text style={styles.approachingLimitText}>
@@ -621,9 +623,9 @@ export default function UploadScreen() {
             <View style={styles.usageRow}>
               <View style={styles.usageDot} />
               <Text style={styles.usageText}>
-                {documentCount} / {subscription?.document_limit ?? 3} documents used
+                {documentCount} / {(subscription?.document_limit ?? 3) >= 99999 ? 'Unlimited' : (subscription?.document_limit ?? 3)} documents used
                 {' \u2022 '}
-                {subscription?.monthly_uploads_used ?? 0} / {subscription?.monthly_upload_limit ?? 3} uploads this month
+                {subscription?.monthly_uploads_used ?? 0} / {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'Unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads this month
               </Text>
             </View>
           )}

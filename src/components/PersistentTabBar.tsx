@@ -4,6 +4,7 @@ import { usePathname, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, FileText, Landmark, Compass, Settings, Crown } from 'lucide-react-native';
 import { useSubscription } from '../hooks/useSubscription';
+import { useIsSuperAdmin } from '../lib/isSuperAdmin';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
@@ -54,11 +55,17 @@ export default function PersistentTabBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const { isPro, isStarterOrAbove, loading: subLoading } = useSubscription();
+  const superAdmin = useIsSuperAdmin();
 
   // Hide on auth / splash / full-screen signing screens
   const shouldHide = HIDDEN_ON.some((p) => pathname === p) ||
     HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (shouldHide) return null;
+
+  // Financial area (insights + StockPulse) is restricted to the super admin.
+  const visibleTabs = TABS.filter(
+    (tab) => tab.route !== '/financial-insights' || superAdmin
+  );
 
   const bottomPadding = Math.max(insets.bottom, 8);
 
@@ -76,7 +83,7 @@ export default function PersistentTabBar() {
         { paddingBottom: bottomPadding },
       ]}
     >
-      {TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const active = tab.match.some((m) => pathname.includes(m));
         const locked = isLocked(tab.requiredPlan);
         const Icon = tab.icon;
