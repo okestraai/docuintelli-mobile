@@ -415,7 +415,7 @@ export default function DocumentChatScreen() {
               <View style={styles.limitRow}>
                 <Sparkles size={12} color={colors.primary[600]} />
                 <Text style={styles.limitText}>
-                  {(questionsUsed / 1000).toFixed(0)}K / {(questionsLimit / 1000).toFixed(0)}K tokens used
+                  {(questionsUsed / 1000).toFixed(0)}K / {questionsLimit >= 99999 ? 'Unlimited' : `${(questionsLimit / 1000).toFixed(0)}K`} tokens used
                 </Text>
               </View>
               <View style={styles.limitTrack}>

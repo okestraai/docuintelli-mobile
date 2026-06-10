@@ -49,6 +49,22 @@ import { spacing, borderRadius } from '../../src/theme/spacing';
 // Max width matching root layout's MAX_APP_WIDTH for card sizing
 const MAX_CONTENT_WIDTH = 480;
 
+const UNLIMITED_THRESHOLD = 99999;
+function isUnlimited(limit: number): boolean {
+  return limit >= UNLIMITED_THRESHOLD;
+}
+function formatLimit(used: number, limit: number): string {
+  return isUnlimited(limit) ? `${used} / Unlimited` : `${used} / ${limit}`;
+}
+function formatTokens(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(value % 1000000 === 0 ? 0 : 1)}M`;
+  return `${(value / 1000).toFixed(0)}K`;
+}
+function formatTokenLimit(used: number, limit: number): string {
+  if (isUnlimited(limit)) return `${formatTokens(used)} / Unlimited`;
+  return `${formatTokens(used)} / ${formatTokens(limit)}`;
+}
+
 // ---------- helpers ----------
 
 function getGreeting(): string {
@@ -191,11 +207,11 @@ export default function DashboardScreen() {
     : 0;
 
   const docUsagePercent = subscription
-    ? Math.min(100, Math.round((documentCount / subscription.document_limit) * 100))
+    ? isUnlimited(subscription.document_limit) ? Math.min(100, Math.round((documentCount / 100) * 100)) : Math.min(100, Math.round((documentCount / subscription.document_limit) * 100))
     : 0;
 
   const uploadUsagePercent = subscription
-    ? Math.min(
+    ? isUnlimited(subscription.monthly_upload_limit) ? Math.min(100, Math.round((subscription.monthly_uploads_used / 150) * 100)) : Math.min(
         100,
         Math.round(
           (subscription.monthly_uploads_used / subscription.monthly_upload_limit) * 100,
@@ -452,7 +468,7 @@ export default function DashboardScreen() {
                 <View style={styles.usageLabelRow}>
                   <Text style={styles.usageLabelText}>Document Storage</Text>
                   <Text style={styles.usageValueText}>
-                    {documentCount} / {subscription.document_limit}
+                    {formatLimit(documentCount, subscription.document_limit)}
                   </Text>
                 </View>
                 <View style={styles.progressBarTrack}>
@@ -474,7 +490,7 @@ export default function DashboardScreen() {
                 <View style={styles.usageLabelRow}>
                   <Text style={styles.usageLabelText}>Monthly Uploads</Text>
                   <Text style={styles.usageValueText}>
-                    {subscription.monthly_uploads_used} / {subscription.monthly_upload_limit}
+                    {formatLimit(subscription.monthly_uploads_used, subscription.monthly_upload_limit)}
                   </Text>
                 </View>
                 <View style={styles.progressBarTrack}>
@@ -494,28 +510,29 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
-              {/* Monthly Tokens (free plan only) */}
-              {subscription.plan === 'free' && (
-                <View style={styles.usageBlock}>
-                  <View style={styles.usageLabelRow}>
-                    <Text style={styles.usageLabelText}>Monthly Tokens</Text>
-                    <Text style={styles.usageValueText}>
-                      {((subscription.tokens_used ?? 0) / 1000).toFixed(0)}K / {((subscription.tokens_limit ?? 50000) / 1000).toFixed(0)}K
-                    </Text>
-                  </View>
-                  <View style={styles.progressBarTrack}>
-                    <LinearGradient
-                      colors={
-                        !canAskQuestion
-                          ? ([colors.error[500], colors.warning[500]] as [string, string])
-                          : ([colors.info[500], colors.primary[500]] as [string, string])
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${Math.max(
+              {/* Monthly Tokens */}
+              <View style={styles.usageBlock}>
+                <View style={styles.usageLabelRow}>
+                  <Text style={styles.usageLabelText}>Monthly Tokens</Text>
+                  <Text style={styles.usageValueText}>
+                    {formatTokenLimit(subscription.tokens_used ?? 0, subscription.tokens_limit ?? 50000)}
+                  </Text>
+                </View>
+                <View style={styles.progressBarTrack}>
+                  <LinearGradient
+                    colors={
+                      !canAskQuestion
+                        ? ([colors.error[500], colors.warning[500]] as [string, string])
+                        : ([colors.info[500], colors.primary[500]] as [string, string])
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${isUnlimited(subscription.tokens_limit ?? 50000)
+                          ? Math.max(2, Math.min(100, Math.round(((subscription.tokens_used ?? 0) / 500000) * 100)))
+                          : Math.max(
                             2,
                             Math.round(
                               ((subscription.tokens_used ?? 0) /
@@ -523,12 +540,11 @@ export default function DashboardScreen() {
                                 100,
                             ),
                           )}%`,
-                        },
-                      ]}
-                    />
-                  </View>
+                      },
+                    ]}
+                  />
                 </View>
-              )}
+              </View>
 
               {/* Upgrade button for free users */}
               {subscription.plan === 'free' && (

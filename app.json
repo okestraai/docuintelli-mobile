@@ -96,13 +96,13 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8ed00e57-83f4-4199-8470-5913cdc57e39"
+        "projectId": "0ad81a6e-b653-42f6-98c0-c1ed7fbb8b47"
       }
     },
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "nobledeveloper",
+    "owner": "okestraai",
     "runtimeVersion": "1.0.0"
   }
 }

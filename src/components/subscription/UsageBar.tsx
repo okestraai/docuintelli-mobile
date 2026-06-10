@@ -13,7 +13,8 @@ interface UsageBarProps {
   icon?: React.ReactNode;
 }
 
-export default function UsageBar({ label, used, limit, isUnlimited = false, icon }: UsageBarProps) {
+export default function UsageBar({ label, used, limit, isUnlimited: isUnlimitedProp = false, icon }: UsageBarProps) {
+  const isUnlimited = isUnlimitedProp || limit >= 99999;
   const percentage = isUnlimited ? 0 : limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
   const remaining = limit - used;
   const isAtLimit = !isUnlimited && remaining <= 0;
