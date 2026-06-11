@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import {
   Shield,
   Zap,
@@ -1080,6 +1080,18 @@ export default function BillingScreen() {
             }{' '}Payment will be charged to your {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account.
           </Text>
         )}
+
+        {/* Functional Terms of Use (EULA) & Privacy Policy links — Apple requires
+            these on the subscription screen (App Store Guideline 3.1.2(c)). */}
+        <View style={styles.legalLinksRow}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/legal', params: { page: 'terms' } })}>
+            <Text style={styles.legalLink}>Terms of Use</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalLinkSeparator}>•</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/legal', params: { page: 'privacy' } })}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1732,6 +1744,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: spacing.md,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  legalLink: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary[500],
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
   },
 
   // Payment card

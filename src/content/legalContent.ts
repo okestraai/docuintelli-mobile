@@ -45,8 +45,8 @@ export const FAQ_CONTENT: FaqItem[] = [
       'Three tiers: Free (3 documents), Starter ($9/month, 25 documents), and Pro ($15/month, 100 documents).',
   },
   {
-    question: 'Is DocuIntelli AI available on iPhone and Android?',
-    answer: 'Yes, with complete feature parity across platforms.',
+    question: 'Can I use DocuIntelli AI on multiple devices?',
+    answer: 'Yes, with complete feature parity across your devices.',
   },
   {
     question: 'What does my renter\'s insurance cover?',
