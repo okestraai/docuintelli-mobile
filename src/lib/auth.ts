@@ -1093,7 +1093,18 @@ export const signInWithApple = async () => {
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || 'Apple authentication failed');
+    // Server now returns { error, detail, code } so we can surface the real
+    // cause (e.g. "jwt audience invalid") to the dev console + UI.
+    const errorMsg = data.detail
+      ? `${data.error || 'Apple authentication failed'}: ${data.detail}`
+      : data.error || 'Apple authentication failed';
+    console.warn('[Apple Auth] Server rejected token:', {
+      status: res.status,
+      error: data.error,
+      detail: data.detail,
+      code: data.code,
+    });
+    throw new Error(errorMsg);
   }
 
   const accessToken = data.access_token;
