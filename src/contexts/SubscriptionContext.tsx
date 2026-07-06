@@ -148,8 +148,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [session, fetchSubscription]);
 
   const plan = subscription?.plan;
-  const isPro = plan === 'pro';
-  const isStarterOrAbove = plan === 'starter' || plan === 'pro';
+  // Family is a superset of Pro — it must satisfy every Pro-level gate.
+  const isPro = plan === 'pro' || plan === 'family';
+  const isStarterOrAbove = plan === 'starter' || plan === 'pro' || plan === 'family';
 
   const withinStorageLimit = loading ? true : subscription ? documentCount < subscription.document_limit : true;
   const withinMonthlyQuota = loading ? true : subscription ? subscription.monthly_uploads_used < subscription.monthly_upload_limit : true;

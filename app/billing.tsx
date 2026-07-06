@@ -18,6 +18,7 @@ import {
   Shield,
   Zap,
   Crown,
+  Users,
   AlertTriangle,
   CreditCard,
   FileText,
@@ -64,6 +65,7 @@ import {
   purchaseByPackageId,
   restorePurchases,
   getManageSubscriptionsUrl,
+  type PackageId,
 } from '../src/lib/iapService';
 import { syncFromRevenueCat } from '../src/lib/subscriptionApi';
 import * as Linking from 'expo-linking';
@@ -97,9 +99,11 @@ function formatPrice(amount: number): string {
 function buildPlans(
   starterPrice: string,
   proPrice: string,
+  familyPrice: string,
   billingCycle: 'monthly' | 'yearly',
 ) {
   const isYearly = billingCycle === 'yearly';
+  const period = isYearly ? '/year' : '/month';
   return [
     {
       id: 'free' as const,
@@ -107,8 +111,8 @@ function buildPlans(
       price: '$0',
       period: '/month',
       features: [
-        '3 documents',
-        '3 uploads/month',
+        '5 documents',
+        '5 uploads/month',
         '50K AI tokens/month',
         '1 device',
         'File upload only',
@@ -119,19 +123,19 @@ function buildPlans(
       id: 'starter' as const,
       name: 'Starter',
       price: starterPrice,
-      period: isYearly ? '/year' : '/month',
+      period,
       features: [
-        '25 documents',
-        '30 uploads/month',
-        '500K AI tokens/month',
-        '1 device',
+        '30 documents',
+        '9 uploads/month',
+        '600K AI tokens/month',
+        '2 devices',
         'File + URL ingestion',
         'OCR for images',
         'Auto tags',
         'E-Signatures (5/mo, 3 signers)',
         'Life Events (3 active)',
         'Weekly Audit',
-        'Email notifications',
+        'Email + push notifications',
         ...(isYearly ? ['Save ~17% vs monthly'] : []),
       ],
     },
@@ -139,31 +143,51 @@ function buildPlans(
       id: 'pro' as const,
       name: 'Pro',
       price: proPrice,
-      period: isYearly ? '/year' : '/month',
+      period,
       features: [
-        '100 documents',
-        '150 uploads/month',
-        '2M AI tokens/month',
+        '50 documents',
+        '15 uploads/month',
+        '3M AI tokens/month',
         'Up to 5 devices',
         'Priority LLM queue',
+        'E-Signatures (20/mo, 10 signers)',
+        'Life Events (10 active + AI)',
+        'Emergency Access',
+        'Global Search',
+        'Financial Insights + StockPulse',
+        'Action Agent',
+        'Priority support',
+        ...(isYearly ? ['Save ~20% vs monthly'] : []),
+      ],
+    },
+    {
+      id: 'family' as const,
+      name: 'Family',
+      price: familyPrice,
+      period,
+      features: [
+        'Everything in Pro, plus:',
+        '150 documents',
+        '45 uploads/month',
+        '6M AI tokens/month',
+        'Up to 5 members',
         'E-Signatures (50/mo, 10 signers)',
         'Life Events (unlimited + AI)',
-        'Emergency Access',
-        'Document Health',
-        'Global Search',
+        'Emergency Access (household hub)',
         'Priority support',
-        ...(isYearly ? ['Save ~17% vs monthly'] : []),
+        ...(isYearly ? ['Save ~20% vs monthly'] : []),
       ],
     },
   ];
 }
 
-const PLAN_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2 };
+const PLAN_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, family: 3 };
 
 const PLAN_ICON: Record<string, React.ReactNode> = {
   free: <Shield size={24} color={colors.white} strokeWidth={2} />,
   starter: <Zap size={24} color={colors.white} strokeWidth={2} />,
   pro: <Crown size={24} color={colors.white} strokeWidth={2} />,
+  family: <Users size={24} color={colors.white} strokeWidth={2} />,
 };
 
 const STATUS_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
@@ -245,8 +269,8 @@ export default function BillingScreen() {
 
   // Billing cycle toggle + dynamic prices
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [priceLabels, setPriceLabels] = useState({ starterMonthly: '$9', proMonthly: '$15', starterYearly: '$90', proYearly: '$150' });
-  const [plans, setPlans] = useState(() => buildPlans('$9', '$15', 'monthly'));
+  const [priceLabels, setPriceLabels] = useState({ starterMonthly: '$9', proMonthly: '$19', starterYearly: '$90', proYearly: '$182', familyMonthly: '$34', familyYearly: '$326' });
+  const [plans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
 
   useEffect(() => {
     if (isNativeIAP) {
@@ -260,12 +284,16 @@ export default function BillingScreen() {
         const pm = findPrice('pro_monthly');
         const sy = findPrice('starter_yearly');
         const py = findPrice('pro_yearly');
-        if (sm || pm) {
+        const fm = findPrice('family_monthly');
+        const fy = findPrice('family_yearly');
+        if (sm || pm || fm) {
           setPriceLabels((prev) => ({
             starterMonthly: sm ?? prev.starterMonthly,
             proMonthly: pm ?? prev.proMonthly,
             starterYearly: sy ?? prev.starterYearly,
             proYearly: py ?? prev.proYearly,
+            familyMonthly: fm ?? prev.familyMonthly,
+            familyYearly: fy ?? prev.familyYearly,
           }));
         }
       }).catch(() => {}); // Fall back to hardcoded defaults
@@ -277,6 +305,8 @@ export default function BillingScreen() {
           proMonthly: formatPrice(p.pro.monthly),
           starterYearly: formatPrice(p.starter.yearly),
           proYearly: formatPrice(p.pro.yearly),
+          familyMonthly: formatPrice(p.family.monthly),
+          familyYearly: formatPrice(p.family.yearly),
         });
       });
     }
@@ -286,7 +316,8 @@ export default function BillingScreen() {
     const isYearly = billingCycle === 'yearly';
     const starter = isYearly ? priceLabels.starterYearly : priceLabels.starterMonthly;
     const pro = isYearly ? priceLabels.proYearly : priceLabels.proMonthly;
-    setPlans(buildPlans(starter, pro, billingCycle));
+    const family = isYearly ? priceLabels.familyYearly : priceLabels.familyMonthly;
+    setPlans(buildPlans(starter, pro, family, billingCycle));
   }, [billingCycle, priceLabels]);
 
   // Refreshing flag for pull-to-refresh
@@ -468,7 +499,7 @@ export default function BillingScreen() {
       try {
         if (isNativeIAP) {
           // Native: use RevenueCat in-app purchase
-          const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+          const packageId = `${planId}_${billingCycle}` as PackageId;
           await purchaseByPackageId(packageId);
           await syncFromRevenueCat().catch(() => {});
           await refreshSubscription();
@@ -495,7 +526,7 @@ export default function BillingScreen() {
         if (isNativeIAP) {
           // Native: purchase the higher-tier package via RevenueCat
           // Apple/Google handles proration automatically within the subscription group
-          const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+          const packageId = `${planId}_${billingCycle}` as PackageId;
           await purchaseByPackageId(packageId);
           await syncFromRevenueCat().catch(() => {});
           await refreshSubscription();
@@ -574,7 +605,7 @@ export default function BillingScreen() {
         onConfirm: async () => {
           setActionLoading(true);
           try {
-            const packageId = `${planId}_${billingCycle}` as 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly';
+            const packageId = `${planId}_${billingCycle}` as PackageId;
             await purchaseByPackageId(packageId);
             await syncFromRevenueCat().catch(() => {});
             await refreshSubscription();
@@ -678,7 +709,7 @@ export default function BillingScreen() {
   const defaultPaymentMethod = billingData.paymentMethods.find((pm: any) => pm.is_default) ??
     billingData.paymentMethods[0] ?? null;
 
-  const isUnlimitedAI = currentPlan === 'starter' || currentPlan === 'pro';
+  const isUnlimitedAI = currentPlan === 'starter' || currentPlan === 'pro' || currentPlan === 'family';
 
   const docUsagePercent = subscription
     ? subscription.document_limit > 0

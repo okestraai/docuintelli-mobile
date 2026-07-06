@@ -589,7 +589,7 @@ export default function UploadScreen() {
                 <View style={styles.warningContent}>
                   <Text style={styles.warningTitle}>Upload Limit Reached</Text>
                   <Text style={styles.warningText}>
-                    Your {subscription?.plan || 'current'} plan allows {(subscription?.document_limit ?? 3) >= 99999 ? 'unlimited' : (subscription?.document_limit ?? 3)} documents and{' '}
+                    Your {subscription?.plan || 'current'} plan allows {(subscription?.document_limit ?? 5) >= 99999 ? 'unlimited' : (subscription?.document_limit ?? 5)} documents and{' '}
                     {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads/month.{' '}
                     {isFree ? 'Upgrade to continue.' : 'You have reached your limit for this period.'}
                   </Text>
@@ -623,7 +623,7 @@ export default function UploadScreen() {
             <View style={styles.usageRow}>
               <View style={styles.usageDot} />
               <Text style={styles.usageText}>
-                {documentCount} / {(subscription?.document_limit ?? 3) >= 99999 ? 'Unlimited' : (subscription?.document_limit ?? 3)} documents used
+                {documentCount} / {(subscription?.document_limit ?? 5) >= 99999 ? 'Unlimited' : (subscription?.document_limit ?? 5)} documents used
                 {' \u2022 '}
                 {subscription?.monthly_uploads_used ?? 0} / {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'Unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads this month
               </Text>

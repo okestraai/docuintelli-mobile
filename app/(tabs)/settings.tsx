@@ -114,8 +114,8 @@ export default function SettingsScreen() {
     router.replace('/(auth)/login');
   };
 
-  const planName = subscription?.plan === 'pro' ? 'Pro' : subscription?.plan === 'starter' ? 'Starter' : 'Free';
-  const planVariant = subscription?.plan === 'pro' ? 'primary' : subscription?.plan === 'starter' ? 'info' : 'default';
+  const planName = subscription?.plan === 'family' ? 'Family' : subscription?.plan === 'pro' ? 'Pro' : subscription?.plan === 'starter' ? 'Starter' : 'Free';
+  const planVariant = subscription?.plan === 'family' || subscription?.plan === 'pro' ? 'primary' : subscription?.plan === 'starter' ? 'info' : 'default';
 
   if (subLoading) return <LoadingSpinner fullScreen />;
 

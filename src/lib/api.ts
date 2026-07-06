@@ -544,12 +544,14 @@ export interface StripePrices {
   free: { monthly: number; yearly: number };
   starter: { monthly: number; yearly: number };
   pro: { monthly: number; yearly: number };
+  family: { monthly: number; yearly: number };
 }
 
 const DEFAULT_PRICES: StripePrices = {
   free: { monthly: 0, yearly: 0 },
   starter: { monthly: 9, yearly: 90 },
-  pro: { monthly: 15, yearly: 150 },
+  pro: { monthly: 19, yearly: 182 },
+  family: { monthly: 34, yearly: 326 },
 };
 
 export async function fetchPlanPrices(): Promise<StripePrices> {

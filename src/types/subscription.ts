@@ -1,7 +1,7 @@
 export interface Subscription {
   id: string;
   user_id: string;
-  plan: 'free' | 'starter' | 'pro';
+  plan: 'free' | 'starter' | 'pro' | 'family';
   status: 'active' | 'canceling' | 'canceled' | 'expired' | 'trialing';
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -22,4 +22,4 @@ export interface Subscription {
   documents_to_keep: string[] | null;
 }
 
-export type PlanId = 'free' | 'starter' | 'pro';
+export type PlanId = 'free' | 'starter' | 'pro' | 'family';

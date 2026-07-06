@@ -231,17 +231,21 @@ export async function syncFromRevenueCat(): Promise<{ success: boolean }> {
     const { getCustomerInfo } = await import('./iapService');
     const info = await getCustomerInfo();
 
-    // Determine active plan from entitlements
-    let plan: 'free' | 'starter' | 'pro' = 'free';
+    // Determine active plan from entitlements — highest tier first.
+    let plan: 'free' | 'starter' | 'pro' | 'family' = 'free';
     let entitlementId = '';
     let expiresAt: string | null = null;
     let billingCycle: 'monthly' | 'yearly' = 'monthly';
 
+    const familyEntitlement = info.entitlements.active['docuintelli_family'];
     const proEntitlement = info.entitlements.active['docuintelli_pro'];
     const starterEntitlement = info.entitlements.active['docuintelli_starter'];
-    const activeEntitlement = proEntitlement || starterEntitlement;
+    const activeEntitlement = familyEntitlement || proEntitlement || starterEntitlement;
 
-    if (proEntitlement?.isActive) {
+    if (familyEntitlement?.isActive) {
+      plan = 'family';
+      entitlementId = 'docuintelli_family';
+    } else if (proEntitlement?.isActive) {
       plan = 'pro';
       entitlementId = 'docuintelli_pro';
     } else if (starterEntitlement?.isActive) {
