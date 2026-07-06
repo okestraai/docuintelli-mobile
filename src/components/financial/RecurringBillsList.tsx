@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Receipt, CalendarClock, Plus, X as XIcon } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Receipt, CalendarClock, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
 import type { RecurringBill } from '../../lib/financialApi';
 import {
   getTagOptions,
   addIncomeStreamTag,
   removeIncomeStreamTag,
+  dismissRecurringBill,
 } from '../../lib/financialApi';
 import CollapsibleSection from './CollapsibleSection';
 import TagPicker from '../ui/TagPicker';
@@ -15,6 +16,7 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface RecurringBillsListProps {
   bills: RecurringBill[];
+  onChanged: () => void;
 }
 
 const formatCurrency = (amount: number): string =>
@@ -34,11 +36,12 @@ function getAutoTags(bill: RecurringBill): string[] {
   return [...new Set(tags)];
 }
 
-export default function RecurringBillsList({ bills }: RecurringBillsListProps) {
+export default function RecurringBillsList({ bills, onChanged }: RecurringBillsListProps) {
   const [billTagOptions, setBillTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [materialized, setMaterialized] = useState<Set<string>>(new Set());
   const [pickerStem, setPickerStem] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getTagOptions().then(opts => setBillTagOptions(opts.bill_tags || [])).catch(() => {});
@@ -63,9 +66,34 @@ export default function RecurringBillsList({ bills }: RecurringBillsListProps) {
     setMaterialized(alreadySaved);
   }, [bills]);
 
-  if (!bills.length) return null;
+  // Optimistically hide a removed bill until the parent's refresh drops it from `bills`.
+  const visibleBills = bills.filter(b => !hidden.has(b.merchant_stem));
 
-  const total = bills.reduce((sum, b) => sum + b.monthly_amount, 0);
+  if (!visibleBills.length) return null;
+
+  const total = visibleBills.reduce((sum, b) => sum + b.monthly_amount, 0);
+
+  const applyDismiss = async (bill: RecurringBill) => {
+    const stem = bill.merchant_stem;
+    setHidden(prev => new Set(prev).add(stem));
+    try {
+      await dismissRecurringBill(stem);
+      onChanged();
+    } catch {
+      setHidden(prev => { const n = new Set(prev); n.delete(stem); return n; });
+    }
+  };
+
+  const handleRemoveBill = (bill: RecurringBill) => {
+    Alert.alert(
+      'Remove recurring bill',
+      `Remove "${bill.name}" from recurring bills? Your spending totals won't change.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => applyDismiss(bill) },
+      ],
+    );
+  };
 
   // Persist auto-derived tags to DB so future add/remove works correctly
   const ensureMaterialized = async (stem: string) => {
@@ -117,7 +145,7 @@ export default function RecurringBillsList({ bills }: RecurringBillsListProps) {
       trailing={<Text style={styles.total}>{formatCurrency(total)}/mo</Text>}
     >
       <View style={styles.list}>
-        {bills.slice(0, 10).map((bill, i) => {
+        {visibleBills.slice(0, 10).map((bill, i) => {
           const stem = bill.merchant_stem || `bill-${i}`;
           const tags = localTags[stem] || [];
 
@@ -153,7 +181,16 @@ export default function RecurringBillsList({ bills }: RecurringBillsListProps) {
                   </TouchableOpacity>
                 </View>
               </View>
-              <Text style={styles.billAmount}>{formatCurrency(bill.monthly_amount)}/mo</Text>
+              <View style={styles.rightCol}>
+                <Text style={styles.billAmount}>{formatCurrency(bill.monthly_amount)}/mo</Text>
+                <TouchableOpacity
+                  onPress={() => handleRemoveBill(bill)}
+                  style={styles.removeButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Trash2 size={14} color={colors.slate[300]} />
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -207,11 +244,19 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.slate[400],
   },
+  rightCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
   billAmount: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     color: colors.slate[900],
-    marginTop: 2,
+  },
+  removeButton: {
+    padding: 4,
   },
   tagRow: {
     flexDirection: 'row',

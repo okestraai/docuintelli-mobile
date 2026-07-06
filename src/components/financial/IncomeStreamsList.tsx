@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Banknote, Briefcase, CircleDollarSign, Plus, X as XIcon } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Banknote, Briefcase, CircleDollarSign, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
 import type { IncomeStream } from '../../lib/financialApi';
 import {
   getTagOptions,
   addIncomeStreamTag,
   removeIncomeStreamTag,
+  reclassifyIncomeStream,
 } from '../../lib/financialApi';
 import CollapsibleSection from './CollapsibleSection';
 import Badge from '../ui/Badge';
@@ -16,15 +17,17 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface IncomeStreamsListProps {
   streams: IncomeStream[];
+  onChanged: () => void;
 }
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-export default function IncomeStreamsList({ streams }: IncomeStreamsListProps) {
+export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsListProps) {
   const [incomeTagOptions, setIncomeTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [pickerStem, setPickerStem] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     getTagOptions().then(opts => setIncomeTagOptions(opts.income_tags)).catch(() => {});
@@ -46,9 +49,35 @@ export default function IncomeStreamsList({ streams }: IncomeStreamsListProps) {
     setLocalTags(tags);
   }, [streams]);
 
-  if (!streams.length) return null;
+  // Optimistically hide a removed stream until the parent's refresh drops it from `streams`.
+  const visibleStreams = streams.filter(s => !hidden.has(s.merchant_stem));
 
-  const totalMonthly = streams.reduce((sum, s) => sum + s.monthly_amount, 0);
+  if (!visibleStreams.length) return null;
+
+  const totalMonthly = visibleStreams.reduce((sum, s) => sum + s.monthly_amount, 0);
+
+  const applyRemove = async (stream: IncomeStream, classification: 'transfer' | 'ignore') => {
+    const stem = stream.merchant_stem;
+    setHidden(prev => new Set(prev).add(stem));
+    try {
+      await reclassifyIncomeStream(stem, classification);
+      onChanged();
+    } catch {
+      setHidden(prev => { const n = new Set(prev); n.delete(stem); return n; });
+    }
+  };
+
+  const handleRemoveStream = (stream: IncomeStream) => {
+    Alert.alert(
+      "This isn't income",
+      `What is "${stream.source}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: "It's a transfer", onPress: () => applyRemove(stream, 'transfer') },
+        { text: 'Ignore it', style: 'destructive', onPress: () => applyRemove(stream, 'ignore') },
+      ],
+    );
+  };
 
   const handleAddTag = async (stream: IncomeStream, tag: string) => {
     const stem = stream.merchant_stem;
@@ -84,7 +113,7 @@ export default function IncomeStreamsList({ streams }: IncomeStreamsListProps) {
       trailing={<Text style={styles.total}>{formatCurrency(totalMonthly)}/mo</Text>}
     >
       <View style={styles.list}>
-        {streams.map((stream, i) => {
+        {visibleStreams.map((stream, i) => {
           const stem = stream.merchant_stem || `stream-${i}`;
           const tags = localTags[stem] || [];
           const hasSalary = tags.includes('Salary');
@@ -124,6 +153,13 @@ export default function IncomeStreamsList({ streams }: IncomeStreamsListProps) {
                 </View>
               </View>
               <Text style={styles.amount}>{formatCurrency(stream.monthly_amount)}/mo</Text>
+              <TouchableOpacity
+                onPress={() => handleRemoveStream(stream)}
+                style={styles.removeButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Trash2 size={14} color={colors.slate[300]} />
+              </TouchableOpacity>
             </View>
           );
         })}
@@ -228,5 +264,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.slate[50],
+  },
+  removeButton: {
+    padding: 4,
   },
 });

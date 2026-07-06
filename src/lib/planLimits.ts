@@ -15,10 +15,14 @@ export interface PlanData {
   popular: boolean;
 }
 
+// NOTE: These figures are a fallback only — always prefer the live values on
+// the subscription object (document_limit, monthly_upload_limit, …). Kept in
+// sync with the backend tier table for the downgrade-compliance helpers below.
 export const PLAN_LIMITS = {
-  free: { documents: 3, monthlyUploads: 3, devices: 1, name: 'Free' },
-  starter: { documents: 25, monthlyUploads: 30, devices: 2, name: 'Starter' },
-  pro: { documents: 100, monthlyUploads: 150, devices: 5, name: 'Pro' },
+  free: { documents: 5, monthlyUploads: 5, devices: 1, name: 'Free' },
+  starter: { documents: 150, monthlyUploads: 60, devices: 2, name: 'Starter' },
+  pro: { documents: 1000, monthlyUploads: 300, devices: 5, name: 'Pro' },
+  family: { documents: 3000, monthlyUploads: 600, devices: 5, name: 'Family' },
 } as const;
 
 export type PlanId = keyof typeof PLAN_LIMITS;
@@ -103,6 +107,26 @@ export const PLANS: PlanData[] = [
     ],
     cta: 'Upgrade to Pro',
     popular: true,
+  },
+  {
+    id: 'family',
+    name: 'Family',
+    price: { monthly: 34, yearly: 326 },
+    description: 'For households & power users',
+    features: [
+      { text: '3,000 documents', included: true },
+      { text: '600 uploads per month', included: true },
+      { text: '6M AI tokens per month', included: true },
+      { text: 'Everything in Pro', included: true },
+      { text: 'Financial Insights & StockPulse', included: true },
+      { text: 'Emergency Access (Trusted Contacts)', included: true },
+      { text: 'Life Events (unlimited + AI matching)', included: true },
+      { text: 'Action Agent (20/mo)', included: true },
+      { text: 'Up to 5 devices', included: true },
+      { text: 'Priority support', included: true },
+    ],
+    cta: 'Upgrade to Family',
+    popular: false,
   },
 ];
 

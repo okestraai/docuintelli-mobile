@@ -4,7 +4,8 @@ import { API_BASE } from '../lib/config';
 import { syncFromRevenueCat } from '../lib/subscriptionApi';
 import { onCustomerInfoUpdated, isNativeIAP } from '../lib/iapService';
 import { useAuthStore } from '../store/authStore';
-import type { Subscription } from '../types/subscription';
+import type { Subscription, FeatureFlags } from '../types/subscription';
+import { getFeatureFlags, deriveFeatureFlags } from '../lib/featureFlags';
 
 interface SubscriptionState {
   subscription: Subscription | null;
@@ -13,7 +14,12 @@ interface SubscriptionState {
   canUploadDocument: boolean;
   canAskQuestion: boolean;
   isPro: boolean;
+  isFamily: boolean;
+  /** Pro or Family — the tier that unlocks Document Health & top-tier perks. */
+  isPaid: boolean;
   isStarterOrAbove: boolean;
+  /** Effective feature flags (backend-provided, plan-derived fallback). Gate UI on these. */
+  featureFlags: FeatureFlags;
   documentCount: number;
   bankAccountLimit: number;
   refreshSubscription: () => Promise<void>;
@@ -28,7 +34,10 @@ const defaultState: SubscriptionState = {
   canUploadDocument: true,
   canAskQuestion: true,
   isPro: false,
+  isFamily: false,
+  isPaid: false,
   isStarterOrAbove: false,
+  featureFlags: deriveFeatureFlags('free'),
   documentCount: 0,
   bankAccountLimit: 0,
   refreshSubscription: async () => {},
@@ -149,7 +158,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const plan = subscription?.plan;
   const isPro = plan === 'pro';
-  const isStarterOrAbove = plan === 'starter' || plan === 'pro';
+  const isFamily = plan === 'family';
+  const isPaid = plan === 'pro' || plan === 'family';
+  const isStarterOrAbove = plan === 'starter' || plan === 'pro' || plan === 'family';
+  const featureFlags = getFeatureFlags(subscription);
 
   const withinStorageLimit = loading ? true : subscription ? documentCount < subscription.document_limit : true;
   const withinMonthlyQuota = loading ? true : subscription ? subscription.monthly_uploads_used < subscription.monthly_upload_limit : true;
@@ -170,7 +182,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         canUploadDocument,
         canAskQuestion,
         isPro,
+        isFamily,
+        isPaid,
         isStarterOrAbove,
+        featureFlags,
         documentCount,
         bankAccountLimit,
         refreshSubscription: fetchSubscription,

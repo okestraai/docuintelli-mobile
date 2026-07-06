@@ -41,7 +41,7 @@ interface AccountSelectionModalProps {
   newItemId: string;
   newInstitutionName: string;
   bankAccountLimit: number;
-  currentPlan: 'free' | 'starter' | 'pro';
+  currentPlan: 'free' | 'starter' | 'pro' | 'family';
   onSubmit: (selectedAccountIds: string[]) => Promise<void>;
   onCancel: (newItemId: string) => Promise<void>;
   onUpgrade: () => void;
@@ -313,7 +313,7 @@ export default function AccountSelectionModal({
                 <Text style={styles.warningTitle}>
                   You've selected more accounts than your {planDisplayName(currentPlan)} plan allows.
                 </Text>
-                {currentPlan === 'pro' ? (
+                {currentPlan === 'pro' || currentPlan === 'family' ? (
                   <Text style={styles.warningBody}>
                     Deselect {checkedCount - bankAccountLimit} account{checkedCount - bankAccountLimit > 1 ? 's' : ''} to continue.
                   </Text>

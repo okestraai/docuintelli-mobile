@@ -25,7 +25,8 @@ interface ChatMessage {
 }
 
 export default function GlobalChatScreen() {
-  const { isPro, loading: subLoading } = useSubscription();
+  const { featureFlags, loading: subLoading } = useSubscription();
+  const canGlobalSearch = featureFlags.global_search;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -37,7 +38,7 @@ export default function GlobalChatScreen() {
 
   // Load chat history
   useEffect(() => {
-    if (!isPro) {
+    if (!canGlobalSearch) {
       setHistoryLoading(false);
       return;
     }
@@ -67,10 +68,10 @@ export default function GlobalChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isPro]);
+  }, [canGlobalSearch]);
 
   const onRefresh = useCallback(async () => {
-    if (!isPro) return;
+    if (!canGlobalSearch) return;
     setRefreshing(true);
     try {
       const history = await loadGlobalChatHistory();
@@ -87,13 +88,13 @@ export default function GlobalChatScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [isPro]);
+  }, [canGlobalSearch]);
 
   const handleSend = async () => {
     const question = input.trim();
     if (!question || loading) return;
 
-    if (!isPro) {
+    if (!canGlobalSearch) {
       router.push('/billing' as any);
       return;
     }
@@ -195,14 +196,14 @@ export default function GlobalChatScreen() {
                 <GradientIcon size={72}>
                   <MessageSquare size={36} color={colors.white} />
                 </GradientIcon>
-                {!subLoading && !isPro && (
+                {!subLoading && !canGlobalSearch && (
                   <View style={styles.crownBadge}>
                     <Crown size={12} color={colors.white} strokeWidth={2.5} />
                   </View>
                 )}
               </View>
               <Text style={styles.emptyTitle}>Ask me anything</Text>
-              {!subLoading && !isPro && (
+              {!subLoading && !canGlobalSearch && (
                 <View style={styles.proBadgeRow}>
                   <View style={styles.proBadge}>
                     <Crown size={10} color={colors.white} strokeWidth={2.5} />

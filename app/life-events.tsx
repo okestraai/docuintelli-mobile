@@ -141,7 +141,9 @@ export default function LifeEventsScreen() {
   const { isAuthenticated } = useAuth();
   const { documents } = useDocuments(isAuthenticated);
   const { showToast } = useToast();
-  const { isPro, isStarterOrAbove, loading: subLoading, refreshSubscription } = useSubscription();
+  const { loading: subLoading, refreshSubscription, featureFlags } = useSubscription();
+  const canUseLifeEvents = featureFlags.life_events;
+  const canEmergencyAccess = featureFlags.emergency_access;
 
   // Re-fetch subscription when screen comes into focus (e.g. after upgrading on billing screen)
   useFocusEffect(
@@ -200,7 +202,7 @@ export default function LifeEventsScreen() {
 
   // Handlers
   const handleStartEvent = (templateId: string) => {
-    if (!isStarterOrAbove) { router.push('/billing' as any); return; }
+    if (!canUseLifeEvents) { router.push('/billing' as any); return; }
     setSelectedTemplateId(templateId);
     setIntakeAnswers({});
     const tmpl = templates.find(t => t.id === templateId);
@@ -212,7 +214,7 @@ export default function LifeEventsScreen() {
   };
 
   const handleStartCustomEvent = () => {
-    if (!isStarterOrAbove) { router.push('/billing' as any); return; }
+    if (!canUseLifeEvents) { router.push('/billing' as any); return; }
     setCustomEventTitle('');
     setSubView('create-custom');
   };
@@ -370,7 +372,7 @@ export default function LifeEventsScreen() {
                   <GradientIcon size={44}>
                     <Compass size={22} color={colors.white} strokeWidth={2} />
                   </GradientIcon>
-                  {!isStarterOrAbove && (
+                  {!canUseLifeEvents && (
                     <View style={styles.crownBadge}>
                       <Crown size={10} color={colors.white} strokeWidth={2.5} />
                     </View>
@@ -379,7 +381,7 @@ export default function LifeEventsScreen() {
                 <View style={styles.headerTextCol}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={styles.pageTitle}>Life Events</Text>
-                    {!isStarterOrAbove && (
+                    {!canUseLifeEvents && (
                       <View style={styles.starterBadge}>
                         <Crown size={10} color={colors.white} strokeWidth={2.5} />
                         <Text style={styles.starterBadgeText}>STARTER</Text>
@@ -940,11 +942,13 @@ export default function LifeEventsScreen() {
                 )}
               </View>
 
-              {/* Emergency Access — inline in header card */}
-              <EmergencyAccessPanel
-                lifeEventId={event.id}
-                lifeEventTitle={event.title || eventDetail.event.templateName || 'Life Event'}
-              />
+              {/* Emergency Access — Pro/Family only (Trusted Contacts / grants) */}
+              {canEmergencyAccess && (
+                <EmergencyAccessPanel
+                  lifeEventId={event.id}
+                  lifeEventTitle={event.title || eventDetail.event.templateName || 'Life Event'}
+                />
+              )}
             </Card>
 
             {/* Status filter chips */}

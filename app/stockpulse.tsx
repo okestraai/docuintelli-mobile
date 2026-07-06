@@ -15,7 +15,6 @@ import {
   Gem, Lightbulb, Home, Radio, Settings, LayoutGrid,
 } from 'lucide-react-native';
 import { useSubscription } from '../src/hooks/useSubscription';
-import { useIsSuperAdmin } from '../src/lib/isSuperAdmin';
 import { useToast } from '../src/contexts/ToastContext';
 import NotFoundView from '../src/components/ui/NotFoundView';
 import Card from '../src/components/ui/Card';
@@ -80,15 +79,15 @@ const SECTOR_ICONS: Record<string, any> = {
 // ═══════════════════════════════════════════════════════════════════
 
 export default function StockPulseScreen() {
-  const { loading: subLoading } = useSubscription();
-  const superAdmin = useIsSuperAdmin();
-
-  // StockPulse / Stock AI is restricted to the super admin — 404 for everyone else.
-  if (!superAdmin) {
-    return <NotFoundView />;
-  }
+  const { loading: subLoading, featureFlags } = useSubscription();
 
   if (subLoading) return <LoadingSpinner fullScreen />;
+
+  // StockPulse requires the `stockpulse` flag (Pro/Family) — 404 otherwise.
+  // Don't assume financial ⇒ stockpulse; gate on its own flag.
+  if (!featureFlags.stockpulse) {
+    return <NotFoundView />;
+  }
 
   return <StockPulseContent />;
 }

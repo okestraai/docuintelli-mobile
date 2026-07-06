@@ -535,3 +535,44 @@ export async function removeTransactionClassification(transactionId: string): Pr
     throw new Error(err.error || err.message);
   }
 }
+
+// ── Income Stream / Recurring Bill Removal ─────────────────────
+
+/**
+ * Remove a wrongly-detected income stream by reclassifying its merchant's transactions.
+ * 'transfer' = money movement (not income); 'ignore' = exclude from all analysis.
+ * Trains the classifier for future syncs.
+ */
+export async function reclassifyIncomeStream(
+  merchantStem: string,
+  classification: 'transfer' | 'ignore',
+): Promise<void> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const res = await fetch(`${API_BASE}/api/financial/income-streams/reclassify`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ merchant_stem: merchantStem, classification }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to remove income stream' }));
+    throw new Error(err.error || err.message);
+  }
+}
+
+/** Remove a wrongly-detected recurring bill from the list (spending totals unaffected) */
+export async function dismissRecurringBill(merchantStem: string): Promise<void> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const res = await fetch(`${API_BASE}/api/financial/recurring-bills/dismiss`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ merchant_stem: merchantStem }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to remove recurring bill' }));
+    throw new Error(err.error || err.message);
+  }
+}

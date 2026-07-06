@@ -138,7 +138,8 @@ const ResultRow = React.memo(function ResultRow({
 // ---- Main screen ----
 
 export default function SearchScreen() {
-  const { isPro, loading: subLoading } = useSubscription();
+  const { featureFlags, loading: subLoading } = useSubscription();
+  const canGlobalSearch = featureFlags.global_search;
   const { completeStepById } = useGoalBubble();
 
   const [query, setQuery] = useState('');
@@ -165,7 +166,7 @@ export default function SearchScreen() {
       return;
     }
 
-    if (!isPro) {
+    if (!canGlobalSearch) {
       router.push('/billing' as any);
       return;
     }
@@ -206,7 +207,7 @@ export default function SearchScreen() {
         setIsSearching(false);
       }
     }
-  }, [isPro]);
+  }, [canGlobalSearch]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
@@ -293,7 +294,7 @@ export default function SearchScreen() {
           <View style={styles.headerTextBlock}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={styles.headerTitle}>Global Search</Text>
-              {!subLoading && !isPro && (
+              {!subLoading && !canGlobalSearch && (
                 <View style={styles.proBadge}>
                   <Crown size={10} color={colors.white} strokeWidth={2.5} />
                   <Text style={styles.proBadgeText}>PRO</Text>

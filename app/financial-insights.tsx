@@ -9,7 +9,6 @@ import {
 } from 'lucide-react-native';
 import InAppBrowser from '../src/components/ui/InAppBrowser';
 import { useAuth } from '../src/hooks/useAuth';
-import { useIsSuperAdmin } from '../src/lib/isSuperAdmin';
 import NotFoundView from '../src/components/ui/NotFoundView';
 import { useSubscription } from '../src/hooks/useSubscription';
 import { usePlaidLinkFlow } from '../src/hooks/usePlaidLinkFlow';
@@ -53,9 +52,8 @@ import { router, useFocusEffect } from 'expo-router';
 
 export default function FinancialInsightsScreen() {
   const { isAuthenticated } = useAuth();
-  const { subscription, isStarterOrAbove, isPro, bankAccountLimit, loading: subLoading } = useSubscription();
+  const { subscription, bankAccountLimit, loading: subLoading, featureFlags } = useSubscription();
   const { showToast } = useToast();
-  const superAdmin = useIsSuperAdmin();
 
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
@@ -75,6 +73,15 @@ export default function FinancialInsightsScreen() {
   const [newAccounts, setNewAccounts] = useState<NewAccount[]>([]);
   const [cancelBanner, setCancelBanner] = useState(false);
   const [committing, setCommitting] = useState(false);
+
+  // Quiet refresh of just the summary (no full-screen reload) — used after the user
+  // removes an income stream or recurring bill so the numbers update in place.
+  const refreshSummary = async () => {
+    try {
+      const refreshed = await getFinancialSummary();
+      if (refreshed) setSummary(refreshed);
+    } catch { /* keep current view on failure */ }
+  };
 
   const loadData = async () => {
     try {
@@ -317,9 +324,10 @@ export default function FinancialInsightsScreen() {
 
   const hasAccounts = connectedAccounts.length > 0;
 
-  // Financial area is restricted to the super admin — 404 for everyone else.
+  // Financial Insights is a Pro/Family feature — 404 for everyone else.
+  // Gate on the feature flag (never `plan === 'pro'`, which excludes Family).
   // Placed after all hooks so hook order stays stable.
-  if (!superAdmin) {
+  if (!featureFlags.financial_insights) {
     return <NotFoundView />;
   }
 
@@ -452,8 +460,8 @@ export default function FinancialInsightsScreen() {
           </View>
         )}
 
-        {/* ── StockPulse AI Banner ── */}
-        {isPro && (
+        {/* ── StockPulse AI Banner ── (own flag; financial ≠ stockpulse) */}
+        {featureFlags.stockpulse && (
           <TouchableOpacity
             style={styles.stockpulseBanner}
             onPress={() => router.push('/stockpulse')}
@@ -506,8 +514,8 @@ export default function FinancialInsightsScreen() {
               </CollapsibleSection>
             )}
             <SpendingBreakdown categories={summary.spending_by_category} />
-            <RecurringBillsList bills={summary.recurring_bills} />
-            <IncomeStreamsList streams={summary.income_streams} />
+            <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
+            <IncomeStreamsList streams={summary.income_streams} onChanged={refreshSummary} />
             <MonthlyTrendsChart data={summary.monthly_averages} />
             <AIInsightsSection
               insights={summary.insights}

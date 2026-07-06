@@ -19,6 +19,17 @@ const RC_GOOGLE_KEY = process.env.EXPO_PUBLIC_RC_GOOGLE_KEY || '';
 
 let isConfigured = false;
 
+// RevenueCat package identifiers (default offering). Family added this release.
+export type PackageId =
+  | 'starter_monthly' | 'starter_yearly'
+  | 'pro_monthly' | 'pro_yearly'
+  | 'family_monthly' | 'family_yearly';
+
+export type EntitlementId =
+  | 'docuintelli_starter'
+  | 'docuintelli_pro'
+  | 'docuintelli_family';
+
 // Detect Expo Go — RevenueCat native store is unavailable in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
 
@@ -83,7 +94,7 @@ export async function getOfferings(): Promise<PurchasesOfferings> {
  * Get a specific package from the default offering.
  */
 export async function getPackage(
-  packageId: 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly'
+  packageId: PackageId
 ): Promise<PurchasesPackage | null> {
   const offerings = await getOfferings();
   const current = offerings.current;
@@ -95,7 +106,7 @@ export async function getPackage(
  * Get localized price string for a package (e.g., "$9.99", "€8,99").
  */
 export async function getLocalizedPrice(
-  packageId: 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly'
+  packageId: PackageId
 ): Promise<string | null> {
   const pkg = await getPackage(packageId);
   if (!pkg) return null;
@@ -117,7 +128,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<CustomerIn
  * Convenience: purchase by package ID string.
  */
 export async function purchaseByPackageId(
-  packageId: 'starter_monthly' | 'starter_yearly' | 'pro_monthly' | 'pro_yearly'
+  packageId: PackageId
 ): Promise<CustomerInfo> {
   const pkg = await getPackage(packageId);
   if (!pkg) throw new Error(`Package "${packageId}" not found in offerings`);
@@ -146,7 +157,7 @@ export async function getCustomerInfo(): Promise<CustomerInfo> {
  * Check if the user has an active entitlement.
  */
 export async function hasEntitlement(
-  entitlementId: 'docuintelli_starter' | 'docuintelli_pro'
+  entitlementId: EntitlementId
 ): Promise<boolean> {
   const info = await getCustomerInfo();
   return info.entitlements.active[entitlementId]?.isActive ?? false;
@@ -154,10 +165,12 @@ export async function hasEntitlement(
 
 /**
  * Get the user's current active plan based on entitlements.
+ * Family is checked before Pro (higher tier wins).
  */
-export async function getActivePlan(): Promise<'free' | 'starter' | 'pro'> {
+export async function getActivePlan(): Promise<'free' | 'starter' | 'pro' | 'family'> {
   try {
     const info = await getCustomerInfo();
+    if (info.entitlements.active['docuintelli_family']?.isActive) return 'family';
     if (info.entitlements.active['docuintelli_pro']?.isActive) return 'pro';
     if (info.entitlements.active['docuintelli_starter']?.isActive) return 'starter';
     return 'free';
