@@ -124,8 +124,8 @@ function buildPlans(
       price: starterPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '150 documents',
-        '60 uploads/month',
+        '30 documents',
+        '9 uploads/month',
         '600K AI tokens/month',
         '2 devices',
         'File + URL ingestion',
@@ -144,8 +144,8 @@ function buildPlans(
       price: proPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '1,000 documents',
-        '300 uploads/month',
+        '50 documents',
+        '15 uploads/month',
         '3M AI tokens/month',
         'Up to 5 devices',
         'Priority LLM queue',
@@ -166,8 +166,8 @@ function buildPlans(
       price: familyPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '3,000 documents',
-        '600 uploads/month',
+        '150 documents',
+        '45 uploads/month',
         '6M AI tokens/month',
         'Up to 5 devices',
         'Everything in Pro',
