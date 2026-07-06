@@ -145,7 +145,7 @@ export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToast();
   const { user } = useAuth();
-  const { isStarterOrAbove } = useSubscription();
+  const { featureFlags, isPaid } = useSubscription();
   const { completeStepById } = useGoalBubble();
   const [doc, setDoc] = useState<SupabaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -497,7 +497,7 @@ export default function DocumentViewerScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          {isStarterOrAbove && doc && previewUrl && (
+          {featureFlags.esignatures && doc && previewUrl && (
             isPdfFile(doc.type || '', doc.original_name || doc.name || '') ||
             isWordFile(doc.type || '', doc.original_name || doc.name || '')
           ) && (
@@ -790,8 +790,8 @@ export default function DocumentViewerScreen() {
           </Card>
         )}
 
-        {/* Document Health Panel */}
-        <DocumentHealthPanel documentId={id!} category={doc.category} />
+        {/* Document Health Panel — Pro/Family only (no dedicated flag) */}
+        {isPaid && <DocumentHealthPanel documentId={id!} category={doc.category} />}
 
         {/* Spacer for bottom actions */}
         <View style={{ height: spacing['4xl'] }} />

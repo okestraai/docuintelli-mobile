@@ -11,6 +11,7 @@ import {
   Activity,
 } from 'lucide-react-native';
 import { getUserProfile, updateUserProfile, type UserProfile } from '../../src/lib/auth';
+import { useSubscription } from '../../src/hooks/useSubscription';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import GradientIcon from '../../src/components/ui/GradientIcon';
@@ -29,6 +30,9 @@ interface PreferenceItem {
   description: string;
   icon: React.ReactNode;
   iconBg: string;
+  // Security & billing emails always send; the rest are suppressed for Free
+  // (email_notifications flag off) — the backend ignores these toggles there.
+  alwaysOn?: boolean;
 }
 
 const preferenceItems: PreferenceItem[] = [
@@ -38,6 +42,7 @@ const preferenceItems: PreferenceItem[] = [
     description: 'Password changes, login alerts, and account activity',
     icon: <Shield size={18} color={colors.error[600]} strokeWidth={1.8} />,
     iconBg: colors.error[50],
+    alwaysOn: true,
   },
   {
     key: 'billing_alerts',
@@ -45,6 +50,7 @@ const preferenceItems: PreferenceItem[] = [
     description: 'Payment confirmations, plan changes, and renewal reminders',
     icon: <CreditCard size={18} color={colors.info[600]} strokeWidth={1.8} />,
     iconBg: colors.info[50],
+    alwaysOn: true,
   },
   {
     key: 'document_alerts',
@@ -77,6 +83,10 @@ const preferenceItems: PreferenceItem[] = [
 ];
 
 export default function PreferencesScreen() {
+  const { featureFlags } = useSubscription();
+  // Free plan = in-app notifications only. Notification-category emails are
+  // suppressed server-side, so these toggles have no effect — disable them.
+  const emailNotificationsEnabled = featureFlags.email_notifications;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<Record<string, boolean>>({
@@ -152,26 +162,42 @@ export default function PreferencesScreen() {
           </View>
         </View>
 
-        {/* Preference cards */}
-        {preferenceItems.map((item) => (
-          <Card key={item.key}>
-            <View style={styles.prefRow}>
-              <View style={[styles.prefIconWrap, { backgroundColor: item.iconBg }]}>
-                {item.icon}
-              </View>
-              <View style={styles.prefContent}>
-                <Text style={styles.prefTitle}>{item.title}</Text>
-                <Text style={styles.prefDescription}>{item.description}</Text>
-              </View>
-              <Switch
-                value={preferences[item.key]}
-                onValueChange={() => togglePreference(item.key)}
-                trackColor={{ true: colors.primary[500], false: colors.slate[200] }}
-                thumbColor={colors.white}
-              />
-            </View>
+        {/* Free-plan notice — notification emails only send on paid plans */}
+        {!emailNotificationsEnabled && (
+          <Card style={styles.freeNotice}>
+            <Text style={styles.freeNoticeText}>
+              Your plan uses in-app notifications only. Upgrade to a paid plan to
+              receive document, engagement, life-event, and activity emails.
+              Security and billing emails are always sent.
+            </Text>
           </Card>
-        ))}
+        )}
+
+        {/* Preference cards */}
+        {preferenceItems.map((item) => {
+          // Notification-category toggles are inert for Free — disable them.
+          const disabled = !item.alwaysOn && !emailNotificationsEnabled;
+          return (
+            <Card key={item.key} style={disabled ? styles.disabledCard : undefined}>
+              <View style={styles.prefRow}>
+                <View style={[styles.prefIconWrap, { backgroundColor: item.iconBg }]}>
+                  {item.icon}
+                </View>
+                <View style={styles.prefContent}>
+                  <Text style={styles.prefTitle}>{item.title}</Text>
+                  <Text style={styles.prefDescription}>{item.description}</Text>
+                </View>
+                <Switch
+                  value={disabled ? false : preferences[item.key]}
+                  onValueChange={() => togglePreference(item.key)}
+                  disabled={disabled}
+                  trackColor={{ true: colors.primary[500], false: colors.slate[200] }}
+                  thumbColor={colors.white}
+                />
+              </View>
+            </Card>
+          );
+        })}
 
         {/* Note */}
         <Text style={styles.noteText}>
@@ -227,6 +253,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabledCard: { opacity: 0.55 },
+  freeNotice: {
+    backgroundColor: colors.primary[50],
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+  },
+  freeNoticeText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.primary[800],
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
   },
   prefContent: { flex: 1 },
   prefTitle: {

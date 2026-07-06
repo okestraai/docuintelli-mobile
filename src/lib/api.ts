@@ -73,7 +73,10 @@ export async function uploadDocumentFile(
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Upload failed' }));
-      return { success: false, error: errorData.error || `Upload failed (${res.status})` };
+      // Feature/limit 403s (e.g. FILE_TYPE_NOT_SUPPORTED, upload caps) return a
+      // human-readable `message` + `code` — prefer it so the user sees the
+      // upgrade prompt rather than a generic error.
+      return { success: false, error: errorData.message || errorData.error || `Upload failed (${res.status})` };
     }
 
     return await res.json();
@@ -179,7 +182,7 @@ export async function uploadMergedDocument(
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Merge upload failed' }));
-      return { success: false, error: errorData.error || `Merge upload failed (${res.status})` };
+      return { success: false, error: errorData.message || errorData.error || `Merge upload failed (${res.status})` };
     }
 
     return await res.json();
@@ -549,7 +552,7 @@ export interface StripePrices {
 
 const DEFAULT_PRICES: StripePrices = {
   free: { monthly: 0, yearly: 0 },
-  starter: { monthly: 9, yearly: 90 },
+  starter: { monthly: 9, yearly: 86 },
   pro: { monthly: 19, yearly: 182 },
   family: { monthly: 34, yearly: 326 },
 };

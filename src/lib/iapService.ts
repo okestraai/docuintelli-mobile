@@ -17,19 +17,18 @@ import Purchases, {
 const RC_APPLE_KEY = process.env.EXPO_PUBLIC_RC_APPLE_KEY || '';
 const RC_GOOGLE_KEY = process.env.EXPO_PUBLIC_RC_GOOGLE_KEY || '';
 
-// RevenueCat package + entitlement identifiers (must match the RevenueCat dashboard).
-// The `family` products' store IDs must contain "family" so the backend webhook maps them.
-export type PackageId =
-  | 'starter_monthly'
-  | 'starter_yearly'
-  | 'pro_monthly'
-  | 'pro_yearly'
-  | 'family_monthly'
-  | 'family_yearly';
-
-export type EntitlementId = 'docuintelli_starter' | 'docuintelli_pro' | 'docuintelli_family';
-
 let isConfigured = false;
+
+// RevenueCat package identifiers (default offering). Family added this release.
+export type PackageId =
+  | 'starter_monthly' | 'starter_yearly'
+  | 'pro_monthly' | 'pro_yearly'
+  | 'family_monthly' | 'family_yearly';
+
+export type EntitlementId =
+  | 'docuintelli_starter'
+  | 'docuintelli_pro'
+  | 'docuintelli_family';
 
 // Detect Expo Go — RevenueCat native store is unavailable in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -166,11 +165,11 @@ export async function hasEntitlement(
 
 /**
  * Get the user's current active plan based on entitlements.
+ * Family is checked before Pro (higher tier wins).
  */
 export async function getActivePlan(): Promise<'free' | 'starter' | 'pro' | 'family'> {
   try {
     const info = await getCustomerInfo();
-    // Highest tier first — a user could technically hold more than one entitlement.
     if (info.entitlements.active['docuintelli_family']?.isActive) return 'family';
     if (info.entitlements.active['docuintelli_pro']?.isActive) return 'pro';
     if (info.entitlements.active['docuintelli_starter']?.isActive) return 'starter';

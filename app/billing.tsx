@@ -103,7 +103,6 @@ function buildPlans(
   billingCycle: 'monthly' | 'yearly',
 ) {
   const isYearly = billingCycle === 'yearly';
-  const period = isYearly ? '/year' : '/month';
   return [
     {
       id: 'free' as const,
@@ -115,7 +114,7 @@ function buildPlans(
         '5 uploads/month',
         '50K AI tokens/month',
         '1 device',
-        'File upload only',
+        'File upload only (no images)',
         'Standard LLM queue',
       ],
     },
@@ -123,10 +122,10 @@ function buildPlans(
       id: 'starter' as const,
       name: 'Starter',
       price: starterPrice,
-      period,
+      period: isYearly ? '/year' : '/month',
       features: [
-        '30 documents',
-        '9 uploads/month',
+        '150 documents',
+        '60 uploads/month',
         '600K AI tokens/month',
         '2 devices',
         'File + URL ingestion',
@@ -135,47 +134,50 @@ function buildPlans(
         'E-Signatures (5/mo, 3 signers)',
         'Life Events (3 active)',
         'Weekly Audit',
-        'Email + push notifications',
-        ...(isYearly ? ['Save ~17% vs monthly'] : []),
+        'Email notifications',
+        ...(isYearly ? ['Save vs monthly'] : []),
       ],
     },
     {
       id: 'pro' as const,
       name: 'Pro',
       price: proPrice,
-      period,
+      period: isYearly ? '/year' : '/month',
       features: [
-        '50 documents',
-        '15 uploads/month',
+        '1,000 documents',
+        '300 uploads/month',
         '3M AI tokens/month',
         'Up to 5 devices',
         'Priority LLM queue',
-        'E-Signatures (20/mo, 10 signers)',
-        'Life Events (10 active + AI)',
+        'E-Signatures (50/mo, 10 signers)',
+        'Life Events (unlimited + AI)',
         'Emergency Access',
+        'Financial Insights & StockPulse',
+        'Document Health',
         'Global Search',
-        'Financial Insights + StockPulse',
-        'Action Agent',
+        'Action Agent & Cloud Import',
         'Priority support',
-        ...(isYearly ? ['Save ~20% vs monthly'] : []),
+        ...(isYearly ? ['Save vs monthly'] : []),
       ],
     },
     {
       id: 'family' as const,
       name: 'Family',
       price: familyPrice,
-      period,
+      period: isYearly ? '/year' : '/month',
       features: [
-        'Everything in Pro, plus:',
-        '150 documents',
-        '45 uploads/month',
+        '3,000 documents',
+        '600 uploads/month',
         '6M AI tokens/month',
-        'Up to 5 members',
+        'Up to 5 devices',
+        'Everything in Pro',
         'E-Signatures (50/mo, 10 signers)',
         'Life Events (unlimited + AI)',
-        'Emergency Access (household hub)',
+        'Emergency Access',
+        'Financial Insights & StockPulse',
+        'Action Agent (20/mo)',
         'Priority support',
-        ...(isYearly ? ['Save ~20% vs monthly'] : []),
+        ...(isYearly ? ['Save vs monthly'] : []),
       ],
     },
   ];
@@ -269,7 +271,10 @@ export default function BillingScreen() {
 
   // Billing cycle toggle + dynamic prices
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [priceLabels, setPriceLabels] = useState({ starterMonthly: '$9', proMonthly: '$19', starterYearly: '$90', proYearly: '$182', familyMonthly: '$34', familyYearly: '$326' });
+  const [priceLabels, setPriceLabels] = useState({
+    starterMonthly: '$9', proMonthly: '$19', familyMonthly: '$34',
+    starterYearly: '$90', proYearly: '$182', familyYearly: '$326',
+  });
   const [plans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
 
   useEffect(() => {
@@ -282,31 +287,31 @@ export default function BillingScreen() {
         const findPrice = (id: string) => pkgs.find((p) => p.identifier === id)?.product.priceString;
         const sm = findPrice('starter_monthly');
         const pm = findPrice('pro_monthly');
+        const fm = findPrice('family_monthly');
         const sy = findPrice('starter_yearly');
         const py = findPrice('pro_yearly');
-        const fm = findPrice('family_monthly');
         const fy = findPrice('family_yearly');
         if (sm || pm || fm) {
           setPriceLabels((prev) => ({
             starterMonthly: sm ?? prev.starterMonthly,
             proMonthly: pm ?? prev.proMonthly,
+            familyMonthly: fm ?? prev.familyMonthly,
             starterYearly: sy ?? prev.starterYearly,
             proYearly: py ?? prev.proYearly,
-            familyMonthly: fm ?? prev.familyMonthly,
             familyYearly: fy ?? prev.familyYearly,
           }));
         }
       }).catch(() => {}); // Fall back to hardcoded defaults
     } else {
-      // Web: load prices from Stripe API (USD).
+      // Web: load prices from Stripe API (USD). Always display the live value.
       fetchPlanPrices().then((p) => {
         setPriceLabels({
           starterMonthly: formatPrice(p.starter.monthly),
           proMonthly: formatPrice(p.pro.monthly),
+          familyMonthly: formatPrice(p.family?.monthly ?? 34),
           starterYearly: formatPrice(p.starter.yearly),
           proYearly: formatPrice(p.pro.yearly),
-          familyMonthly: formatPrice(p.family.monthly),
-          familyYearly: formatPrice(p.family.yearly),
+          familyYearly: formatPrice(p.family?.yearly ?? 326),
         });
       });
     }
@@ -506,7 +511,7 @@ export default function BillingScreen() {
           showToast(`Subscribed to ${capitalize(planId)}!`, 'success');
         } else {
           // Web: use Stripe checkout
-          const checkoutUrl = await createCheckoutSession(planId as 'starter' | 'pro', billingCycle);
+          const checkoutUrl = await createCheckoutSession(planId as 'starter' | 'pro' | 'family', billingCycle);
           openStripePopup(checkoutUrl, 'Checkout');
         }
       } catch (err: any) {
@@ -1408,7 +1413,7 @@ export default function BillingScreen() {
         </Card>
 
         {/* Upgrade banner */}
-        {anyUsageHigh && currentPlan !== 'pro' && (
+        {anyUsageHigh && currentPlan !== 'pro' && currentPlan !== 'family' && (
           <LinearGradient
             colors={[...colors.gradient.primaryLight]}
             start={{ x: 0, y: 0 }}

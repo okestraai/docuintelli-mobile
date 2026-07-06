@@ -38,6 +38,9 @@ credentials.json
 
 expo-env.d.ts
 # @end expo-cli
+# Play Store / GCP service-account credentials (never commit)
+play-store-credentials.json.json
+play-store-credentials.json
 
 # graphify knowledge-graph output (any location)
 graphify-out/

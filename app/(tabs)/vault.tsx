@@ -65,9 +65,7 @@ import type { Document } from '../../src/types/document';
 import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
-
-
-import { isSuperAdmin } from '../../src/lib/isSuperAdmin';
+import { useSubscription } from '../../src/hooks/useSubscription';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
 const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
@@ -123,8 +121,11 @@ export default function VaultScreen() {
   const { isAuthenticated, user } = useAuth();
   const { documents, loading, isFromCache, deleteDocument, refetch } = useDocuments(isAuthenticated);
   const { showToast } = useToast();
-  // Cloud import (Google Drive / Dropbox / …) is restricted to the super admin.
-  const cloudEnabled = isSuperAdmin(user?.email);
+  const { featureFlags } = useSubscription();
+  // Cloud import (Google Drive / Dropbox / …) is a Pro/Family feature.
+  const cloudEnabled = featureFlags.cloud_import;
+  // E-signatures entry (Signatures tab) is hidden for Free.
+  const esignEnabled = featureFlags.esignatures;
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Tab state
@@ -435,23 +436,25 @@ export default function VaultScreen() {
               </Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setActiveTab('signatures')}
-            activeOpacity={0.7}
-            style={[styles.tabSegment, activeTab === 'signatures' && styles.tabSegmentActive]}
-          >
-            <FileSignature size={14} color={activeTab === 'signatures' ? colors.primary[700] : colors.slate[400]} strokeWidth={2} />
-            <Text style={[styles.tabSegmentText, activeTab === 'signatures' && styles.tabSegmentTextActive]} numberOfLines={1}>
-              Signatures
-            </Text>
-            {pendingSignatureCount > 0 && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>
-                  {pendingSignatureCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          {esignEnabled && (
+            <TouchableOpacity
+              onPress={() => setActiveTab('signatures')}
+              activeOpacity={0.7}
+              style={[styles.tabSegment, activeTab === 'signatures' && styles.tabSegmentActive]}
+            >
+              <FileSignature size={14} color={activeTab === 'signatures' ? colors.primary[700] : colors.slate[400]} strokeWidth={2} />
+              <Text style={[styles.tabSegmentText, activeTab === 'signatures' && styles.tabSegmentTextActive]} numberOfLines={1}>
+                Signatures
+              </Text>
+              {pendingSignatureCount > 0 && (
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingBadgeText}>
+                    {pendingSignatureCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             onPress={() => setActiveTab('health')}
             activeOpacity={0.7}

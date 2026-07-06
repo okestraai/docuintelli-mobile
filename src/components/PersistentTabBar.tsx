@@ -4,46 +4,59 @@ import { usePathname, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LayoutDashboard, FileText, Landmark, Compass, Settings, Crown } from 'lucide-react-native';
 import { useSubscription } from '../hooks/useSubscription';
-import { useIsSuperAdmin } from '../lib/isSuperAdmin';
+import type { FeatureFlags } from '../types/subscription';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 
-const TABS = [
+// `flag` — when set, the tab is only visible when that feature flag is present.
+// `lockFlag` — when set, the tab shows a lock badge (upsell) while the flag is absent.
+// `lockTier` — visual tint of the lock badge ('pro' = amber, 'starter' = primary).
+type TabDef = {
+  label: string;
+  route: string;
+  icon: typeof LayoutDashboard;
+  match: string[];
+  visibleFlag?: keyof FeatureFlags;
+  lockFlag?: keyof FeatureFlags;
+  lockTier?: 'starter' | 'pro';
+};
+
+const TABS: TabDef[] = [
   {
     label: 'Home',
     route: '/(tabs)/dashboard',
     icon: LayoutDashboard,
     match: ['/dashboard'],
-    requiredPlan: null as null | 'starter' | 'pro',
   },
   {
     label: 'Vault',
     route: '/(tabs)/vault',
     icon: FileText,
     match: ['/vault'],
-    requiredPlan: null as null | 'starter' | 'pro',
   },
   {
     label: 'Financial',
     route: '/financial-insights',
     icon: Landmark,
     match: ['/financial-insights', '/stockpulse'],
-    requiredPlan: 'pro' as null | 'starter' | 'pro',
+    // Financial (insights + StockPulse) is Pro/Family — gate on the flag so
+    // the Family tier is included (never `plan === 'pro'`).
+    visibleFlag: 'financial_insights',
   },
   {
     label: 'Life Events',
     route: '/life-events',
     icon: Compass,
     match: ['/life-events'],
-    requiredPlan: 'starter' as null | 'starter' | 'pro',
+    lockFlag: 'life_events',
+    lockTier: 'starter',
   },
   {
     label: 'Settings',
     route: '/(tabs)/settings',
     icon: Settings,
     match: ['/settings', '/billing', '/help', '/status'],
-    requiredPlan: null as null | 'starter' | 'pro',
   },
 ];
 
@@ -54,26 +67,24 @@ const HIDDEN_PREFIXES = ['/(auth)', '/esign'];
 export default function PersistentTabBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { isPro, isStarterOrAbove, loading: subLoading } = useSubscription();
-  const superAdmin = useIsSuperAdmin();
+  const { featureFlags, loading: subLoading } = useSubscription();
 
   // Hide on auth / splash / full-screen signing screens
   const shouldHide = HIDDEN_ON.some((p) => pathname === p) ||
     HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (shouldHide) return null;
 
-  // Financial area (insights + StockPulse) is restricted to the super admin.
+  // Hide tabs whose feature flag is absent (e.g. Financial for non-Pro/Family).
   const visibleTabs = TABS.filter(
-    (tab) => tab.route !== '/financial-insights' || superAdmin
+    (tab) => !tab.visibleFlag || featureFlags[tab.visibleFlag]
   );
 
   const bottomPadding = Math.max(insets.bottom, 8);
 
-  const isLocked = (requiredPlan: null | 'starter' | 'pro') => {
-    if (!requiredPlan) return false;
+  const isLocked = (tab: TabDef) => {
+    if (!tab.lockFlag) return false;
     if (subLoading) return false; // Don't show lock badges while subscription is loading
-    if (requiredPlan === 'starter') return !isStarterOrAbove;
-    return !isPro;
+    return !featureFlags[tab.lockFlag];
   };
 
   return (
@@ -85,7 +96,7 @@ export default function PersistentTabBar() {
     >
       {visibleTabs.map((tab) => {
         const active = tab.match.some((m) => pathname.includes(m));
-        const locked = isLocked(tab.requiredPlan);
+        const locked = isLocked(tab);
         const Icon = tab.icon;
         return (
           <TouchableOpacity
@@ -106,7 +117,7 @@ export default function PersistentTabBar() {
               {locked && (
                 <View style={[
                   styles.crownBadge,
-                  { backgroundColor: tab.requiredPlan === 'pro' ? '#d97706' : colors.primary[600] },
+                  { backgroundColor: tab.lockTier === 'pro' ? '#d97706' : colors.primary[600] },
                 ]}>
                   <Crown size={8} color={colors.white} strokeWidth={2.5} />
                 </View>

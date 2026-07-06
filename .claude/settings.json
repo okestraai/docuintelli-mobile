@@ -110,7 +110,16 @@
       "Bash(xargs grep -l \"infoPlist\\\\|Associated.*Domain\\\\|UniversalLink\")",
       "Bash(git check-ignore *)",
       "Bash(git rm *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git update-ref *)",
+      "Bash(git tag *)",
+      "Bash(git push *)",
+      "Bash(git branch *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(node -e ' *)",
+      "Bash(curl -L -o \"/c/Users/Okestra AI Labs/docuintelli-mobile/build.apk\" \"https://expo.dev/artifacts/eas/wuGaF8WesTh6AdAGjAgwGY.apk\")",
+      "Bash(perl -0pi -e \"s/packageId: 'starter_monthly' \\\\| 'starter_yearly' \\\\| 'pro_monthly' \\\\| 'pro_yearly'/packageId: PackageId/g\" src/lib/iapService.ts)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Okestra AI Labs\\DocuIntelli-azure\\server\\src\\services",

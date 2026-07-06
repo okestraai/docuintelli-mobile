@@ -80,16 +80,18 @@ export async function getSubscriptionDetails(): Promise<any> {
 
 // Get Stripe checkout URL for a new subscription (Stripe/web only)
 export async function createCheckoutSession(
-  plan: 'starter' | 'pro',
+  plan: 'starter' | 'pro' | 'family',
   billingCycle: 'monthly' | 'yearly' = 'monthly'
 ): Promise<string> {
   if (Platform.OS !== 'web') throw new Error('Use native IAP on mobile');
   const { data: { session } } = await auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const priceIds = {
+  const priceIds: Record<'starter' | 'pro' | 'family', { monthly?: string; yearly?: string }> = {
     starter: { monthly: STRIPE_STARTER_PRICE_ID, yearly: STRIPE_STARTER_YEARLY_PRICE_ID },
     pro: { monthly: STRIPE_PRO_PRICE_ID, yearly: STRIPE_PRO_YEARLY_PRICE_ID },
+    // Family checkout on web isn't configured (mobile uses IAP); throws below.
+    family: {},
   };
   const priceId = priceIds[plan][billingCycle];
   if (!priceId) throw new Error(`Price ID not configured for ${plan} ${billingCycle} plan`);
@@ -231,7 +233,8 @@ export async function syncFromRevenueCat(): Promise<{ success: boolean }> {
     const { getCustomerInfo } = await import('./iapService');
     const info = await getCustomerInfo();
 
-    // Determine active plan from entitlements — highest tier first.
+    // Determine active plan from entitlements. Family is checked before Pro
+    // (higher tier wins), mirroring the backend's derivePlan() precedence.
     let plan: 'free' | 'starter' | 'pro' | 'family' = 'free';
     let entitlementId = '';
     let expiresAt: string | null = null;

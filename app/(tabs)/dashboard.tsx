@@ -94,12 +94,14 @@ const planIcons: Record<string, React.ReactNode> = {
   free: <Shield size={16} color={colors.slate[500]} />,
   starter: <Zap size={16} color={colors.warning[600]} />,
   pro: <Crown size={16} color={colors.primary[600]} />,
+  family: <Crown size={16} color={colors.primary[600]} />,
 };
 
 const planLabels: Record<string, string> = {
   free: 'Free',
   starter: 'Starter',
   pro: 'Pro',
+  family: 'Family',
 };
 
 // ---------- component ----------
@@ -112,7 +114,8 @@ export default function DashboardScreen() {
   const { user } = useAuthStore();
   const { isAuthenticated } = useAuth();
   const { documents, loading, refetch } = useDocuments(isAuthenticated);
-  const { subscription, loading: subLoading, documentCount, canAskQuestion, isPro, isStarterOrAbove, refreshSubscription, error: subError } = useSubscription();
+  const { subscription, loading: subLoading, documentCount, canAskQuestion, featureFlags, refreshSubscription, error: subError } = useSubscription();
+  const canGlobalSearch = featureFlags.global_search;
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -296,7 +299,7 @@ export default function DashboardScreen() {
               subtitle="Find anything"
               cardWidth={actionCardWidth}
               onPress={() => router.push('/search')}
-              locked={!subLoading && !isPro}
+              locked={!subLoading && !canGlobalSearch}
               requiredPlan="pro"
             />
             <QuickAction
@@ -305,7 +308,7 @@ export default function DashboardScreen() {
               subtitle="Ask anything"
               cardWidth={actionCardWidth}
               onPress={() => router.push('/(tabs)/chat')}
-              locked={!subLoading && !isPro}
+              locked={!subLoading && !canGlobalSearch}
               requiredPlan="pro"
             />
           </View>
@@ -453,6 +456,8 @@ export default function DashboardScreen() {
                         ? 'Basic document storage'
                         : subscription.plan === 'starter'
                         ? 'Enhanced features'
+                        : subscription.plan === 'family'
+                        ? 'Full power for the whole family'
                         : 'Full power, unlimited AI'}
                     </Text>
                   </View>

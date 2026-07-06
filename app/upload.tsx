@@ -15,7 +15,6 @@ import {
   Lock, Zap, RefreshCw, Merge, Cloud,
 } from 'lucide-react-native';
 import { useAuth } from '../src/hooks/useAuth';
-import { isSuperAdmin } from '../src/lib/isSuperAdmin';
 import { useDocuments } from '../src/hooks/useDocuments';
 import { uploadMergedDocument } from '../src/lib/api';
 import { useSubscription } from '../src/hooks/useSubscription';
@@ -50,10 +49,19 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function UploadScreen() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { uploadDocuments } = useDocuments(isAuthenticated);
-  const { subscription, loading: subLoading, canUploadDocument, incrementMonthlyUploads, documentCount, isStarterOrAbove } = useSubscription();
+  const { subscription, loading: subLoading, canUploadDocument, incrementMonthlyUploads, documentCount, featureFlags } = useSubscription();
   const { showToast } = useToast();
+
+  // Feature gating (source of truth = backend feature flags)
+  const canIngestUrl = featureFlags.url_ingestion;
+  // OCR/image uploads are paid. Free plan cannot upload images at all — hide the
+  // image source, restrict the picker to non-image types, and block any image
+  // that slips through client-side with the same message the backend returns.
+  const canUploadImages = featureFlags.ocr_enabled;
+  const IMAGE_MIME_RE = /^image\//i;
+  const IMAGE_BLOCK_MSG = 'Your current plan does not support image uploads. Upgrade to enable OCR for images.';
 
   // Renewal context from DocumentHealthPanel
   const { renewalDocId, renewalName, renewalCategory } = useLocalSearchParams<{
@@ -86,8 +94,8 @@ export default function UploadScreen() {
 
   // Cloud import
   const [cloudProviders, setCloudProviders] = useState<CloudProvider[]>([]);
-  // Cloud import (Google Drive / Dropbox / …) is restricted to the super admin.
-  const cloudEnabled = isSuperAdmin(user?.email);
+  // Cloud import (Google Drive / Dropbox / …) is a Pro/Family feature.
+  const cloudEnabled = featureFlags.cloud_import;
 
   React.useEffect(() => {
     if (cloudEnabled) {
@@ -98,21 +106,30 @@ export default function UploadScreen() {
   const { completeStepById } = useGoalBubble();
   const isFree = subscription?.plan === 'free';
 
+  // Non-image types are always allowed. Images require OCR (paid plans only).
+  const NON_IMAGE_TYPES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ];
+  const pickerTypes = canUploadImages ? [...NON_IMAGE_TYPES, 'image/*'] : NON_IMAGE_TYPES;
+
   const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/pdf',
-          'image/*',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'text/plain',
-        ],
+        type: pickerTypes,
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        // Belt-and-suspenders: block images client-side for Free (some pickers
+        // ignore the type filter) with the same message the backend returns.
+        if (!canUploadImages && IMAGE_MIME_RE.test(asset.mimeType || '')) {
+          showToast(IMAGE_BLOCK_MSG, 'warning');
+          return;
+        }
         setFileUri(asset.uri);
         setFileName(asset.name);
         setFileSize(asset.size || 0);
@@ -136,17 +153,16 @@ export default function UploadScreen() {
   const handlePickAdditionalFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/pdf', 'image/*',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'text/plain',
-        ],
+        type: pickerTypes,
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!canUploadImages && IMAGE_MIME_RE.test(asset.mimeType || '')) {
+          showToast(IMAGE_BLOCK_MSG, 'warning');
+          return;
+        }
         setAdditionalFiles(prev => [...prev, {
           uri: asset.uri,
           name: asset.name,
@@ -244,7 +260,7 @@ export default function UploadScreen() {
 
   const tabs: { key: UploadTab; label: string; icon: (active: boolean) => React.ReactNode; locked: boolean }[] = [
     { key: 'file', label: 'File', icon: (a) => <FileText size={14} color={a ? colors.white : colors.slate[600]} />, locked: false },
-    { key: 'url', label: 'URL', icon: (a) => <Link size={14} color={a ? colors.white : colors.slate[600]} />, locked: !isStarterOrAbove },
+    { key: 'url', label: 'URL', icon: (a) => <Link size={14} color={a ? colors.white : colors.slate[600]} />, locked: !canIngestUrl },
   ];
 
   const canSubmit =
@@ -324,7 +340,7 @@ export default function UploadScreen() {
           </View>
 
           {/* Locked tab upgrade prompt */}
-          {tab === 'url' && !isStarterOrAbove && (
+          {tab === 'url' && !canIngestUrl && (
             <Card style={styles.upgradeCard}>
               <View style={styles.upgradeCardContent}>
                 <GradientIcon size={48}>
@@ -394,12 +410,17 @@ export default function UploadScreen() {
                   </View>
 
                   <View style={styles.fileTypeRow}>
-                    {['PDF', 'DOC', 'IMG', 'TXT'].map((ext) => (
+                    {(canUploadImages ? ['PDF', 'DOC', 'IMG', 'TXT'] : ['PDF', 'DOC', 'TXT']).map((ext) => (
                       <View key={ext} style={styles.fileTypeBadge}>
                         <Text style={styles.fileTypeBadgeText}>{ext}</Text>
                       </View>
                     ))}
                   </View>
+                  {!canUploadImages && (
+                    <Text style={styles.imageHint}>
+                      Image uploads (OCR) require a paid plan
+                    </Text>
+                  )}
                 </View>
               ) : (<>
                 <Card style={styles.fileCard}>
@@ -486,8 +507,8 @@ export default function UploadScreen() {
             </View>
           )}
 
-          {/* URL Tab - Starter+ only */}
-          {tab === 'url' && isStarterOrAbove && (
+          {/* URL Tab - requires url_ingestion */}
+          {tab === 'url' && canIngestUrl && (
             <Card>
               <Text style={styles.inputLabel}>Document URL</Text>
               <View style={styles.urlInputWrap}>
@@ -820,6 +841,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
     color: colors.primary[600],
+  },
+  imageHint: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[500],
+    marginTop: spacing.xs,
   },
 
   // File Card
