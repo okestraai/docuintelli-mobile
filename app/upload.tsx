@@ -611,7 +611,7 @@ export default function UploadScreen() {
                   <Text style={styles.warningTitle}>Upload Limit Reached</Text>
                   <Text style={styles.warningText}>
                     Your {subscription?.plan || 'current'} plan allows {(subscription?.document_limit ?? 5) >= 99999 ? 'unlimited' : (subscription?.document_limit ?? 5)} documents and{' '}
-                    {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads/month.{' '}
+                    {(subscription?.monthly_upload_limit ?? 5) >= 99999 ? 'unlimited' : (subscription?.monthly_upload_limit ?? 5)} uploads/month.{' '}
                     {isFree ? 'Upgrade to continue.' : 'You have reached your limit for this period.'}
                   </Text>
                 </View>
@@ -630,7 +630,7 @@ export default function UploadScreen() {
           )}
 
           {/* Approaching limit warning — all plans */}
-          {canUploadDocument && subscription && (subscription.monthly_upload_limit ?? 3) < 99999 && (subscription.monthly_uploads_used ?? 0) >= (subscription.monthly_upload_limit ?? 3) * 0.8 && (
+          {canUploadDocument && subscription && (subscription.monthly_upload_limit ?? 5) < 99999 && (subscription.monthly_uploads_used ?? 0) >= (subscription.monthly_upload_limit ?? 5) * 0.8 && (
             <View style={styles.approachingLimitRow}>
               <AlertTriangle size={14} color={colors.warning[600]} />
               <Text style={styles.approachingLimitText}>
@@ -646,7 +646,7 @@ export default function UploadScreen() {
               <Text style={styles.usageText}>
                 {documentCount} / {(subscription?.document_limit ?? 5) >= 99999 ? 'Unlimited' : (subscription?.document_limit ?? 5)} documents used
                 {' \u2022 '}
-                {subscription?.monthly_uploads_used ?? 0} / {(subscription?.monthly_upload_limit ?? 3) >= 99999 ? 'Unlimited' : (subscription?.monthly_upload_limit ?? 3)} uploads this month
+                {subscription?.monthly_uploads_used ?? 0} / {(subscription?.monthly_upload_limit ?? 5) >= 99999 ? 'Unlimited' : (subscription?.monthly_upload_limit ?? 5)} uploads this month
               </Text>
             </View>
           )}

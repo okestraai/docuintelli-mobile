@@ -552,7 +552,7 @@ export interface StripePrices {
 
 const DEFAULT_PRICES: StripePrices = {
   free: { monthly: 0, yearly: 0 },
-  starter: { monthly: 9, yearly: 86 },
+  starter: { monthly: 9, yearly: 90 },
   pro: { monthly: 19, yearly: 182 },
   family: { monthly: 34, yearly: 326 },
 };
