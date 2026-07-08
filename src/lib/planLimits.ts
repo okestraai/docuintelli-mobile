@@ -20,8 +20,8 @@ export interface PlanData {
 // sync with the backend tier table for the downgrade-compliance helpers below.
 export const PLAN_LIMITS = {
   free: { documents: 5, monthlyUploads: 5, devices: 1, name: 'Free' },
-  starter: { documents: 30, monthlyUploads: 9, devices: 2, name: 'Starter' },
-  pro: { documents: 50, monthlyUploads: 15, devices: 5, name: 'Pro' },
+  starter: { documents: 30, monthlyUploads: 9, devices: 1, name: 'Starter' },
+  pro: { documents: 50, monthlyUploads: 15, devices: 3, name: 'Pro' },
   family: { documents: 150, monthlyUploads: 45, devices: 5, name: 'Family' },
 } as const;
 
@@ -65,7 +65,7 @@ export const PLANS: PlanData[] = [
       { text: 'File + URL ingestion', included: true },
       { text: 'OCR for images', included: true },
       { text: 'Weekly Audit', included: true },
-      { text: '2 devices', included: true },
+      { text: '1 device', included: true },
       { text: 'Email notifications', included: true },
       { text: 'E-Signatures (5 requests/mo, 3 signers)', included: true },
       { text: 'Life Events (3 active, 3 recomputes/mo)', included: true },
@@ -102,7 +102,7 @@ export const PLANS: PlanData[] = [
       { text: 'Faster embedding generation', included: true },
       { text: 'Advanced tagging & relationship mapping', included: true },
       { text: 'AI summaries + key data extraction', included: true },
-      { text: 'Up to 5 devices', included: true },
+      { text: 'Up to 3 devices', included: true },
       { text: 'Priority support', included: true },
     ],
     cta: 'Upgrade to Pro',

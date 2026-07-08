@@ -25,6 +25,8 @@ import OfflineBanner from '../src/components/ui/OfflineBanner';
 import CompromisedDeviceBanner from '../src/components/ui/CompromisedDeviceBanner';
 import DunningBanner from '../src/components/ui/DunningBanner';
 import PersistentTabBar from '../src/components/PersistentTabBar';
+import DeviceLimitModal from '../src/components/DeviceLimitModal';
+import { installDeviceLimitInterceptor } from '../src/lib/deviceLimitInterceptor';
 import { GoalBubbleProvider } from '../src/contexts/GoalBubbleContext';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -37,6 +39,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // Complete any pending auth sessions (OAuth redirects back to the app).
 // Must run at the module top level before any component renders.
 WebBrowser.maybeCompleteAuthSession();
+
+// Broadcast device-limit 403s to the global <DeviceLimitModal> before any fetch runs.
+installDeviceLimitInterceptor();
 
 export default function RootLayout() {
   const { initialized, loading, initialize, setSession, session } = useAuthStore();
@@ -333,6 +338,9 @@ export default function RootLayout() {
 
       {/* Toast rendered inside the app shell so it centers within 480px on web */}
       <ToastRenderer />
+
+      {/* Global device-limit blocker — listens for 403 DEVICE_LIMIT_EXCEEDED/BLOCKED */}
+      <DeviceLimitModal />
 
       {/* "View Desktop Site" link — web only */}
       {Platform.OS === 'web' && (
