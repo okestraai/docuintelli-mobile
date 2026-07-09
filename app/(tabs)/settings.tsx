@@ -18,6 +18,7 @@ import {
   LifeBuoy,
   Landmark,
   FileText,
+  Users,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { getUserProfile } from '../../src/lib/auth';
@@ -71,6 +72,14 @@ const MENU_ITEMS = [
     label: 'Billing',
     subtitle: 'Subscription & payments',
     route: '/billing' as const,
+  },
+  {
+    icon: Users,
+    iconColor: colors.primary[600],
+    iconBg: colors.primary[50],
+    label: 'Family',
+    subtitle: 'Members & shared plan',
+    route: '/settings/family' as const,
   },
   {
     icon: LifeBuoy,
