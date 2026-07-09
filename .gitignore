@@ -47,3 +47,4 @@ graphify-out/
 **/graphify-out/
 .graphify/
 **/.graphify/
+.gstack/
