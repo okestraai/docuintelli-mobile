@@ -18,6 +18,13 @@ import type { FeatureFlags, PlanId, Subscription } from '../types/subscription';
 const PAID_PLANS: ReadonlySet<PlanId> = new Set(['starter', 'pro', 'family']);
 const PRO_FAMILY: ReadonlySet<PlanId> = new Set(['pro', 'family']);
 
+/**
+ * Action Agent is temporarily presented as "Coming Soon". This single kill-switch
+ * forces the `action_agent` flag off everywhere (see getFeatureFlags). Set to
+ * `false` to re-launch it live.
+ */
+export const ACTION_AGENT_COMING_SOON = true;
+
 export function isPaidPlan(plan: PlanId | undefined | null): boolean {
   return !!plan && PAID_PLANS.has(plan);
 }
@@ -62,6 +69,11 @@ export function deriveFeatureFlags(plan: PlanId): FeatureFlags {
 export function getFeatureFlags(subscription: Subscription | null): FeatureFlags {
   const plan: PlanId = subscription?.plan ?? 'free';
   const fallback = deriveFeatureFlags(plan);
-  if (!subscription?.feature_flags) return fallback;
-  return { ...fallback, ...subscription.feature_flags };
+  const resolved = subscription?.feature_flags
+    ? { ...fallback, ...subscription.feature_flags }
+    : fallback;
+  // Action Agent is temporarily presented as "Coming Soon" — force it off
+  // regardless of plan/backend so no UI gated on the flag is reachable.
+  if (ACTION_AGENT_COMING_SOON) resolved.action_agent = false;
+  return resolved;
 }

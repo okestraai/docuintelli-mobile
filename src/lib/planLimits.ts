@@ -121,7 +121,7 @@ export const PLANS: PlanData[] = [
       { text: 'Financial Insights & StockPulse', included: true },
       { text: 'Emergency Access (Trusted Contacts)', included: true },
       { text: 'Life Events (unlimited + AI matching)', included: true },
-      { text: 'Action Agent (20/mo)', included: true },
+      { text: 'Action Agent (Coming soon)', included: false },
       { text: 'Up to 5 devices', included: true },
       { text: 'Priority support', included: true },
     ],
