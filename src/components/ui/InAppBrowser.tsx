@@ -20,11 +20,52 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
+// pdf.js used to render PDFs inside the WebView on Android (keeps document URLs off
+// third-party servers). Same version the e-sign overlay uses. TODO(#21): bundle locally.
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/**
+ * Build a self-contained HTML page that renders `pdfUrl` with pdf.js. The document bytes
+ * are fetched by pdf.js from our own server (via the URL) inside the WebView — never sent
+ * to any third-party viewer. The URL is JSON-encoded to avoid HTML/JS injection.
+ */
+function buildPdfJsHtml(pdfUrl: string): string {
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<style>html,body{margin:0;padding:0;background:#f1f5f9}#c{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}canvas{width:100%;max-width:100%;box-shadow:0 1px 4px rgba(0,0,0,.15);background:#fff}#e{font:14px -apple-system,sans-serif;color:#64748b;padding:24px;text-align:center}</style>
+</head><body><div id="c"></div><div id="e" style="display:none">Unable to display this document.</div>
+<script src="${PDFJS_CDN}"></script>
+<script>
+(function(){
+  var url = ${JSON.stringify(pdfUrl)};
+  function fail(){ document.getElementById('e').style.display='block'; }
+  if(!window.pdfjsLib){ fail(); return; }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = ${JSON.stringify(PDFJS_WORKER_CDN)};
+  var scale = (window.devicePixelRatio||1) * (window.innerWidth/612);
+  pdfjsLib.getDocument(url).promise.then(function(pdf){
+    var container=document.getElementById('c');
+    var chain=Promise.resolve();
+    for(var p=1;p<=pdf.numPages;p++){(function(pageNum){
+      chain=chain.then(function(){return pdf.getPage(pageNum).then(function(page){
+        var vp=page.getViewport({scale:scale});
+        var canvas=document.createElement('canvas');
+        canvas.width=vp.width;canvas.height=vp.height;
+        container.appendChild(canvas);
+        return page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+      });});
+    })(p);}
+    return chain;
+  }).catch(fail);
+})();
+</script></body></html>`;
+}
+
 interface InAppBrowserProps {
   url: string | null;
   onClose: () => void;
   title?: string;
-  /** Hint that the URL points to a PDF — enables Google Docs viewer on Android */
+  /** Hint that the URL points to a PDF — renders it with pdf.js in-WebView on Android */
   isPdf?: boolean;
   /** Called when WebView navigates to a URL matching a custom scheme (e.g. docuintelli://).
    *  The browser auto-closes and the matched URL is passed to the callback. */
@@ -77,11 +118,13 @@ export default function InAppBrowser({
     return null;
   }
 
-  // Android WebView can't render PDFs natively — use Google Docs viewer
-  const displayUrl =
-    isPdf && Platform.OS === 'android'
-      ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`
-      : url;
+  // Android WebView can't render PDFs natively. We render them with pdf.js INSIDE the
+  // WebView (document bytes are fetched straight from our own server) rather than proxying
+  // the URL through Google's docs viewer — the old approach leaked signed document URLs to
+  // a third party. `androidPdfHtml` is passed to the WebView as inline HTML below.
+  const useAndroidPdfViewer = !!isPdf && Platform.OS === 'android';
+  const androidPdfHtml = useAndroidPdfViewer ? buildPdfJsHtml(url) : null;
+  const displayUrl = url;
 
   return (
     <Modal
@@ -138,7 +181,8 @@ export default function InAppBrowser({
         ) : WebView ? (
           <WebView
             ref={webViewRef}
-            source={{ uri: displayUrl }}
+            source={androidPdfHtml ? { html: androidPdfHtml } : { uri: displayUrl }}
+            originWhitelist={['*']}
             style={styles.webView}
             onLoadStart={() => setLoading(true)}
             onLoadEnd={() => setLoading(false)}
