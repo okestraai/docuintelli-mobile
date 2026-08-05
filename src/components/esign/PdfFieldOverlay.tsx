@@ -13,6 +13,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import FieldChip from './FieldChip';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { PDFJS_SCRIPT_TAGS, PDFJS_WORKER_INIT } from '../../lib/pdfjs';
+import { PDFJS_LIB_B64, PDFJS_WORKER_B64 } from '../../lib/pdfjsAssets';
 import type { EsignField, PlacedField, SignerEntry, FieldType } from '../../types/esignature';
 
 interface PdfFieldOverlayProps {
@@ -35,8 +37,8 @@ interface PdfFieldOverlayProps {
 const SCREEN_WIDTH = require('../../utils/dimensions').getScreenWidth();
 const PDF_VIEW_WIDTH = SCREEN_WIDTH;
 
-const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// pdf.js loaded from the app BUNDLE (base64), not a CDN. Data URI = the library; blob = the worker.
+const PDFJS_LIB_DATA_URI = `data:text/javascript;base64,${PDFJS_LIB_B64}`;
 
 // ── Web: Offscreen PDF → Image approach ──────────────────────────────────
 
@@ -54,9 +56,11 @@ function useWebPdfAsImage(pdfUrl: string, currentPage: number, authToken?: strin
     if ((window as any).pdfjsLib) return;
 
     const script = document.createElement('script');
-    script.src = PDFJS_CDN;
+    script.src = PDFJS_LIB_DATA_URI;
     script.onload = () => {
-      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+        new Blob([atob(PDFJS_WORKER_B64)], { type: 'application/javascript' }),
+      );
     };
     document.head.appendChild(script);
   }, []);
@@ -157,7 +161,7 @@ function makePdfViewerHtml(): string {
 <html>
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<script src="${PDFJS_CDN}"><\/script>
+${PDFJS_SCRIPT_TAGS}
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{width:100%;height:100%;overflow:hidden;background:#fff}
@@ -170,7 +174,7 @@ function makePdfViewerHtml(): string {
 <div class="loading" id="loading">Preparing PDF...</div>
 <canvas id="canvas" style="display:none"></canvas>
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc='${PDFJS_WORKER_CDN}';
+  ${PDFJS_WORKER_INIT}
   var postMsg=function(d){try{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(d);}catch(e){}};
   var pdfDoc=null,currentPage=1;
 

@@ -13,6 +13,7 @@ import { X, RefreshCw } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import { PDFJS_SCRIPT_TAGS, PDFJS_WORKER_INIT } from '../../lib/pdfjs';
 
 // Only import WebView on native platforms
 let WebView: any = null;
@@ -20,28 +21,23 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').WebView;
 }
 
-// pdf.js used to render PDFs inside the WebView on Android (keeps document URLs off
-// third-party servers). Same version the e-sign overlay uses. TODO(#21): bundle locally.
-const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
 /**
- * Build a self-contained HTML page that renders `pdfUrl` with pdf.js. The document bytes
- * are fetched by pdf.js from our own server (via the URL) inside the WebView — never sent
- * to any third-party viewer. The URL is JSON-encoded to avoid HTML/JS injection.
+ * Build a self-contained HTML page that renders `pdfUrl` with pdf.js. pdf.js is loaded from the app
+ * BUNDLE (not a CDN — offline-capable), and the document bytes are fetched by pdf.js from our own
+ * server (via the URL) inside the WebView — never sent to any third-party viewer. The URL is
+ * JSON-encoded to avoid HTML/JS injection.
  */
 function buildPdfJsHtml(pdfUrl: string): string {
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
 <style>html,body{margin:0;padding:0;background:#f1f5f9}#c{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}canvas{width:100%;max-width:100%;box-shadow:0 1px 4px rgba(0,0,0,.15);background:#fff}#e{font:14px -apple-system,sans-serif;color:#64748b;padding:24px;text-align:center}</style>
-</head><body><div id="c"></div><div id="e" style="display:none">Unable to display this document.</div>
-<script src="${PDFJS_CDN}"></script>
+${PDFJS_SCRIPT_TAGS}</head><body><div id="c"></div><div id="e" style="display:none">Unable to display this document.</div>
 <script>
 (function(){
   var url = ${JSON.stringify(pdfUrl)};
   function fail(){ document.getElementById('e').style.display='block'; }
   if(!window.pdfjsLib){ fail(); return; }
-  pdfjsLib.GlobalWorkerOptions.workerSrc = ${JSON.stringify(PDFJS_WORKER_CDN)};
+  ${PDFJS_WORKER_INIT}
   var scale = (window.devicePixelRatio||1) * (window.innerWidth/612);
   pdfjsLib.getDocument(url).promise.then(function(pdf){
     var container=document.getElementById('c');
