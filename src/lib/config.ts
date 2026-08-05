@@ -16,5 +16,12 @@ export const STRIPE_PRO_YEARLY_PRICE_ID = process.env.EXPO_PUBLIC_STRIPE_PRO_YEA
 export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
 export const GOOGLE_PICKER_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PICKER_API_KEY || '';
 
+// ── Business ("firm") network — additive, inert-by-default ────────────
+// Base URL for the isolated business API. Mirrors the consumer web's
+// VITE_BUSINESS_API_URL gating: when unset (the default, incl. production),
+// BUSINESS_FEATURES_ENABLED is false and every firm feature is a no-op.
+export const BUSINESS_API_BASE = process.env.EXPO_PUBLIC_BUSINESS_API_URL || '';
+export const BUSINESS_FEATURES_ENABLED = BUSINESS_API_BASE.length > 0;
+
 // Deep link scheme for Stripe callbacks, password reset, etc.
 export const APP_SCHEME = 'docuintelli';

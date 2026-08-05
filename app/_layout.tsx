@@ -9,7 +9,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ArrowLeft, Shield, Monitor } from 'lucide-react-native';
 import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
-import { API_BASE } from '../src/lib/config';
+import { API_BASE, BUSINESS_FEATURES_ENABLED } from '../src/lib/config';
+import { processClientInvite } from '../src/lib/businessClientInvite';
 import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
@@ -103,6 +104,12 @@ export default function RootLayout() {
       // Now initialize (reads tokens from storage)
       await initialize();
 
+      // If a firm client-portal invite was captured before auth, process it now
+      // that we (may) have a session. No-op unless business features are enabled.
+      if (BUSINESS_FEATURES_ENABLED) {
+        processClientInvite().catch(() => {});
+      }
+
       // Configure RevenueCat for native IAP
       if (Platform.OS !== 'web') {
         const currentSession = useAuthStore.getState().session;
@@ -142,6 +149,11 @@ export default function RootLayout() {
       data: { subscription },
     } = auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
+      // A user just signed in — process any pending firm invite captured before auth.
+      // No-op unless business features are enabled and an invite was stashed.
+      if (BUSINESS_FEATURES_ENABLED && sess) {
+        processClientInvite().catch(() => {});
+      }
       // Sync RevenueCat user with auth state
       if (Platform.OS !== 'web') {
         if (sess?.user?.id) {
