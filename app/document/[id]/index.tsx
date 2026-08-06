@@ -173,35 +173,37 @@ export default function DocumentViewerScreen() {
   const [saving, setSaving] = useState(false);
 
   // Load document metadata
-  useEffect(() => {
+  const fetchDocument = useCallback(async () => {
     if (!id) {
       setLoadError('No document ID provided');
       setLoading(false);
       return;
     }
-    (async () => {
-      try {
-        const { data: { session } } = await auth.getSession();
-        if (!session) throw new Error('Not authenticated');
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-        const res = await fetch(`${API_BASE}/api/documents/${id}`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: 'Failed to load document' }));
-          throw new Error(err.error || 'Failed to load document');
-        }
-        const data = await res.json();
-        setDoc(data.document);
-        completeStepById('view-doc');
-      } catch (err) {
-        console.error('Error loading document:', err);
-        setLoadError(err instanceof Error ? err.message : 'Failed to load document');
-      } finally {
-        setLoading(false);
+      const res = await fetch(`${API_BASE}/api/documents/${id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to load document' }));
+        throw new Error(err.error || 'Failed to load document');
       }
-    })();
-  }, [id]);
+      const data = await res.json();
+      setDoc(data.document);
+      completeStepById('view-doc');
+    } catch (err) {
+      console.error('Error loading document:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load document');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, completeStepById]);
+
+  useEffect(() => {
+    fetchDocument();
+  }, [fetchDocument]);
 
   // Load renewal chain relationships
   useEffect(() => {

@@ -18,7 +18,7 @@ import {
   Trash2,
   Download,
 } from 'lucide-react-native';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../src/store/authStore';
 import { useBiometrics } from '../../src/hooks/useBiometrics';

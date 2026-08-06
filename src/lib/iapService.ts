@@ -188,8 +188,10 @@ export function onCustomerInfoUpdated(
 ): () => void {
   if (Platform.OS === 'web' || !isConfigured) return () => {};
   try {
-    const listener = Purchases.addCustomerInfoUpdateListener(callback);
-    return () => listener?.remove?.();
+    Purchases.addCustomerInfoUpdateListener(callback);
+    // addCustomerInfoUpdateListener returns void; the correct cleanup is to
+    // remove the same callback reference via removeCustomerInfoUpdateListener.
+    return () => Purchases.removeCustomerInfoUpdateListener(callback);
   } catch {
     return () => {};
   }
