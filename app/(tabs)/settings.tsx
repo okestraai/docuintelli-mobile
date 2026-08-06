@@ -19,9 +19,12 @@ import {
   Landmark,
   FileText,
   Users,
+  Building2,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { getUserProfile } from '../../src/lib/auth';
+import { getSharedStatus } from '../../src/lib/businessSharedApi';
+import { BUSINESS_FEATURES_ENABLED } from '../../src/lib/config';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import Card from '../../src/components/ui/Card';
 import Badge from '../../src/components/ui/Badge';
@@ -107,16 +110,37 @@ const MENU_ITEMS = [
   },
 ];
 
+// "From your firms" — shown only when the user is on a firm's client roster (like consumer web).
+const FIRM_MENU_ITEM = {
+  icon: Building2,
+  iconColor: colors.primary[600],
+  iconBg: colors.primary[50],
+  label: 'From your firms',
+  subtitle: 'Documents, requests & signatures',
+  route: '/firm-hub' as const,
+};
+
 export default function SettingsScreen() {
   const { user, signOut } = useAuthStore();
   const { subscription, loading: subLoading } = useSubscription();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [isFirmClient, setIsFirmClient] = useState(false);
 
   useEffect(() => {
     getUserProfile().then((profile) => {
       if (profile?.display_name) setDisplayName(profile.display_name);
     }).catch(() => {});
   }, []);
+
+  // Gate the "From your firms" entry on client-roster membership — hidden otherwise, matching web.
+  useEffect(() => {
+    if (!BUSINESS_FEATURES_ENABLED) return;
+    getSharedStatus()
+      .then((s) => setIsFirmClient(s.isClient))
+      .catch(() => setIsFirmClient(false));
+  }, []);
+
+  const menuItems = isFirmClient ? [FIRM_MENU_ITEM, ...MENU_ITEMS] : MENU_ITEMS;
 
   const handleSignOut = async () => {
     await signOut();
@@ -170,12 +194,13 @@ export default function SettingsScreen() {
 
         {/* Menu items */}
         <Card padded={false}>
-          {MENU_ITEMS.map((item, index) => (
+          {menuItems.map((item, index) => (
             <React.Fragment key={item.route}>
               {index > 0 && <View style={styles.divider} />}
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => router.push(item.route)}
+                // `/firm-hub` isn't in the stale generated route types yet (as with firm-sign in deepLinking.ts) — cast.
+                onPress={() => router.push(item.route as any)}
                 activeOpacity={0.6}
               >
                 <View style={[styles.menuIconWrap, { backgroundColor: item.iconBg }]}>

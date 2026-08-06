@@ -30,6 +30,39 @@ export interface SignatureForMe {
   canView?: boolean;
   canSign?: boolean;
   canEdit?: boolean;
+  /** True only once the finished signed PDF exists — gate the download on this, not status. */
+  signedCopyReady?: boolean;
+}
+
+/** Whether the current user is on any firm's roster — gates the "From your firms" hub. */
+export interface SharedStatus {
+  isClient: boolean;
+  firms: string[];
+}
+
+/** A document a firm has shared with the current user — GET /shared/documents. */
+export interface SharedDocument {
+  // Null when access comes from the client's own vault (whole-folder view) rather than a per-doc grant.
+  grantId: string | null;
+  businessDocumentId: string;
+  name: string;
+  category: string;
+  accessLevel: string;
+  canView?: boolean;
+  canSign?: boolean;
+  canEdit?: boolean;
+  sharedBy: string; // firm name
+  sharedAt: string;
+}
+
+/** A document a firm has asked the current user to provide — GET /shared/intake. */
+export interface IntakeForMe {
+  id: string;
+  title: string;
+  description: string | null;
+  requestedBy: string; // firm name
+  dueDate: string | null;
+  createdAt: string;
 }
 
 export interface SignerField {
@@ -109,6 +142,60 @@ export async function acceptClientInvite(token: string): Promise<{ businessId: s
   const res = await fetch(`${bizBase()}/clients/accept/${encodeURIComponent(token)}`, {
     method: 'POST',
     headers,
+  });
+  return handleResponse(res);
+}
+
+// ── "From your firms" hub — status / shared documents / intake ────────────
+
+/** Am I on any firm's roster? Gates whether the "From your firms" hub is shown at all. */
+export async function getSharedStatus(): Promise<SharedStatus> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const res = await fetch(`${bizBase()}/shared/status`, { headers });
+  return handleResponse(res);
+}
+
+/** Documents firms have shared with me, across all firms (paginated). */
+export async function listSharedDocuments(params?: { limit?: number; offset?: number }): Promise<Page<SharedDocument>> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const q = new URLSearchParams({
+    limit: String(params?.limit ?? 50),
+    offset: String(params?.offset ?? 0),
+  });
+  const res = await fetch(`${bizBase()}/shared/documents?${q.toString()}`, { headers });
+  return handleResponse(res);
+}
+
+/** Short-lived signed URL to view a document shared with me (keyed by businessDocumentId). */
+export async function getSharedDocumentUrl(businessDocumentId: string): Promise<{ url: string; expiresIn: number }> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const res = await fetch(`${bizBase()}/shared/documents/${businessDocumentId}/url`, { headers });
+  return handleResponse(res);
+}
+
+/** Documents firms have asked me to provide (paginated). */
+export async function listMyIntake(params?: { limit?: number; offset?: number }): Promise<Page<IntakeForMe>> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const q = new URLSearchParams({
+    limit: String(params?.limit ?? 50),
+    offset: String(params?.offset ?? 0),
+  });
+  const res = await fetch(`${bizBase()}/shared/intake?${q.toString()}`, { headers });
+  return handleResponse(res);
+}
+
+/** Fulfil an intake request by linking one of MY OWN consumer documents (server checks ownership). */
+export async function fulfilIntake(id: string, documentId: string): Promise<{ businessDocumentId: string }> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const res = await fetch(`${bizBase()}/shared/intake/${id}/fulfil`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ documentId }),
   });
   return handleResponse(res);
 }
@@ -209,6 +296,14 @@ export async function getSignerDocument(ref: string): Promise<{ url: string; exp
   ensureEnabled();
   const headers = await authHeaders();
   const res = await fetch(`${sigBase()}/${ref}/document`, { headers });
+  return handleResponse(res);
+}
+
+/** Short-lived URL to the FINISHED signed PDF — resolves only once the request is completed. */
+export async function getSignatureSignedUrl(ref: string): Promise<{ url: string; expiresIn: number }> {
+  ensureEnabled();
+  const headers = await authHeaders();
+  const res = await fetch(`${sigBase()}/${ref}/signed-document`, { headers });
   return handleResponse(res);
 }
 
