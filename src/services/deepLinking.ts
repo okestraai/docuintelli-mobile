@@ -73,6 +73,17 @@ export function handleDeepLink(url: string) {
     return;
   }
 
+  // A signature request raised by a FIRM in the Business Network — a different system from this
+  // app's own e-signature below, with a different token and a different screen. It arrives as a real
+  // path so iOS Universal Links can claim it: the old shape was '/?sign=<token>', root with a query,
+  // which iOS cannot claim without claiming '/' and handing the app every marketing page. Those
+  // links opened Safari every time. The query form is still handled above, for links already sent.
+  if (path.startsWith('firm-sign/')) {
+    const ref = path.slice('firm-sign/'.length);
+    if (ref) router.push({ pathname: '/firm-sign/[ref]', params: { ref } } as any);
+    return;
+  }
+
   // Handle e-signature signing links (docuintelli://sign/{token} or https://docuintelli.com/sign/{token})
   if (path.startsWith('sign/')) {
     const signingToken = path.replace('sign/', '');
