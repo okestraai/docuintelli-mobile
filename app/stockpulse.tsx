@@ -31,6 +31,7 @@ import {
   closeSimulatorPick, refreshSimulator, constructPortfolio, getBacktestRuns, getActiveBacktest,
   getBacktestResult, startBacktest, getClosedPicks, getTickerHistory,
   getForecast, getConvictionChanges,
+  getIndex, searchStocks, recordInterest, indexStockToRecommendation,
   type Recommendation, type CIRAScore, type SimulatorPick, type SimulatorSummary,
   type InvestorProfile, type ConstructedPortfolio, type PortfolioPosition,
   type BacktestRun,
@@ -113,6 +114,12 @@ function StockPulseContent() {
   const [scoreMax, setScoreMax] = useState(100);
   const [mosFilter, setMosFilter] = useState<MosFilter>('all');
   const [gateFilter, setGateFilter] = useState<GateFilter>('all');
+  // Most of the index is unanalyzed, so this is the switch between "everything I can browse" and
+  // "everything we have actually scored".
+  const [analyzedOnly, setAnalyzedOnly] = useState(false);
+  const [remoteHits, setRemoteHits] = useState<{ ticker: string; name: string | null; exchange: string | null }[]>([]);
+  // Distinct from "no results": the index failing to load should not read as "you own no stocks".
+  const [loadError, setLoadError] = useState(false);
 
   // ── Invest For Me state ──
   const [investStep, setInvestStep] = useState(0);
@@ -176,17 +183,43 @@ function StockPulseContent() {
   // DATA LOADERS
   // ────────────────────────────────────────────────────────────────
 
+  /**
+   * Load the browsable index — every stock we track, not only the ones already analyzed.
+   *
+   * This used to call `/recommendations`, which by definition returns only tickers that already
+   * carry a CIRA score, so the list was capped at the low hundreds no matter how many stocks
+   * existed. `/index` returns the full universe from a snapshot the server prebuilds, with the
+   * score attached where there is one.
+   */
   const loadDashboard = useCallback(async () => {
     try {
-      const { recommendations: recs } = await getRecommendations();
-      setRecommendations(recs || []);
+      const { stocks } = await getIndex();
+      setRecommendations((stocks || []).map(indexStockToRecommendation));
+      setLoadError(false);
     } catch (err: any) {
+      setLoadError(true);
       showToast(err?.message || 'Failed to load stocks', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
+
+  /**
+   * Discovery: when the local index cannot satisfy the query, ask the server. Purely additive —
+   * filtering the already-loaded list stays instant and never waits on this.
+   */
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) { setRemoteHits([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchStocks(q)
+        .then(({ remote }) => { if (!cancelled) setRemoteHits(remote || []); })
+        .catch(() => { if (!cancelled) setRemoteHits([]); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery]);
 
   const loadSimulator = useCallback(async () => {
     try {
@@ -307,12 +340,17 @@ function StockPulseContent() {
   // COMPANY DETAIL
   // ────────────────────────────────────────────────────────────────
 
-  const openCompany = async (ticker: string) => {
+  const openCompany = async (ticker: string, opts: { refresh?: boolean } = {}) => {
     setSelectedTicker(ticker);
     setCompanyLoading(true);
     setCompanyData(null);
+    // Opening a stock is the strongest signal about which of ~1,000 tickers deserve the scarce
+    // deep-scoring budget, so it feeds the server's priority queue. Fire-and-forget.
+    recordInterest(ticker, 'view');
     try {
-      const data = await scoreStock(ticker);
+      // Served from the stored analysis unless explicitly refreshed — a stock that has never been
+      // analyzed is scored here, on demand, which is what makes listing the whole index workable.
+      const data = await scoreStock(ticker, opts);
       setCompanyData(data);
     } catch (err: any) {
       showToast(err?.message || 'Failed to load stock', 'error');
@@ -437,9 +475,15 @@ function StockPulseContent() {
       result = result.filter(r => r.ticker.toLowerCase().includes(q) || r.company_name?.toLowerCase().includes(q));
     }
     if (sectorFilter !== 'ALL') result = result.filter(r => r.sector === sectorFilter);
+    // An unanalyzed stock has no conviction, so it can never match a specific one.
     if (convictionFilter !== 'ALL') result = result.filter(r => r.current_conviction === convictionFilter);
+    if (analyzedOnly) result = result.filter(r => r.current_score != null);
+    // Unanalyzed stocks have no score to compare against, so they survive only while the range is
+    // untouched — narrowing it is an explicit statement about scores, which they do not have.
+    const rangeNarrowed = scoreMin > 0 || scoreMax < 100;
     result = result.filter(r => {
-      const score = Math.round(Number(r.current_score) || 0);
+      if (r.current_score == null) return !rangeNarrowed;
+      const score = Math.round(Number(r.current_score));
       return score >= scoreMin && score <= scoreMax;
     });
     if (mosFilter === 'undervalued') result = result.filter(r => r.margin_of_safety_pct != null && Number(r.margin_of_safety_pct) > 0);
@@ -447,34 +491,53 @@ function StockPulseContent() {
     if (gateFilter === 'no_gates') result = result.filter(r => !r.gates_triggered || r.gates_triggered.length === 0);
     else if (gateFilter === 'gates_active') result = result.filter(r => r.gates_triggered && r.gates_triggered.length > 0);
 
+    // Unanalyzed stocks sort last under BOTH score directions — "no score" is not a low score, and
+    // letting them lead a "lowest score" sort would read as a verdict we never made.
+    const unscoredLast = (a: Recommendation, b: Recommendation) =>
+      (a.current_score == null ? 1 : 0) - (b.current_score == null ? 1 : 0);
+
     switch (sortBy) {
-      case 'score_high': result.sort((a, b) => (b.current_score || 0) - (a.current_score || 0)); break;
-      case 'score_low': result.sort((a, b) => (a.current_score || 0) - (b.current_score || 0)); break;
+      case 'score_high':
+        result.sort((a, b) => unscoredLast(a, b) || (Number(b.current_score) || 0) - (Number(a.current_score) || 0));
+        break;
+      case 'score_low':
+        result.sort((a, b) => unscoredLast(a, b) || (Number(a.current_score) || 0) - (Number(b.current_score) || 0));
+        break;
       case 'price_high': result.sort((a, b) => (b.current_price || 0) - (a.current_price || 0)); break;
       case 'price_low': result.sort((a, b) => (a.current_price || 0) - (b.current_price || 0)); break;
       case 'alpha': result.sort((a, b) => a.ticker.localeCompare(b.ticker)); break;
       case 'mos_high': result.sort((a, b) => (Number(b.margin_of_safety_pct) || -999) - (Number(a.margin_of_safety_pct) || -999)); break;
-      case 'market_cap': result.sort((a, b) => (b.current_price || 0) - (a.current_price || 0)); break;
+      // Real market caps now come from the index, so this no longer has to stand in with price.
+      case 'market_cap': result.sort((a, b) => (Number(b.market_cap) || 0) - (Number(a.market_cap) || 0)); break;
     }
     return result;
-  }, [recommendations, searchQuery, sectorFilter, convictionFilter, scoreMin, scoreMax, sortBy, mosFilter, gateFilter]);
+  }, [recommendations, searchQuery, sectorFilter, convictionFilter, scoreMin, scoreMax, sortBy, mosFilter, gateFilter, analyzedOnly]);
 
   const convictionCounts = useMemo(() => {
     const counts: Record<string, number> = { 'Strong Buy': 0, 'Buy': 0, 'Hold': 0, 'Reduce': 0, 'Sell': 0 };
-    recommendations.forEach(r => { if (counts[r.current_conviction] !== undefined) counts[r.current_conviction]++; });
+    // Unanalyzed stocks have no conviction and simply do not appear in these tallies.
+    recommendations.forEach(r => {
+      const c = r.current_conviction;
+      if (c && counts[c] !== undefined) counts[c]++;
+    });
     return counts;
   }, [recommendations]);
 
+  // Averaged over the ANALYZED subset only: counting unscored stocks as zero would drag the average
+  // toward nothing as the index grows, which is the opposite of what growing it should show.
   const dashStats = useMemo(() => {
-    if (filteredCompanies.length === 0) return { total: 0, avgScore: 0, topPick: null as Recommendation | null };
-    const avgScore = filteredCompanies.reduce((s, c) => s + (Number(c.current_score) || 0), 0) / filteredCompanies.length;
-    const topPick = filteredCompanies.reduce((best, c) => (Number(c.current_score) || 0) > (Number(best.current_score) || 0) ? c : best);
-    return { total: filteredCompanies.length, avgScore, topPick };
+    const scored = filteredCompanies.filter(c => c.current_score != null);
+    if (scored.length === 0) {
+      return { total: filteredCompanies.length, scored: 0, avgScore: 0, topPick: null as Recommendation | null };
+    }
+    const avgScore = scored.reduce((s, c) => s + Number(c.current_score), 0) / scored.length;
+    const topPick = scored.reduce((best, c) => Number(c.current_score) > Number(best.current_score) ? c : best);
+    return { total: filteredCompanies.length, scored: scored.length, avgScore, topPick };
   }, [filteredCompanies]);
 
   const activeFilterCount = useMemo(() => {
-    return [sectorFilter !== 'ALL', convictionFilter !== 'ALL', scoreMin > 0, scoreMax < 100, mosFilter !== 'all', gateFilter !== 'all'].filter(Boolean).length;
-  }, [sectorFilter, convictionFilter, scoreMin, scoreMax, mosFilter, gateFilter]);
+    return [sectorFilter !== 'ALL', convictionFilter !== 'ALL', scoreMin > 0, scoreMax < 100, mosFilter !== 'all', gateFilter !== 'all', analyzedOnly].filter(Boolean).length;
+  }, [sectorFilter, convictionFilter, scoreMin, scoreMax, mosFilter, gateFilter, analyzedOnly]);
 
   // ── Simulator ticker groups ──
   const simTickerGroups = useMemo(() => {
@@ -589,9 +652,24 @@ function StockPulseContent() {
               <Card>
                 <View style={s.filterHeader}>
                   <Text style={s.filterTitle}>Filters</Text>
-                  <TouchableOpacity onPress={() => { setSectorFilter('ALL'); setConvictionFilter('ALL'); setScoreMin(0); setScoreMax(100); setMosFilter('all'); setGateFilter('all'); }}>
+                  <TouchableOpacity onPress={() => { setSectorFilter('ALL'); setConvictionFilter('ALL'); setScoreMin(0); setScoreMax(100); setMosFilter('all'); setGateFilter('all'); setAnalyzedOnly(false); }}>
                     <Text style={s.clearFiltersText}>Clear All</Text>
                   </TouchableOpacity>
+                </View>
+
+                {/* Most of the index is browsable long before it is analyzed, so this is the switch
+                    between the whole universe and the subset carrying a CIRA score. */}
+                <Text style={[s.filterTitle, { marginTop: spacing.md }]}>Coverage</Text>
+                <View style={s.filterChips}>
+                  {([[false, 'All stocks'], [true, 'Analyzed only']] as const).map(([val, label]) => (
+                    <TouchableOpacity
+                      key={label}
+                      style={[s.chip, analyzedOnly === val && s.chipActive]}
+                      onPress={() => setAnalyzedOnly(val)}
+                    >
+                      <Text style={[s.chipText, analyzedOnly === val && s.chipTextActive]}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
 
                 <Text style={[s.filterTitle, { marginTop: spacing.md }]}>Sort by</Text>
@@ -669,8 +747,12 @@ function StockPulseContent() {
             {/* Stats bar */}
             {dashStats.total > 0 && (
               <View style={s.statsBar}>
+                {/* The average covers the analyzed subset, so say how big that subset is — most of
+                    the index has no score, and "Avg" over 1,000 stocks would otherwise be read as
+                    covering all of them. */}
                 <Text style={s.statsText}>{dashStats.total} stocks</Text>
-                <Text style={s.statsText}>Avg: {Math.round(dashStats.avgScore)}</Text>
+                <Text style={s.statsText}>{dashStats.scored} analyzed</Text>
+                {dashStats.scored > 0 && <Text style={s.statsText}>Avg: {Math.round(dashStats.avgScore)}</Text>}
                 {dashStats.topPick && <Text style={s.statsTextHighlight}>Top: {dashStats.topPick.ticker} ({Math.round(Number(dashStats.topPick.current_score))})</Text>}
               </View>
             )}
@@ -687,8 +769,10 @@ function StockPulseContent() {
               <Text style={s.totalCount}>{recommendations.length} stocks</Text>
             </View>
 
-            {loading ? <LoadingSpinner /> : filteredCompanies.length === 0 ? (
-              <EmptyState icon={BarChart3} title="No stocks found" text={searchQuery ? 'Try a different search term' : 'Stocks will appear once analyzed'} />
+            {loading ? <LoadingSpinner /> : loadError ? (
+              <EmptyState icon={AlertTriangle} title="Couldn't load the stock index" text="Pull to refresh, or try again in a moment." />
+            ) : filteredCompanies.length === 0 ? (
+              <EmptyState icon={BarChart3} title="No stocks found" text={searchQuery ? 'Try a different search term' : 'Adjust your filters to see more'} />
             ) : (
               <View style={s.stockList}>
                 {filteredCompanies.map(rec => (
@@ -697,11 +781,35 @@ function StockPulseContent() {
                     ticker={rec.ticker}
                     companyName={rec.company_name || rec.ticker}
                     sector={rec.sector || 'Unknown'}
-                    score={Math.round(Number(rec.current_score) || 0)}
-                    conviction={rec.current_conviction || 'Hold'}
+                    score={rec.current_score == null ? null : Math.round(Number(rec.current_score))}
+                    conviction={rec.current_conviction}
                     price={Number(rec.current_price) || 0}
                     marginOfSafety={rec.margin_of_safety_pct ? Number(rec.margin_of_safety_pct) : null}
+                    changePct={rec.change_pct ?? null}
+                    tier={rec.cira_tier ?? null}
+                    scoredAt={rec.created_at}
                     onPress={() => openCompany(rec.ticker)}
+                  />
+                ))}
+              </View>
+            )}
+
+            {/* Stocks Yahoo knows that are not in the index yet. Tapping one opens it and analyzes
+                it on demand — searching is what pulls a new ticker into the index. */}
+            {!loading && remoteHits.length > 0 && (
+              <View style={s.stockList}>
+                <Text style={s.remoteHeading}>Not in your index</Text>
+                {remoteHits.map(hit => (
+                  <StockCard
+                    key={`remote-${hit.ticker}`}
+                    ticker={hit.ticker}
+                    companyName={hit.name || hit.ticker}
+                    sector={hit.exchange || 'Unlisted here'}
+                    score={null}
+                    conviction={null}
+                    price={0}
+                    marginOfSafety={null}
+                    onPress={() => openCompany(hit.ticker)}
                   />
                 ))}
               </View>
@@ -1839,7 +1947,8 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
   loading: boolean;
   onClose: () => void;
   showToast: (msg: string, type: 'success' | 'error') => void;
-  openCompany: (ticker: string) => void;
+  /** `refresh` forces a live re-score; without it the stored analysis is served. */
+  openCompany: (ticker: string, opts?: { refresh?: boolean }) => Promise<void>;
 }) {
   const [companyTab, setCompanyTab] = useState<CompanyTab>('scores');
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(new Set());
@@ -1934,9 +2043,10 @@ function CompanyDetailModal({ visible, ticker, data, loading, onClose, showToast
     if (!ticker) return;
     setRerunning(true);
     try {
-      const result = await scoreStock(ticker);
-      // This will cause parent to update companyData via openCompany
-      openCompany(ticker);
+      // `refresh` is required, not optional: opening a stock now serves the stored analysis, so
+      // without it this button would return the very result it is meant to replace. It also used to
+      // score twice — once here and again via openCompany — for one visible refresh.
+      await openCompany(ticker, { refresh: true });
     } catch (err: any) {
       showToast(err?.message || 'Failed to re-run', 'error');
     }
@@ -2590,6 +2700,14 @@ const s = StyleSheet.create({
   totalCount: { fontSize: typography.fontSize.xs, color: colors.slate[400], marginLeft: 'auto' },
 
   stockList: { gap: spacing.sm },
+  remoteHeading: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing.md,
+  },
 
   // Empty
   emptyState: { alignItems: 'center', paddingVertical: spacing['3xl'], gap: spacing.sm },

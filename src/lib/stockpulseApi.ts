@@ -88,13 +88,48 @@ export interface Recommendation {
   company_name: string;
   sector: string;
   current_price: number;
-  current_score: number;
-  current_conviction: string;
+  /**
+   * null when nobody has analyzed this stock yet.
+   *
+   * The dashboard now lists the whole browsable index (~1,000 stocks) rather than only the handful
+   * that carry a CIRA score, and a full score is far too expensive to have for all of them — so
+   * "not yet analyzed" is an ordinary state a card has to render, not a missing value to paper over.
+   */
+  current_score: number | null;
+  current_conviction: string | null;
   intrinsic_value: number | null;
   margin_of_safety_pct: number | null;
   market_cycle_stage: string | null;
   gates_triggered: string[];
-  created_at: string;
+  created_at: string | null;
+  /** 'deep' includes FMP enrichment and an LLM thesis; 'lite' is the same dimensions without them. */
+  cira_tier?: 'deep' | 'lite' | null;
+  change_pct?: number | null;
+  market_cap?: number | null;
+}
+
+/** One row of the browsable index, as returned by GET /index. */
+export interface IndexStock {
+  ticker: string;
+  name: string | null;
+  sector: string | null;
+  price: number | null;
+  change_pct: number | null;
+  market_cap: number | null;
+  trailing_pe: number | null;
+  cira_score: number | null;
+  cira_tier: 'deep' | 'lite' | null;
+  conviction: string | null;
+  margin_of_safety_pct: number | null;
+  scored_at: string | null;
+  deep_scored_at: string | null;
+  quote_at: string | null;
+}
+
+export interface IndexSnapshot {
+  builtAt: string;
+  count: number;
+  stocks: IndexStock[];
 }
 
 export interface SimulatorPick {
@@ -134,8 +169,13 @@ export interface SimulatorSummary {
 
 // ── Score APIs ──────────────────────────────────────────────────
 
-export async function scoreStock(ticker: string): Promise<CIRAScore> {
-  return fetchJSON<CIRAScore>(`/score/${ticker.toUpperCase()}`);
+/**
+ * Fetch a ticker's CIRA analysis. Served from the stored result unless `refresh` is set — opening a
+ * stock used to run a live 15-dimension score every single time, which cost seconds and burned the
+ * shared daily data budget on work that had usually just been done.
+ */
+export async function scoreStock(ticker: string, opts: { refresh?: boolean } = {}): Promise<CIRAScore> {
+  return fetchJSON<CIRAScore>(`/score/${ticker.toUpperCase()}${opts.refresh ? '?refresh=1' : ''}`);
 }
 
 export async function compareStocks(tickers: string[]): Promise<{ comparisons: CIRAScore[] }> {
@@ -144,8 +184,64 @@ export async function compareStocks(tickers: string[]): Promise<{ comparisons: C
 
 // ── Recommendations ─────────────────────────────────────────────
 
+/**
+ * Stocks that carry a CIRA score. Narrower than the index — use {@link getIndex} to browse.
+ */
 export async function getRecommendations(): Promise<{ count: number; recommendations: Recommendation[] }> {
   return fetchJSON('/recommendations');
+}
+
+// ── Index (the browsable universe) ──────────────────────────────
+
+/**
+ * The whole index in one call. The server returns a snapshot its cron prebuilt, so this is a cache
+ * read rather than a query, and the payload is deliberately slim enough to send in one go.
+ */
+export async function getIndex(): Promise<IndexSnapshot> {
+  return fetchJSON<IndexSnapshot>('/index');
+}
+
+/**
+ * Look up a ticker or company. `results` come from the local index; `remote` are symbols Yahoo knows
+ * that were not indexed yet — searching for one is what adds it.
+ */
+export async function searchStocks(q: string): Promise<{
+  query: string;
+  results: IndexStock[];
+  remote: { ticker: string; name: string | null; exchange: string | null }[];
+}> {
+  return fetchJSON(`/index/search?q=${encodeURIComponent(q)}`);
+}
+
+/**
+ * Tell the server a ticker was looked at, so the scarce deep-scoring budget follows real demand.
+ * Fire-and-forget: it must never delay or fail the screen that triggered it.
+ */
+export async function recordInterest(ticker: string, kind: 'view' | 'search' = 'view'): Promise<void> {
+  await fetchJSON('/index/interest', {
+    method: 'POST',
+    body: JSON.stringify({ ticker, kind }),
+  }).catch(() => undefined);
+}
+
+/** Map an index row onto the shape the stock list renders. */
+export function indexStockToRecommendation(s: IndexStock): Recommendation {
+  return {
+    ticker: s.ticker,
+    company_name: s.name || s.ticker,
+    sector: s.sector || 'Unknown',
+    current_price: Number(s.price) || 0,
+    current_score: s.cira_score == null ? null : Math.round(Number(s.cira_score)),
+    current_conviction: s.conviction,
+    intrinsic_value: null,
+    margin_of_safety_pct: s.margin_of_safety_pct == null ? null : Number(s.margin_of_safety_pct),
+    market_cycle_stage: null,
+    gates_triggered: [],
+    created_at: s.scored_at,
+    cira_tier: s.cira_tier,
+    change_pct: s.change_pct == null ? null : Number(s.change_pct),
+    market_cap: s.market_cap == null ? null : Number(s.market_cap),
+  };
 }
 
 export async function getRecommendationFeed(limit = 100): Promise<{ count: number; feed: any[] }> {
