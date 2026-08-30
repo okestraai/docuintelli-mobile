@@ -97,6 +97,8 @@ export interface FinancialSummary {
   monthly_income: number;
   monthly_expenses: number;
   net_cash_flow: number;
+  /** Months of history the monthly figures are averaged over. Older payloads omit it. */
+  months_observed?: number;
 }
 
 export type TransactionClassification = 'income' | 'expense' | 'transfer' | 'ignore';

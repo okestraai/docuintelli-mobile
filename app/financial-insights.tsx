@@ -491,6 +491,7 @@ export default function FinancialInsightsScreen() {
               monthlyIncome={summary.monthly_income}
               monthlyExpenses={summary.monthly_expenses}
               netCashFlow={summary.net_cash_flow}
+              monthsObserved={summary.months_observed}
             />
             <ConnectedAccountsList
               accounts={connectedAccounts}

@@ -10,6 +10,12 @@ interface FinancialSummaryCardsProps {
   monthlyIncome: number;
   monthlyExpenses: number;
   netCashFlow: number;
+  /**
+   * Months of history the monthly figures are averaged over. Below three there isn't enough
+   * to call an average reliable — the threshold lenders use, and the state every newly
+   * connected account starts in — so the cards say so rather than implying a settled figure.
+   */
+  monthsObserved?: number;
 }
 
 const formatCurrency = (amount: number): string =>
@@ -21,6 +27,7 @@ interface KPIConfig {
   icon: React.ReactNode;
   bg: string;
   iconBg: string;
+  note?: string;
 }
 
 export default function FinancialSummaryCards({
@@ -28,8 +35,11 @@ export default function FinancialSummaryCards({
   monthlyIncome,
   monthlyExpenses,
   netCashFlow,
+  monthsObserved,
 }: FinancialSummaryCardsProps) {
   const cashFlowPositive = netCashFlow >= 0;
+  const limitedHistory = monthsObserved !== undefined && monthsObserved < 3;
+  const historyNote = limitedHistory ? 'Limited history' : undefined;
   const cards: KPIConfig[] = [
     {
       label: 'Net Worth',
@@ -44,6 +54,7 @@ export default function FinancialSummaryCards({
       icon: <TrendingUp size={18} color={colors.success[600]} strokeWidth={2} />,
       bg: colors.success[50],
       iconBg: colors.success[100],
+      note: historyNote,
     },
     {
       label: 'Monthly Expenses',
@@ -51,6 +62,7 @@ export default function FinancialSummaryCards({
       icon: <TrendingDown size={18} color={colors.error[600]} strokeWidth={2} />,
       bg: colors.error[50],
       iconBg: colors.error[100],
+      note: historyNote,
     },
     {
       label: 'Monthly Cash Flow',
@@ -70,6 +82,7 @@ export default function FinancialSummaryCards({
           </View>
           <Text style={styles.value} numberOfLines={1}>{card.value}</Text>
           <Text style={styles.label}>{card.label}</Text>
+          {card.note && <Text style={styles.note}>{card.note}</Text>}
         </View>
       ))}
     </View>
@@ -106,5 +119,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.medium,
     color: colors.slate[500],
+  },
+  // Quieter than the label: a caveat on the figure, not a second heading.
+  note: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
+    marginTop: 2,
   },
 });
