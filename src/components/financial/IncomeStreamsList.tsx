@@ -17,15 +17,11 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface MoneyInListProps {
   sources: InflowSource[];
-  /** Which month these amounts cover (YYYY-MM). Without it a total is unreadable. */
-  period?: string;
+  /** What span these amounts cover. Without it a total is unreadable — monthly? yearly? */
+  periodLabel: string;
+  loading: boolean;
   onChanged: () => void;
 }
-
-const periodLabel = (period?: string): string =>
-  period
-    ? new Date(`${period}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    : 'the latest month';
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -46,7 +42,7 @@ function cadenceLabel(s: InflowSource): string {
   return `${s.occurrences} payments`;
 }
 
-export default function MoneyInList({ sources, period, onChanged }: MoneyInListProps) {
+export default function MoneyInList({ sources, periodLabel, loading, onChanged }: MoneyInListProps) {
   const [incomeTagOptions, setIncomeTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [pickerStem, setPickerStem] = useState<string | null>(null);
@@ -74,7 +70,7 @@ export default function MoneyInList({ sources, period, onChanged }: MoneyInListP
   // A payer can appear more than once — its recurring rhythm, and whatever fell outside it.
   const visible = sources.filter(s => !hidden.has(s.merchant_stem));
 
-  if (!visible.length) return null;
+  if (loading || !visible.length) return null;
 
   const recurring = visible.filter(s => s.is_recurring);
   const oneOffs = visible.filter(s => !s.is_recurring);
@@ -206,7 +202,7 @@ export default function MoneyInList({ sources, period, onChanged }: MoneyInListP
       title="Money In"
       trailing={<Text style={styles.total}>{formatCurrency(totalReceived)}</Text>}
     >
-      <Text style={styles.periodNote}>Received in {periodLabel(period)}</Text>
+      <Text style={styles.periodNote}>Received in {periodLabel.toLowerCase()}</Text>
       <View style={styles.list}>{recurring.map(renderRow)}</View>
 
       {oneOffs.length > 0 && (

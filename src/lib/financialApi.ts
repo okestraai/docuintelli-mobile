@@ -236,51 +236,31 @@ export async function exchangePublicToken(
 }
 
 /** Get individual transactions for a spending category */
-/** A date range for the spending breakdown and its drill-down, as YYYY-MM-DD. */
-export interface SpendingRange { start: string; end: string }
+/** A date range, as YYYY-MM-DD. */
+export interface DateRange { start: string; end: string }
 
 /**
- * Spending by category over a date range.
+ * Everything the three period-scoped sections report, for one window.
  *
- * Runs the same classification as the summary, so a category means the same thing whichever
- * period is chosen.
+ * One call rather than three: they are three readings of the same ledger, and separate calls
+ * could each land on a different moment's data, leaving a category, a bill and an inflow
+ * describing slightly different worlds under a single date range.
  */
-export async function getSpendingByCategory(
-  range: SpendingRange,
-): Promise<{ categories: CategoryBreakdown[]; total: number; months_observed: number }> {
+export async function getPeriodAnalysis(range: DateRange): Promise<{
+  spending: { categories: CategoryBreakdown[]; total: number; months_observed: number };
+  bills: { bills: RecurringBill[]; total_monthly_equivalent: number };
+  inflow: { sources: InflowSource[]; total_received: number };
+  window_days: number;
+}> {
   const session = await getSession();
   const headers = await backendHeaders(session.access_token);
   const res = await fetch(
-    `${API_BASE}/api/financial/spending-by-category?start=${range.start}&end=${range.end}`,
+    `${API_BASE}/api/financial/period?start=${range.start}&end=${range.end}`,
     { headers },
   );
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Failed to load spending' }));
-    throw new Error(err.error || err.message);
-  }
-
-  return res.json();
-}
-
-/**
- * Recurring bills detected within a date range, with how many payments each was read from.
- *
- * Whether a bill still runs is judged at the end of the range, so a window in the past reports
- * what was live then rather than only what survives today.
- */
-export async function getRecurringBills(
-  range: SpendingRange,
-): Promise<{ bills: RecurringBill[]; total_monthly_equivalent: number }> {
-  const session = await getSession();
-  const headers = await backendHeaders(session.access_token);
-  const res = await fetch(
-    `${API_BASE}/api/financial/recurring-bills?start=${range.start}&end=${range.end}`,
-    { headers },
-  );
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Failed to load recurring bills' }));
+    const err = await res.json().catch(() => ({ error: 'Failed to load this period' }));
     throw new Error(err.error || err.message);
   }
 
@@ -289,7 +269,7 @@ export async function getRecurringBills(
 
 export async function getTransactionsByCategory(
   category: string,
-  range?: SpendingRange,
+  range?: DateRange,
 ): Promise<TransactionDetail[]> {
   const session = await getSession();
   const headers = await backendHeaders(session.access_token);

@@ -28,6 +28,8 @@ import FinancialGoalsSection from '../src/components/financial/FinancialGoalsSec
 import SpendingBreakdown from '../src/components/financial/SpendingBreakdown';
 import RecurringBillsList from '../src/components/financial/RecurringBillsList';
 import MoneyInList from '../src/components/financial/IncomeStreamsList';
+import PeriodPicker from '../src/components/financial/PeriodPicker';
+import { buildPeriods, findPeriod, DEFAULT_PERIOD_ID, type Period } from '../src/lib/reportingPeriod';
 import MonthlyTrendsChart from '../src/components/financial/MonthlyTrendsChart';
 import AIInsightsSection from '../src/components/financial/AIInsightsSection';
 import ActionPlanSection from '../src/components/financial/ActionPlanSection';
@@ -42,8 +44,12 @@ import {
   disconnectBankAccount,
   commitAccountSelection,
   cancelConnection,
+  getPeriodAnalysis,
   type FinancialSummary,
   type AnalyzedLoan,
+  type CategoryBreakdown,
+  type RecurringBill,
+  type InflowSource,
 } from '../src/lib/financialApi';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -56,6 +62,39 @@ export default function FinancialInsightsScreen() {
   const { showToast } = useToast();
 
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
+
+  // ── The reporting period the three analysis sections share ───────────
+  const [period, setPeriod] = useState<Period>(() => findPeriod(buildPeriods([]), DEFAULT_PERIOD_ID));
+  const [periodData, setPeriodData] = useState<{
+    spending: CategoryBreakdown[];
+    bills: RecurringBill[];
+    inflow: InflowSource[];
+  }>({ spending: [], bills: [], inflow: [] });
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const [periodReloadKey, setPeriodReloadKey] = useState(0);
+
+  /** After an edit that changes classification — a tag, a dismissal — re-read the same window. */
+  const reloadPeriod = useCallback(() => setPeriodReloadKey(k => k + 1), []);
+
+  useEffect(() => {
+    if (!summary) return;
+    let cancelled = false;
+    setPeriodLoading(true);
+    getPeriodAnalysis({ start: period.start, end: period.end })
+      .then(res => {
+        if (cancelled) return;
+        setPeriodData({
+          spending: res.spending.categories,
+          bills: res.bills.bills,
+          inflow: res.inflow.sources,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPeriodData({ spending: [], bills: [], inflow: [] });
+      })
+      .finally(() => { if (!cancelled) setPeriodLoading(false); });
+    return () => { cancelled = true; };
+  }, [summary, period.start, period.end, periodReloadKey]);
   const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
   const [analyzedLoans, setAnalyzedLoans] = useState<AnalyzedLoan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -514,15 +553,27 @@ export default function FinancialInsightsScreen() {
                 </View>
               </CollapsibleSection>
             )}
-            <SpendingBreakdown
-              categories={summary.spending_by_category}
+            {/* One period governs the three sections below it. Balances and the trends chart sit
+                outside deliberately: a balance is a point-in-time fact, and the chart is the
+                context this filters against. */}
+            <PeriodPicker
               monthKeys={summary.monthly_averages.map(m => m.month)}
+              period={period}
+              onChange={setPeriod}
+              loading={periodLoading}
             />
-            <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
+            <SpendingBreakdown categories={periodData.spending} range={period} loading={periodLoading} />
+            <RecurringBillsList
+              bills={periodData.bills}
+              period={period}
+              loading={periodLoading}
+              onChanged={reloadPeriod}
+            />
             <MoneyInList
-              sources={summary.inflow_sources ?? []}
-              period={summary.inflow_period}
-              onChanged={refreshSummary}
+              sources={periodData.inflow}
+              periodLabel={period.label}
+              loading={periodLoading}
+              onChanged={reloadPeriod}
             />
             <MonthlyTrendsChart data={summary.monthly_averages} />
             <AIInsightsSection

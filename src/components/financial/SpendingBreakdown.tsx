@@ -4,7 +4,6 @@ import { PieChart, ChevronDown, ChevronRight, Plus, X as XIcon } from 'lucide-re
 import type { CategoryBreakdown, TransactionDetail, TransactionClassification } from '../../lib/financialApi';
 import {
   getTransactionsByCategory,
-  getSpendingByCategory,
   getTagOptions,
   addTransactionTag,
   removeTransactionTag,
@@ -13,15 +12,15 @@ import {
 } from '../../lib/financialApi';
 import CollapsibleSection from './CollapsibleSection';
 import TagPicker from '../ui/TagPicker';
-import { buildSpendingPeriods, findPeriod, DEFAULT_PERIOD_ID } from '../../lib/spendingPeriods';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 
 interface SpendingBreakdownProps {
   categories: CategoryBreakdown[];
-  /** The months that have data (YYYY-MM), from summary.monthly_averages — the years to offer. */
-  monthKeys: string[];
+  /** The window every section on the page is reporting. */
+  range: { start: string; end: string };
+  loading: boolean;
 }
 
 const CATEGORY_COLORS = [
@@ -40,56 +39,22 @@ const CATEGORY_COLORS = [
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-export default function SpendingBreakdown({ categories, monthKeys }: SpendingBreakdownProps) {
+export default function SpendingBreakdown({ categories, range, loading }: SpendingBreakdownProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [txnCache, setTxnCache] = useState<Record<string, TransactionDetail[]>>({});
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [pickerTxnId, setPickerTxnId] = useState<string | null>(null);
   const [classifyTxnId, setClassifyTxnId] = useState<string | null>(null);
-
-  const periods = useMemo(() => buildSpendingPeriods(monthKeys), [monthKeys]);
-  const [periodId, setPeriodId] = useState(DEFAULT_PERIOD_ID);
-  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
-  const period = findPeriod(periods, periodId);
-  // The default period is the summary's own window, so the untouched section renders the figures
-  // already fetched rather than asking the server for the same answer again.
-  const [filtered, setFiltered] = useState<CategoryBreakdown[] | null>(null);
-  const [loadingPeriod, setLoadingPeriod] = useState(false);
-  const [periodError, setPeriodError] = useState<string | null>(null);
-
   useEffect(() => {
     getTagOptions().then(opts => setTagOptions(opts.transaction_tags)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (periodId === DEFAULT_PERIOD_ID) {
-      setFiltered(null);
-      setPeriodError(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingPeriod(true);
-    setPeriodError(null);
-    getSpendingByCategory({ start: period.start, end: period.end })
-      .then(res => { if (!cancelled) setFiltered(res.categories); })
-      .catch(() => {
-        if (cancelled) return;
-        setFiltered([]);
-        setPeriodError('Could not load spending for this period.');
-      })
-      .finally(() => { if (!cancelled) setLoadingPeriod(false); });
-    return () => { cancelled = true; };
-  }, [periodId, period.start, period.end]);
+  // Kept on screen even when the chosen period is empty: the control that would let someone
+  // choose another period lives on the page above, so vanishing here strands them.
+  if (loading) return null;
 
-  const shown = filtered ?? categories;
-
-  // Once a period has been picked the section stays on screen even when that period is empty,
-  // otherwise choosing a month before the accounts were linked would make the whole card vanish
-  // along with the control needed to choose another.
-  if (!categories.length && !filtered && !loadingPeriod) return null;
-
-  const top = shown.slice(0, 8);
+  const top = categories.slice(0, 8);
   const maxPercentage = top.length ? Math.max(...top.map((c) => c.percentage)) : 0;
 
   const handleCategoryPress = async (cat: CategoryBreakdown) => {
@@ -101,11 +66,11 @@ export default function SpendingBreakdown({ categories, monthKeys }: SpendingBre
     setExpandedKey(key);
     // Keyed by period as well as category: the rows below a category have to be the ones the
     // category total was computed from, so a cached year must not reappear under a month.
-    const cacheKey = `${periodId}:${key}`;
+    const cacheKey = `${range.start}:${range.end}:${key}`;
     if (txnCache[cacheKey]) return;
     setLoadingKey(key);
     try {
-      const txns = await getTransactionsByCategory(key, { start: period.start, end: period.end });
+      const txns = await getTransactionsByCategory(key, range);
       setTxnCache(prev => ({ ...prev, [cacheKey]: txns }));
     } catch {
       // ignore
@@ -248,35 +213,18 @@ export default function SpendingBreakdown({ categories, monthKeys }: SpendingBre
       icon={<PieChart size={18} color={colors.primary[600]} strokeWidth={2} />}
       title="Spending Breakdown"
     >
-      <TouchableOpacity
-        onPress={() => setPeriodPickerOpen(true)}
-        activeOpacity={0.7}
-        style={styles.periodButton}
-      >
-        <Text style={styles.periodButtonText}>{period.label}</Text>
-        <ChevronDown size={14} color={colors.slate[500]} />
-      </TouchableOpacity>
-
-      {loadingPeriod && (
-        <View style={styles.periodLoading}>
-          <ActivityIndicator size="small" color={colors.primary[500]} />
-        </View>
-      )}
-
-      {!loadingPeriod && top.length === 0 && (
-        <Text style={styles.periodEmpty}>
-          {periodError || `No spending recorded in ${period.label.toLowerCase()}.`}
-        </Text>
+      {top.length === 0 && (
+        <Text style={styles.periodEmpty}>No spending recorded in this period.</Text>
       )}
 
       <View style={styles.list}>
-        {!loadingPeriod && top.map((cat, i) => {
+        {top.map((cat, i) => {
           const key = cat.category_key || cat.category;
           const barWidth = maxPercentage > 0 ? (cat.percentage / maxPercentage) * 100 : 0;
           const barColor = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
           const isExpanded = expandedKey === key;
           const isLoading = loadingKey === key;
-          const txns = txnCache[`${periodId}:${key}`];
+          const txns = txnCache[`${range.start}:${range.end}:${key}`];
 
           return (
             <View key={cat.category}>
@@ -368,20 +316,6 @@ export default function SpendingBreakdown({ categories, monthKeys }: SpendingBre
           );
         })}
       </View>
-
-      {/* Period picker. TagPicker is already used here as a generic option sheet. */}
-      <TagPicker
-        visible={periodPickerOpen}
-        title="Spending Period"
-        options={periods.map(p => p.label)}
-        existingTags={[]}
-        onSelect={(label) => {
-          const picked = periods.find(p => p.label === label);
-          if (picked) setPeriodId(picked.id);
-          setPeriodPickerOpen(false);
-        }}
-        onClose={() => setPeriodPickerOpen(false)}
-      />
 
       <TagPicker
         visible={!!pickerTxnId}

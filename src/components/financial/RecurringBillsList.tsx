@@ -7,9 +7,9 @@ import {
   addIncomeStreamTag,
   removeIncomeStreamTag,
   dismissRecurringBill,
-  getRecurringBills,
 } from '../../lib/financialApi';
 import CollapsibleSection from './CollapsibleSection';
+import { tooShortForRhythm, toYmd, type Period } from '../../lib/reportingPeriod';
 import TagPicker from '../ui/TagPicker';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -17,6 +17,9 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface RecurringBillsListProps {
   bills: RecurringBill[];
+  /** The window every section on the page is reporting. */
+  period: Period;
+  loading: boolean;
   onChanged: () => void;
 }
 
@@ -27,20 +30,8 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const ymd = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-/**
- * The window the summary's own bill list covers — a rolling twelve months, matching the query
- * behind it, so opening the section shows what it always did without a second request.
- */
-function defaultBillRange(): { start: string; end: string } {
-  const now = new Date();
-  return { start: ymd(new Date(now.getFullYear(), now.getMonth() - 12, now.getDate())), end: ymd(now) };
-}
-
 /** An expected payment whose date has passed without it arriving. */
-const isOverdue = (nextExpected: string): boolean => nextExpected < ymd(new Date());
+const isOverdue = (nextExpected: string): boolean => nextExpected < toYmd(new Date());
 
 /** How each rhythm is said aloud, matching the web list word for word. */
 const EVERY: Record<string, string> = {
@@ -58,51 +49,13 @@ function getAutoTags(bill: RecurringBill): string[] {
   return [...new Set(tags)];
 }
 
-export default function RecurringBillsList({ bills, onChanged }: RecurringBillsListProps) {
+export default function RecurringBillsList({ bills, period, loading, onChanged }: RecurringBillsListProps) {
   const [billTagOptions, setBillTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [materialized, setMaterialized] = useState<Set<string>>(new Set());
   const [pickerStem, setPickerStem] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
-  // The window the summary itself reports, so an untouched section shows what it always did and
-  // asks the server for nothing.
-  const defaultRange = useMemo(() => defaultBillRange(), []);
-  const [range, setRange] = useState(defaultRange);
-  const [filtered, setFiltered] = useState<RecurringBill[] | null>(null);
-  const [loadingRange, setLoadingRange] = useState(false);
-  const [rangeError, setRangeError] = useState<string | null>(null);
-
-  const isDefaultRange = range.start === defaultRange.start && range.end === defaultRange.end;
-  const isCompleteDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
-
-  useEffect(() => {
-    if (isDefaultRange) {
-      setFiltered(null);
-      setRangeError(null);
-      return;
-    }
-    // Native has no date control here, so dates are typed. Waiting for a complete, ordered pair
-    // avoids firing a request on every keystroke of a half-written date.
-    if (!isCompleteDate(range.start) || !isCompleteDate(range.end)) return;
-    if (range.start > range.end) {
-      setFiltered([]);
-      setRangeError('The start date is after the end date.');
-      return;
-    }
-    let cancelled = false;
-    setLoadingRange(true);
-    setRangeError(null);
-    getRecurringBills(range)
-      .then(res => { if (!cancelled) setFiltered(res.bills); })
-      .catch(() => {
-        if (cancelled) return;
-        setFiltered([]);
-        setRangeError('Could not load bills for these dates.');
-      })
-      .finally(() => { if (!cancelled) setLoadingRange(false); });
-    return () => { cancelled = true; };
-  }, [range.start, range.end, isDefaultRange]);
 
   useEffect(() => {
     getTagOptions().then(opts => setBillTagOptions(opts.bill_tags || [])).catch(() => {});
@@ -128,11 +81,11 @@ export default function RecurringBillsList({ bills, onChanged }: RecurringBillsL
   }, [bills]);
 
   // Optimistically hide a removed bill until the parent's refresh drops it from `bills`.
-  const visibleBills = (filtered ?? bills).filter(b => !hidden.has(b.merchant_stem));
+  const visibleBills = bills.filter(b => !hidden.has(b.merchant_stem));
 
   // Once dates have been picked the section stays on screen even when empty, otherwise choosing a
   // window with no bills would take the control needed to choose another away with it.
-  if (!visibleBills.length && isDefaultRange && !loadingRange) return null;
+  if (loading) return null;
 
   const total = visibleBills.reduce((sum, b) => sum + b.monthly_amount, 0);
 
@@ -207,47 +160,14 @@ export default function RecurringBillsList({ bills, onChanged }: RecurringBillsL
       title="Recurring Bills"
       trailing={<Text style={styles.total}>{formatCurrency(total)}/mo</Text>}
     >
-      {/* Which payments the list is read from. Web gets a native date control; native types it,
-          the same split GoalCreationModal already uses for dates. */}
-      <View style={styles.rangeRow}>
-        <Text style={styles.rangeLabel}>Paid between</Text>
-        <TextInput
-          value={range.start}
-          onChangeText={v => setRange(r => ({ ...r, start: v }))}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.slate[400]}
-          style={styles.rangeInput}
-          keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
-          // @ts-ignore — web-only attribute
-          type={Platform.OS === 'web' ? 'date' : undefined}
-        />
-        <Text style={styles.rangeLabel}>and</Text>
-        <TextInput
-          value={range.end}
-          onChangeText={v => setRange(r => ({ ...r, end: v }))}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.slate[400]}
-          style={styles.rangeInput}
-          keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
-          // @ts-ignore — web-only attribute
-          type={Platform.OS === 'web' ? 'date' : undefined}
-        />
-        {!isDefaultRange && (
-          <TouchableOpacity onPress={() => setRange(defaultRange)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.rangeReset}>Reset</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {loadingRange && (
-        <View style={styles.rangeLoading}>
-          <ActivityIndicator size="small" color={colors.primary[500]} />
-        </View>
-      )}
-
-      {!loadingRange && !visibleBills.length && (
+      {/* A window shorter than two cycles cannot evidence a monthly rhythm — one charge has
+          nothing to recur against. An empty list reads as lost data unless the period is named
+          as the reason. */}
+      {!visibleBills.length && (
         <Text style={styles.rangeEmpty}>
-          {rangeError ?? 'No bill was paid more than once in these dates.'}
+          {tooShortForRhythm(period)
+            ? `A bill has to be paid more than once to show a rhythm, and ${period.label.toLowerCase()} is too short for a monthly one to repeat. Choose a longer period to see bills.`
+            : 'No bill was paid more than once in this period.'}
         </Text>
       )}
 
