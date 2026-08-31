@@ -53,6 +53,7 @@ import Badge from '../../../src/components/ui/Badge';
 import GradientIcon from '../../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../../src/components/ui/LoadingSpinner';
 import DocumentHealthPanel from '../../../src/components/documents/DocumentHealthPanel';
+import DocumentActionItems from '../../../src/components/obligations/DocumentActionItems';
 import { useGoalBubble } from '../../../src/hooks/useGoalBubble';
 import { fetchDocumentRelationships } from '../../../src/lib/engagementApi';
 import { updateDocumentMetadata, appendFileToDocument } from '../../../src/lib/api';
@@ -792,6 +793,14 @@ export default function DocumentViewerScreen() {
           </Card>
         )}
 
+        {/* Action items extracted from this document.
+            Above the Pro gate on purpose: DocumentHealthPanel below is paid-only, and most
+            documents belong to free users — putting this inside it would hide the feature
+            from nearly everyone who has it. */}
+        <View style={styles.actionItemsSection}>
+          <DocumentActionItems documentId={id!} />
+        </View>
+
         {/* Document Health Panel — Pro/Family only (no dedicated flag) */}
         {isPaid && <DocumentHealthPanel documentId={id!} category={doc.category} />}
 
@@ -1179,6 +1188,9 @@ const styles = StyleSheet.create({
   /* Tags */
   tagsCard: {
     // Card handles padding
+  },
+  actionItemsSection: {
+    marginBottom: spacing.lg,
   },
   tagsSectionHeader: {
     flexDirection: 'row',

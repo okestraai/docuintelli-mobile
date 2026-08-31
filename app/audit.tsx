@@ -16,6 +16,7 @@ import { useWeeklyAudit, useEngagementActions } from '../src/hooks/useEngagement
 import Card from '../src/components/ui/Card';
 import Badge from '../src/components/ui/Badge';
 import Button from '../src/components/ui/Button';
+import RemindersDueSection from '../src/components/obligations/RemindersDueSection';
 import GradientIcon from '../src/components/ui/GradientIcon';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 
@@ -217,6 +218,9 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
 
   const auditBody = (
     <>
+          {/* Reminders coming due, plus the roll-up pointing at documents with unreviewed
+              action items. Above the health grid because a missed deadline outranks a score. */}
+          <RemindersDueSection />
 
           {/* Health summary grid */}
           <View style={styles.summaryGrid}>

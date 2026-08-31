@@ -165,6 +165,36 @@ export function deleteObligation(id: string): Promise<{ deleted: boolean }> {
   return fetchApi<{ deleted: boolean }>(`/${id}`, { method: 'DELETE' });
 }
 
+export interface ObligationCounts {
+  /** documentId → counts. Absent key means that document has none. */
+  byDocument: Record<string, { suggested: number; active: number; overdue: number }>;
+  documentsWithSuggestions: number;
+  totalSuggested: number;
+}
+
+/**
+ * Per-document counts in one request, for the chips on the vault document cards.
+ * Fetching these per card would be one request per card.
+ */
+export function getObligationCounts(): Promise<ObligationCounts> {
+  return fetchApi<ObligationCounts>('/counts');
+}
+
+/** Ignore every outstanding suggestion for a document. Returns ids so Undo can restore. */
+export function bulkDismissForDocument(documentId: string): Promise<{ dismissed: number; ids: string[] }> {
+  return fetchApi<{ dismissed: number; ids: string[] }>('/bulk-dismiss', {
+    method: 'POST',
+    body: JSON.stringify({ document_id: documentId }),
+  });
+}
+
+export function bulkRestore(ids: string[]): Promise<{ restored: number }> {
+  return fetchApi<{ restored: number }>('/bulk-restore', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  });
+}
+
 /** Re-scan a document — for documents uploaded before this feature existed. */
 export function extractObligations(documentId: string): Promise<{ extracted: number; inserted: number }> {
   return fetchApi<{ extracted: number; inserted: number }>(`/documents/${documentId}/extract`, { method: 'POST' });

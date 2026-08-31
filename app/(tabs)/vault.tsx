@@ -67,10 +67,9 @@ import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
 import { useSubscription } from '../../src/hooks/useSubscription';
-import ObligationsPanel from '../../src/components/obligations/ObligationsPanel';
-import { getObligationSummary } from '../../src/lib/obligationsApi';
+import { getObligationCounts } from '../../src/lib/obligationsApi';
 
-type VaultTab = 'documents' | 'signatures' | 'health' | 'obligations';
+type VaultTab = 'documents' | 'signatures' | 'health';
 const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
 
 // ── Category icon mapping ────────────────────────────────────────────
@@ -132,13 +131,11 @@ export default function VaultScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<VaultTab>(
-    tab === 'health' ? 'health' : tab === 'obligations' ? 'obligations' : 'documents'
-  );
+  const [activeTab, setActiveTab] = useState<VaultTab>(tab === 'health' ? 'health' : 'documents');
   const hasSetInitialTab = useRef(false);
   const [pendingSignatureCount, setPendingSignatureCount] = useState(0);
-  const [obligationCounts, setObligationCounts] = useState({ suggested: 0, overdue: 0 });
-  const [obligationRefreshToken, setObligationRefreshToken] = useState(0);
+  /** documentId → action-item counts, for the chips on the document cards. */
+  const [obligationCounts, setObligationCounts] = useState<Record<string, { suggested: number; active: number; overdue: number }>>({});
 
   // Re-fetch documents whenever the screen gains focus
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
@@ -168,25 +165,23 @@ export default function VaultScreen() {
     }, [user?.email])
   );
 
-  // Obligation badge. Fetched here rather than only inside ObligationsPanel, because that
-  // panel mounts on its own tab — without this the badge would stay at zero while the user
-  // is on Docs, which is exactly when a freshly extracted action item needs surfacing.
-  // Bumping the refresh token pulls the panel along on the same focus event.
+  // Per-document action-item counts for the card chips. One request for the whole list —
+  // fetching per card would be one request per card. Action items live on each document's
+  // own screen, so these chips are how a user discovers there is anything to review.
   useFocusEffect(
     useCallback(() => {
-      getObligationSummary()
-        .then((s) => setObligationCounts({ suggested: s.suggested, overdue: s.overdue }))
-        .catch(() => { /* non-critical — badge just won't show */ });
-      setObligationRefreshToken((n) => n + 1);
+      getObligationCounts()
+        .then((counts) => setObligationCounts(counts.byDocument))
+        .catch(() => { /* non-critical — chips just won't show */ });
     }, [])
   );
 
-  // Sync tab when deep-linking to the health or obligations tab
+  // Sync tab when deep-linking to the health tab
   useFocusEffect(
     useCallback(() => {
       if (hasSetInitialTab.current) return;
-      if (tab === 'health' || tab === 'obligations') {
-        setActiveTab(tab);
+      if (tab === 'health') {
+        setActiveTab('health');
         hasSetInitialTab.current = true;
       }
     }, [tab])
@@ -486,23 +481,6 @@ export default function VaultScreen() {
               Health
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setActiveTab('obligations')}
-            activeOpacity={0.7}
-            style={[styles.tabSegment, activeTab === 'obligations' && styles.tabSegmentActive]}
-          >
-            <ClipboardCheck size={14} color={activeTab === 'obligations' ? colors.primary[700] : colors.slate[400]} strokeWidth={2} />
-            <Text style={[styles.tabSegmentText, activeTab === 'obligations' && styles.tabSegmentTextActive]} numberOfLines={1}>
-              Reminders
-            </Text>
-            {(obligationCounts.overdue > 0 || obligationCounts.suggested > 0) && (
-              <View style={obligationCounts.overdue > 0 ? styles.pendingBadge : styles.suggestionBadge}>
-                <Text style={styles.pendingBadgeText}>
-                  {obligationCounts.overdue > 0 ? obligationCounts.overdue : obligationCounts.suggested}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -693,6 +671,24 @@ export default function VaultScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Action items live on the document's own screen, so this chip is how a user
+                discovers there is anything to review without opening every document. */}
+            {(() => {
+              const counts = obligationCounts[item.id];
+              if (!counts || (!counts.suggested && !counts.overdue)) return null;
+              const overdue = counts.overdue > 0;
+              return (
+                <View style={[styles.actionItemChip, overdue ? styles.actionItemChipOverdue : styles.actionItemChipPending]}>
+                  <ClipboardCheck size={12} color={overdue ? colors.error[700] : colors.warning[700]} />
+                  <Text style={[styles.actionItemChipText, { color: overdue ? colors.error[700] : colors.warning[700] }]}>
+                    {overdue
+                      ? `${counts.overdue} reminder${counts.overdue === 1 ? '' : 's'} overdue`
+                      : `${counts.suggested} action item${counts.suggested === 1 ? '' : 's'}`}
+                  </Text>
+                </View>
+              );
+            })()}
           </TouchableOpacity>
 
           {/* Divider */}
@@ -849,19 +845,6 @@ export default function VaultScreen() {
             {renderTitleAndTabs()}
           </View>
           <AuditContent embedded />
-        </ScrollView>
-      ) : activeTab === 'obligations' ? (
-        <ScrollView
-          contentContainerStyle={styles.healthScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.headerSection}>
-            {renderTitleAndTabs()}
-          </View>
-          <ObligationsPanel
-            onSummaryChange={setObligationCounts}
-            refreshToken={obligationRefreshToken}
-          />
         </ScrollView>
       ) : loading && documents.length === 0 ? (
         <>
@@ -1101,16 +1084,30 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
-  // Same shape as pendingBadge, green rather than red: unreviewed action items are an
-  // invitation, not an alarm. Overdue reminders reuse pendingBadge.
-  suggestionBadge: {
-    backgroundColor: colors.primary[600],
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 20,
+  // Chip on the document card pointing at that document's action items. Amber for items
+  // waiting to be reviewed (an invitation), red once a reminder is actually overdue.
+  actionItemChip: {
+    flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignSelf: 'flex-start' as const,
+    gap: 5,
+    marginTop: spacing.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+  },
+  actionItemChipPending: {
+    backgroundColor: colors.warning[50],
+    borderColor: colors.warning[200],
+  },
+  actionItemChipOverdue: {
+    backgroundColor: colors.error[50],
+    borderColor: colors.error[200],
+  },
+  actionItemChipText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeight.medium as any,
   },
   pendingBadgeText: {
     fontSize: 10,
