@@ -26,6 +26,12 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** How each rhythm is said aloud, matching the web list word for word. */
+const EVERY: Record<string, string> = {
+  weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'monthly',
+  bimonthly: 'every 2 months', quarterly: 'quarterly',
+};
+
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
 // Derive auto-tags from bill properties (frequency + category)
@@ -153,10 +159,14 @@ export default function RecurringBillsList({ bills, onChanged }: RecurringBillsL
             <View key={`${bill.name}-${i}`} style={styles.row}>
               <View style={styles.billInfo}>
                 <Text style={styles.billName} numberOfLines={1}>{bill.name}</Text>
-                {bill.next_expected && (
+                {/* The rhythm as charged, and when it lands next — not a rate no month matches. */}
+                {(bill.frequency || bill.next_expected) && (
                   <View style={styles.nextDate}>
                     <CalendarClock size={12} color={colors.slate[400]} strokeWidth={2} />
-                    <Text style={styles.nextDateText}>Next: {formatDate(bill.next_expected)}</Text>
+                    <Text style={styles.nextDateText}>
+                      {EVERY[bill.frequency] ?? bill.frequency}
+                      {bill.next_expected ? ` · Next: ${formatDate(bill.next_expected)}` : ''}
+                    </Text>
                   </View>
                 )}
                 {/* Tags row — frequency + category auto-derived, plus user tags */}
@@ -182,7 +192,7 @@ export default function RecurringBillsList({ bills, onChanged }: RecurringBillsL
                 </View>
               </View>
               <View style={styles.rightCol}>
-                <Text style={styles.billAmount}>{formatCurrency(bill.monthly_amount)}/mo</Text>
+                <Text style={styles.billAmount}>{formatCurrency(bill.amount)}</Text>
                 <TouchableOpacity
                   onPress={() => handleRemoveBill(bill)}
                   style={styles.removeButton}
