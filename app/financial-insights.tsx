@@ -516,7 +516,11 @@ export default function FinancialInsightsScreen() {
             )}
             <SpendingBreakdown categories={summary.spending_by_category} />
             <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
-            <MoneyInList sources={summary.inflow_sources ?? []} onChanged={refreshSummary} />
+            <MoneyInList
+              sources={summary.inflow_sources ?? []}
+              monthsObserved={summary.months_observed}
+              onChanged={refreshSummary}
+            />
             <MonthlyTrendsChart data={summary.monthly_averages} />
             <AIInsightsSection
               insights={summary.insights}

@@ -17,8 +17,15 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface MoneyInListProps {
   sources: InflowSource[];
+  /** Months of history these amounts cover. Without it a total is unreadable — monthly? yearly? */
+  monthsObserved?: number;
   onChanged: () => void;
 }
+
+const periodLabel = (months?: number): string =>
+  months === undefined ? 'your history'
+  : months < 1.5 ? 'the last month'
+  : `the last ${Math.round(months)} months`;
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -39,7 +46,7 @@ function cadenceLabel(s: InflowSource): string {
   return `${s.occurrences} payments`;
 }
 
-export default function MoneyInList({ sources, onChanged }: MoneyInListProps) {
+export default function MoneyInList({ sources, monthsObserved, onChanged }: MoneyInListProps) {
   const [incomeTagOptions, setIncomeTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [pickerStem, setPickerStem] = useState<string | null>(null);
@@ -192,6 +199,7 @@ export default function MoneyInList({ sources, onChanged }: MoneyInListProps) {
       title="Money In"
       trailing={<Text style={styles.total}>{formatCurrency(totalReceived)}</Text>}
     >
+      <Text style={styles.periodNote}>Amounts received over {periodLabel(monthsObserved)}</Text>
       <View style={styles.list}>{recurring.map(renderRow)}</View>
 
       {oneOffs.length > 0 && (
@@ -336,5 +344,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
     color: colors.slate[500],
+  },
+  // States the span once for the whole list, so no row has to repeat it.
+  periodNote: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
+    marginBottom: spacing.sm,
   },
 });
