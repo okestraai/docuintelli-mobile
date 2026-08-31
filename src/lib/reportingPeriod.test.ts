@@ -5,7 +5,6 @@
  * one understates every figure measured over it. And a window too short to hold two cycles cannot
  * evidence a rhythm — the bill list must be able to say so instead of appearing to have lost data.
  */
-import { describe, it, expect } from 'vitest';
 import {
   buildPeriods,
   findPeriod,
