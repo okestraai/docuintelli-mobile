@@ -17,15 +17,15 @@ import { spacing, borderRadius } from '../../theme/spacing';
 
 interface MoneyInListProps {
   sources: InflowSource[];
-  /** Months of history these amounts cover. Without it a total is unreadable — monthly? yearly? */
-  monthsObserved?: number;
+  /** Which month these amounts cover (YYYY-MM). Without it a total is unreadable. */
+  period?: string;
   onChanged: () => void;
 }
 
-const periodLabel = (months?: number): string =>
-  months === undefined ? 'your history'
-  : months < 1.5 ? 'the last month'
-  : `the last ${Math.round(months)} months`;
+const periodLabel = (period?: string): string =>
+  period
+    ? new Date(`${period}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'the latest month';
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -46,7 +46,7 @@ function cadenceLabel(s: InflowSource): string {
   return `${s.occurrences} payments`;
 }
 
-export default function MoneyInList({ sources, monthsObserved, onChanged }: MoneyInListProps) {
+export default function MoneyInList({ sources, period, onChanged }: MoneyInListProps) {
   const [incomeTagOptions, setIncomeTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [pickerStem, setPickerStem] = useState<string | null>(null);
@@ -138,7 +138,8 @@ export default function MoneyInList({ sources, monthsObserved, onChanged }: Mone
           // Derived labels, shown but not editable — they come from the bank's own category.
           const autoTags = [
             ...(stream.kind_tag && stream.kind_tag !== 'Salary' && !tags.includes(stream.kind_tag) ? [stream.kind_tag] : []),
-            ...(stream.occurrences === 1 ? ['One-off'] : []),
+            // Not simply "paid once": within a single month a monthly salary also arrives once.
+            ...(!stream.is_recurring && stream.occurrences === 1 ? ['One-off'] : []),
           ];
 
           return (
@@ -199,7 +200,7 @@ export default function MoneyInList({ sources, monthsObserved, onChanged }: Mone
       title="Money In"
       trailing={<Text style={styles.total}>{formatCurrency(totalReceived)}</Text>}
     >
-      <Text style={styles.periodNote}>Amounts received over {periodLabel(monthsObserved)}</Text>
+      <Text style={styles.periodNote}>Received in {periodLabel(period)}</Text>
       <View style={styles.list}>{recurring.map(renderRow)}</View>
 
       {oneOffs.length > 0 && (

@@ -518,7 +518,7 @@ export default function FinancialInsightsScreen() {
             <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
             <MoneyInList
               sources={summary.inflow_sources ?? []}
-              monthsObserved={summary.months_observed}
+              period={summary.inflow_period}
               onChanged={refreshSummary}
             />
             <MonthlyTrendsChart data={summary.monthly_averages} />

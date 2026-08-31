@@ -99,8 +99,10 @@ export interface FinancialSummary {
   net_cash_flow: number;
   /** Months of history the monthly figures are averaged over. Older payloads omit it. */
   months_observed?: number;
-  /** Every source of money in, one-offs included. Older payloads omit it. */
+  /** Every source of money in for one whole month. Older payloads omit it. */
   inflow_sources?: InflowSource[];
+  /** Which month those amounts cover (YYYY-MM) — the most recent complete one. */
+  inflow_period?: string;
 }
 
 /**
