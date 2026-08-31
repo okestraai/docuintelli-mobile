@@ -55,6 +55,8 @@ export interface RecurringBill {
   category: string;
   last_date: string;
   next_expected: string;
+  /** How many payments the rhythm was read from, counted by distinct date. */
+  occurrences: number;
   user_tags: string[];
 }
 
@@ -255,6 +257,30 @@ export async function getSpendingByCategory(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Failed to load spending' }));
+    throw new Error(err.error || err.message);
+  }
+
+  return res.json();
+}
+
+/**
+ * Recurring bills detected within a date range, with how many payments each was read from.
+ *
+ * Whether a bill still runs is judged at the end of the range, so a window in the past reports
+ * what was live then rather than only what survives today.
+ */
+export async function getRecurringBills(
+  range: SpendingRange,
+): Promise<{ bills: RecurringBill[]; total_monthly_equivalent: number }> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const res = await fetch(
+    `${API_BASE}/api/financial/recurring-bills?start=${range.start}&end=${range.end}`,
+    { headers },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to load recurring bills' }));
     throw new Error(err.error || err.message);
   }
 
