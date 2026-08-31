@@ -99,6 +99,31 @@ export interface FinancialSummary {
   net_cash_flow: number;
   /** Months of history the monthly figures are averaged over. Older payloads omit it. */
   months_observed?: number;
+  /** Every source of money in, one-offs included. Older payloads omit it. */
+  inflow_sources?: InflowSource[];
+}
+
+/**
+ * One source of money in. `total_received` is what arrived over the window, not a monthly
+ * rate — only amounts add up, and summed across sources they equal what the trends chart
+ * plots and what the Monthly Income card averages.
+ *
+ * A payer can appear more than once: its recurring rhythm, and whatever it sent that fell
+ * outside that rhythm.
+ */
+export interface InflowSource {
+  source: string;
+  merchant_stem: string;
+  total_received: number;
+  occurrences: number;
+  first_date: string;
+  last_date: string;
+  is_recurring: boolean;
+  frequency?: string;
+  average_amount?: number;
+  kind_tag?: string;
+  is_salary: boolean;
+  user_tags: string[];
 }
 
 export type TransactionClassification = 'income' | 'expense' | 'transfer' | 'ignore';

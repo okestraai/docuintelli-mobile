@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Banknote, Briefcase, CircleDollarSign, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
-import type { IncomeStream } from '../../lib/financialApi';
+import type { InflowSource } from '../../lib/financialApi';
 import {
   getTagOptions,
   addIncomeStreamTag,
@@ -15,48 +15,66 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 
-interface IncomeStreamsListProps {
-  streams: IncomeStream[];
+interface MoneyInListProps {
+  sources: InflowSource[];
   onChanged: () => void;
 }
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsListProps) {
+const formatDay = (iso: string): string =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+/** How a source describes its own rhythm — in its own terms, never converted to a monthly rate. */
+function cadenceLabel(s: InflowSource): string {
+  if (s.is_recurring && s.frequency && s.average_amount !== undefined) {
+    const every: Record<string, string> = {
+      weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'monthly',
+      bimonthly: 'every 2 months', quarterly: 'quarterly',
+    };
+    return `${formatCurrency(s.average_amount)} ${every[s.frequency] ?? s.frequency}`;
+  }
+  if (s.occurrences === 1) return `once, ${formatDay(s.last_date)}`;
+  return `${s.occurrences} payments`;
+}
+
+export default function MoneyInList({ sources, onChanged }: MoneyInListProps) {
   const [incomeTagOptions, setIncomeTagOptions] = useState<string[]>([]);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [pickerStem, setPickerStem] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [showOneOffs, setShowOneOffs] = useState(false);
 
   useEffect(() => {
     getTagOptions().then(opts => setIncomeTagOptions(opts.income_tags)).catch(() => {});
   }, []);
 
-  // Initialize local tags from stream data
+  // Tags live per payer, so both rows of a payer that split share them.
   useEffect(() => {
     const tags: Record<string, string[]> = {};
-    for (const s of streams) {
+    for (const s of sources) {
       if (s.merchant_stem) {
         const userTags = s.user_tags || [];
-        if (s.is_salary && !userTags.includes('Salary')) {
-          tags[s.merchant_stem] = ['Salary', ...userTags];
-        } else {
-          tags[s.merchant_stem] = [...userTags];
-        }
+        tags[s.merchant_stem] = s.is_salary && !userTags.includes('Salary')
+          ? ['Salary', ...userTags]
+          : [...userTags];
       }
     }
     setLocalTags(tags);
-  }, [streams]);
+  }, [sources]);
 
-  // Optimistically hide a removed stream until the parent's refresh drops it from `streams`.
-  const visibleStreams = streams.filter(s => !hidden.has(s.merchant_stem));
+  // A payer can appear more than once — its recurring rhythm, and whatever fell outside it.
+  const visible = sources.filter(s => !hidden.has(s.merchant_stem));
 
-  if (!visibleStreams.length) return null;
+  if (!visible.length) return null;
 
-  const totalMonthly = visibleStreams.reduce((sum, s) => sum + s.monthly_amount, 0);
+  const recurring = visible.filter(s => s.is_recurring);
+  const oneOffs = visible.filter(s => !s.is_recurring);
+  const totalReceived = visible.reduce((sum, s) => sum + s.total_received, 0);
+  const oneOffTotal = oneOffs.reduce((sum, s) => sum + s.total_received, 0);
 
-  const applyRemove = async (stream: IncomeStream, classification: 'transfer' | 'ignore') => {
+  const applyRemove = async (stream: InflowSource, classification: 'transfer' | 'ignore') => {
     const stem = stream.merchant_stem;
     setHidden(prev => new Set(prev).add(stem));
     try {
@@ -67,10 +85,10 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
     }
   };
 
-  const handleRemoveStream = (stream: IncomeStream) => {
+  const handleRemoveStream = (stream: InflowSource) => {
     Alert.alert(
-      "This isn't income",
-      `What is "${stream.source}"?`,
+      "This isn't money coming in",
+      `Applies to everything from "${stream.source}". What is it?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: "It's a transfer", onPress: () => applyRemove(stream, 'transfer') },
@@ -79,7 +97,7 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
     );
   };
 
-  const handleAddTag = async (stream: IncomeStream, tag: string) => {
+  const handleAddTag = async (stream: InflowSource, tag: string) => {
     const stem = stream.merchant_stem;
     setLocalTags(prev => ({ ...prev, [stem]: [...(prev[stem] || []), tag] }));
     setPickerStem(null);
@@ -91,7 +109,7 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
     }
   };
 
-  const handleRemoveTag = async (stream: IncomeStream, tag: string) => {
+  const handleRemoveTag = async (stream: InflowSource, tag: string) => {
     const stem = stream.merchant_stem;
     setLocalTags(prev => ({ ...prev, [stem]: (prev[stem] || []).filter(t => t !== tag) }));
     try {
@@ -104,22 +122,20 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
     } catch { /* best effort */ }
   };
 
-  const pickerStream = streams.find(s => s.merchant_stem === pickerStem);
+  const pickerStream = sources.find(s => s.merchant_stem === pickerStem);
 
-  return (
-    <CollapsibleSection
-      icon={<Banknote size={18} color={colors.success[600]} strokeWidth={2} />}
-      title="Income Streams"
-      trailing={<Text style={styles.total}>{formatCurrency(totalMonthly)}/mo</Text>}
-    >
-      <View style={styles.list}>
-        {visibleStreams.map((stream, i) => {
-          const stem = stream.merchant_stem || `stream-${i}`;
+  const renderRow = (stream: InflowSource) => {
+          const stem = stream.merchant_stem;
           const tags = localTags[stem] || [];
           const hasSalary = tags.includes('Salary');
+          // Derived labels, shown but not editable — they come from the bank's own category.
+          const autoTags = [
+            ...(stream.kind_tag && stream.kind_tag !== 'Salary' && !tags.includes(stream.kind_tag) ? [stream.kind_tag] : []),
+            ...(stream.occurrences === 1 ? ['One-off'] : []),
+          ];
 
           return (
-            <View key={`${stream.source}-${i}`} style={styles.row}>
+            <View key={`${stream.merchant_stem}::${stream.first_date}`} style={styles.row}>
               <View style={[styles.iconWrap, hasSalary ? styles.salaryIcon : styles.otherIcon]}>
                 {hasSalary
                   ? <Briefcase size={14} color={colors.success[600]} strokeWidth={2} />
@@ -128,7 +144,12 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
               <View style={styles.info}>
                 <Text style={styles.source} numberOfLines={1}>{stream.source}</Text>
                 <View style={styles.metaRow}>
-                  <Badge label={stream.frequency} variant="default" />
+                  <Badge label={cadenceLabel(stream)} variant="default" />
+                  {autoTags.map(tag => (
+                    <View key={`auto-${tag}`} style={[styles.tagInner, styles.autoBadge]}>
+                      <Text style={[styles.tagText, styles.autoBadgeText]}>{tag}</Text>
+                    </View>
+                  ))}
                   {tags.map(tag => (
                     <TouchableOpacity
                       key={tag}
@@ -152,7 +173,8 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
                   </TouchableOpacity>
                 </View>
               </View>
-              <Text style={styles.amount}>{formatCurrency(stream.monthly_amount)}/mo</Text>
+              {/* What arrived, not a rate — this is the column that adds up. */}
+              <Text style={styles.amount}>{formatCurrency(stream.total_received)}</Text>
               <TouchableOpacity
                 onPress={() => handleRemoveStream(stream)}
                 style={styles.removeButton}
@@ -162,12 +184,31 @@ export default function IncomeStreamsList({ streams, onChanged }: IncomeStreamsL
               </TouchableOpacity>
             </View>
           );
-        })}
-      </View>
+  };
+
+  return (
+    <CollapsibleSection
+      icon={<Banknote size={18} color={colors.success[600]} strokeWidth={2} />}
+      title="Money In"
+      trailing={<Text style={styles.total}>{formatCurrency(totalReceived)}</Text>}
+    >
+      <View style={styles.list}>{recurring.map(renderRow)}</View>
+
+      {oneOffs.length > 0 && (
+        <View>
+          <TouchableOpacity onPress={() => setShowOneOffs(v => !v)} style={styles.disclosure}>
+            <Text style={styles.disclosureText}>
+              {showOneOffs ? 'Hide' : 'Show'} one-off and irregular payments ({oneOffs.length})
+            </Text>
+            <Text style={styles.disclosureAmount}>{formatCurrency(oneOffTotal)}</Text>
+          </TouchableOpacity>
+          {showOneOffs && <View style={styles.list}>{oneOffs.map(renderRow)}</View>}
+        </View>
+      )}
 
       <TagPicker
         visible={!!pickerStem}
-        title="Label Income"
+        title="Label this money"
         options={incomeTagOptions}
         existingTags={pickerStem ? (localTags[pickerStem] || []) : []}
         onSelect={(tag) => pickerStream && handleAddTag(pickerStream, tag)}
@@ -267,5 +308,33 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     padding: 4,
+  },
+  // Derived from the bank's category rather than chosen by the user, so it reads quieter
+  // than a tag they set themselves and carries no remove control.
+  autoBadge: {
+    backgroundColor: colors.slate[100],
+    borderColor: colors.slate[200],
+  },
+  autoBadgeText: {
+    color: colors.slate[600],
+  },
+  disclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.slate[100],
+  },
+  disclosureText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.slate[600],
+  },
+  disclosureAmount: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.slate[500],
   },
 });

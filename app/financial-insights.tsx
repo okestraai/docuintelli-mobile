@@ -27,7 +27,7 @@ import ConnectedAccountsList from '../src/components/financial/ConnectedAccounts
 import FinancialGoalsSection from '../src/components/financial/FinancialGoalsSection';
 import SpendingBreakdown from '../src/components/financial/SpendingBreakdown';
 import RecurringBillsList from '../src/components/financial/RecurringBillsList';
-import IncomeStreamsList from '../src/components/financial/IncomeStreamsList';
+import MoneyInList from '../src/components/financial/IncomeStreamsList';
 import MonthlyTrendsChart from '../src/components/financial/MonthlyTrendsChart';
 import AIInsightsSection from '../src/components/financial/AIInsightsSection';
 import ActionPlanSection from '../src/components/financial/ActionPlanSection';
@@ -516,7 +516,7 @@ export default function FinancialInsightsScreen() {
             )}
             <SpendingBreakdown categories={summary.spending_by_category} />
             <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
-            <IncomeStreamsList streams={summary.income_streams} onChanged={refreshSummary} />
+            <MoneyInList sources={summary.inflow_sources ?? []} onChanged={refreshSummary} />
             <MonthlyTrendsChart data={summary.monthly_averages} />
             <AIInsightsSection
               insights={summary.insights}

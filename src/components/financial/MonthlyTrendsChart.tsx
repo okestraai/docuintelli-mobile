@@ -34,7 +34,7 @@ export default function MonthlyTrendsChart({ data }: MonthlyTrendsChartProps) {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.success[500] }]} />
-          <Text style={styles.legendText}>Income</Text>
+          <Text style={styles.legendText}>Inflow</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colors.error[500] }]} />
