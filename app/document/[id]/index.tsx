@@ -596,6 +596,14 @@ export default function DocumentViewerScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Action items awaiting a decision — above the preview because they are a prompt.
+            Above the Pro gate on purpose too: DocumentHealthPanel further down is paid-only,
+            and most documents belong to free users, so gating this would hide the feature
+            from nearly everyone who has it. */}
+        <View style={styles.actionItemsSection}>
+          <DocumentActionItems documentId={id!} variant="suggestions" />
+        </View>
+
         {/* ====== INLINE DOCUMENT PREVIEW ====== */}
         {previewLoading && (
           <Card style={styles.previewCard}>
@@ -793,12 +801,10 @@ export default function DocumentViewerScreen() {
           </Card>
         )}
 
-        {/* Action items extracted from this document.
-            Above the Pro gate on purpose: DocumentHealthPanel below is paid-only, and most
-            documents belong to free users — putting this inside it would hide the feature
-            from nearly everyone who has it. */}
+        {/* Reminders already set on this document. Below the preview and details, so a
+            settled decision never pushes the document itself down the screen. */}
         <View style={styles.actionItemsSection}>
-          <DocumentActionItems documentId={id!} />
+          <DocumentActionItems documentId={id!} variant="reminders" />
         </View>
 
         {/* Document Health Panel — Pro/Family only (no dedicated flag) */}

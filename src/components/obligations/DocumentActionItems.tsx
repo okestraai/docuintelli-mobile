@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import {
-  ClipboardCheck, Check, X, Bell, Pencil, Trash2, Sparkles,
+  ClipboardCheck, Check, X, Bell, Pencil, Trash2, Sparkles, ChevronRight,
   CalendarClock, Hourglass, Undo2,
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
@@ -17,11 +17,24 @@ import {
 
 interface DocumentActionItemsProps {
   documentId: string;
+  /**
+   * Which half to render. The two are placed differently on the screen: suggestions sit
+   * above the document because they are asking for a decision, reminders sit below it
+   * because the decision is already made and they should not push the document down.
+   * Each variant fetches only the list it shows, so splitting costs no extra requests.
+   */
+  variant?: 'suggestions' | 'reminders';
   onCountChange?: () => void;
 }
 
-const INITIAL_VISIBLE = 5;
-const REVEAL_STEP = 10;
+/**
+ * One item is shown until the user asks for the rest.
+ *
+ * The document screen is not a to-do list — it is a document. A single item says "there is
+ * something here" without turning the screen into a queue, and both lists arrive sorted with
+ * the most urgent first, so the one on show is the one that matters most.
+ */
+const INITIAL_VISIBLE = 1;
 
 const URGENCY_STYLE: Record<string, { bg: string; text: string }> = {
   overdue: { bg: colors.error[100], text: colors.error[700] },
@@ -38,13 +51,20 @@ const URGENCY_STYLE: Record<string, { bg: string; text: string }> = {
  * rather than inside DocumentHealthPanel, which is paid-only — most documents belong to
  * free users, so gating this would hide it from nearly everyone who has it.
  */
-export default function DocumentActionItems({ documentId, onCountChange }: DocumentActionItemsProps) {
+export default function DocumentActionItems({
+  documentId, variant = 'suggestions', onCountChange,
+}: DocumentActionItemsProps) {
+  const showSuggestions = variant === 'suggestions';
+  const showReminders = variant === 'reminders';
   const [suggestions, setSuggestions] = useState<Obligation[]>([]);
   const [reminders, setReminders] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [visible, setVisible] = useState(INITIAL_VISIBLE);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const [showAllReminders, setShowAllReminders] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const [remindersOpen, setRemindersOpen] = useState(true);
   const [modalTarget, setModalTarget] = useState<{ obligation: Obligation; mode: 'accept' | 'edit' } | null>(null);
   const [limitReached, setLimitReached] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ ids: string[]; label: string } | null>(null);
@@ -52,25 +72,26 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [pending, active] = await Promise.all([
-        listObligations({ documentId, status: ['suggested'], limit: 100 }),
-        listObligations({ documentId, status: ['active'], limit: 100 }),
-      ]);
-      // Dated items first — only a small minority carry a real date, and those are the
-      // ones actually worth acting on.
-      setSuggestions(
-        [...pending.items].sort((a, b) => {
-          if (!!a.suggested_due_date === !!b.suggested_due_date) return 0;
-          return a.suggested_due_date ? -1 : 1;
-        }),
-      );
-      setReminders(active.items);
+      if (showSuggestions) {
+        const pending = await listObligations({ documentId, status: ['suggested'], limit: 100 });
+        // Dated items first — only a minority carry a real date, and those are the ones
+        // actually worth acting on.
+        setSuggestions(
+          [...pending.items].sort((a, b) => {
+            if (!!a.suggested_due_date === !!b.suggested_due_date) return 0;
+            return a.suggested_due_date ? -1 : 1;
+          }),
+        );
+      } else {
+        const active = await listObligations({ documentId, status: ['active'], limit: 100 });
+        setReminders(active.items);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load action items');
     } finally {
       setLoading(false);
     }
-  }, [documentId]);
+  }, [documentId, showSuggestions]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -118,6 +139,9 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
   };
 
   if (loading) {
+    // The reminders card sits below the document; a spinner there would be a placeholder
+    // for something most documents do not have.
+    if (showReminders) return null;
     return (
       <View style={styles.card}>
         <ActivityIndicator size="small" color={colors.primary[600]} />
@@ -126,6 +150,7 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
   }
 
   if (error) {
+    if (showReminders) return null;
     return (
       <View style={styles.errorBox}>
         <Text style={styles.errorText}>We couldn't load this document's action items.</Text>
@@ -136,7 +161,10 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
     );
   }
 
-  if (!suggestions.length && !reminders.length) {
+  // With nothing to show, the reminders card disappears rather than leaving an empty shell.
+  if (showReminders && !reminders.length) return null;
+
+  if (showSuggestions && !suggestions.length) {
     return (
       <View style={styles.emptyCard}>
         <ClipboardCheck size={22} color={colors.slate[300]} />
@@ -145,8 +173,8 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
     );
   }
 
-  const shown = suggestions.slice(0, visible);
-  const hidden = suggestions.length - shown.length;
+  const shownSuggestions = showAllSuggestions ? suggestions : suggestions.slice(0, INITIAL_VISIBLE);
+  const shownReminders = showAllReminders ? reminders : reminders.slice(0, INITIAL_VISIBLE);
 
   return (
     <View style={styles.wrap}>
@@ -166,59 +194,81 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
         </View>
       )}
 
-      {suggestions.length > 0 && (
+      {showSuggestions && suggestions.length > 0 && (
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Sparkles size={15} color={colors.primary[600]} />
-            <Text style={styles.sectionTitle}>Action items to review</Text>
-            <View style={styles.countPill}>
-              <Text style={styles.countPillText}>{suggestions.length}</Text>
-            </View>
-            <TouchableOpacity onPress={ignoreAll} style={styles.ignoreAll}>
-              <Text style={styles.ignoreAllText}>Ignore all</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            open={suggestionsOpen}
+            onToggle={() => setSuggestionsOpen(o => !o)}
+            icon={<Sparkles size={15} color={colors.primary[600]} />}
+            title="Action items to review"
+            count={suggestions.length}
+            countStyle={styles.countPill}
+            countTextStyle={styles.countPillText}
+            action={suggestionsOpen ? { label: 'Ignore all', onPress: ignoreAll } : undefined}
+          />
 
-          {shown.map((item, i) => (
-            <SuggestionRow
-              key={item.id}
-              obligation={item}
-              first={i === 0}
-              busy={busyId === item.id}
-              onAdd={() => setModalTarget({ obligation: item, mode: 'accept' })}
-              onIgnore={() => run(item.id, () => dismissObligation(item.id))}
-            />
-          ))}
+          {suggestionsOpen && (
+            <>
+              {shownSuggestions.map((item, i) => (
+                <SuggestionRow
+                  key={item.id}
+                  obligation={item}
+                  first={i === 0}
+                  busy={busyId === item.id}
+                  onAdd={() => setModalTarget({ obligation: item, mode: 'accept' })}
+                  onIgnore={() => run(item.id, () => dismissObligation(item.id))}
+                />
+              ))}
 
-          {hidden > 0 && (
-            <TouchableOpacity onPress={() => setVisible(v => v + REVEAL_STEP)} style={styles.showMore}>
-              <Text style={styles.showMoreText}>Show {Math.min(hidden, REVEAL_STEP)} more</Text>
-            </TouchableOpacity>
+              {suggestions.length > INITIAL_VISIBLE && (
+                <ViewAllToggle
+                  expanded={showAllSuggestions}
+                  total={suggestions.length}
+                  noun="action item"
+                  onToggle={() => setShowAllSuggestions(v => !v)}
+                />
+              )}
+            </>
           )}
         </View>
       )}
 
-      {reminders.length > 0 && (
+      {showReminders && reminders.length > 0 && (
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Bell size={15} color={colors.slate[500]} />
-            <Text style={styles.sectionTitle}>Reminders</Text>
-            <View style={styles.countPillNeutral}>
-              <Text style={styles.countPillNeutralText}>{reminders.length}</Text>
-            </View>
-          </View>
+          <SectionHeader
+            open={remindersOpen}
+            onToggle={() => setRemindersOpen(o => !o)}
+            icon={<Bell size={15} color={colors.slate[500]} />}
+            title="Reminders"
+            count={reminders.length}
+            countStyle={styles.countPillNeutral}
+            countTextStyle={styles.countPillNeutralText}
+          />
 
-          {reminders.map((item, i) => (
-            <ReminderRow
-              key={item.id}
-              obligation={item}
-              first={i === 0}
-              busy={busyId === item.id}
-              onEdit={() => setModalTarget({ obligation: item, mode: 'edit' })}
-              onComplete={() => run(item.id, () => completeObligation(item.id))}
-              onDelete={() => run(item.id, () => deleteObligation(item.id))}
-            />
-          ))}
+          {remindersOpen && (
+            <>
+              {shownReminders.map((item, i) => (
+                <ReminderRow
+                  key={item.id}
+                  obligation={item}
+                  first={i === 0}
+                  busy={busyId === item.id}
+                  onEdit={() => setModalTarget({ obligation: item, mode: 'edit' })}
+                  onComplete={() => run(item.id, () => completeObligation(item.id))}
+                  onDelete={() => run(item.id, () => deleteObligation(item.id))}
+                />
+              ))}
+
+              {reminders.length > INITIAL_VISIBLE && (
+                <ViewAllToggle
+                  expanded={showAllReminders}
+                  total={reminders.length}
+                  noun="reminder"
+                  onToggle={() => setShowAllReminders(v => !v)}
+                />
+              )}
+            </>
+          )}
         </View>
       )}
 
@@ -229,6 +279,72 @@ export default function DocumentActionItems({ documentId, onCountChange }: Docum
         onSubmit={handleAccept}
       />
     </View>
+  );
+}
+
+// ── Collapsible section header ──────────────────────────────────────────────────
+
+/**
+ * The title area is the disclosure control, so the tap target is most of the header rather
+ * than a small chevron. A secondary action sits outside it — nesting touchables would make
+ * the inner one unreliable on Android.
+ */
+function SectionHeader({
+  open, onToggle, icon, title, count, countStyle, countTextStyle, action,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  countStyle: any;
+  countTextStyle: any;
+  action?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View style={[styles.sectionHeader, !open && styles.sectionHeaderClosed]}>
+      <TouchableOpacity
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={styles.sectionHeaderMain}
+        activeOpacity={0.7}
+      >
+        <ChevronRight
+          size={15}
+          color={colors.slate[400]}
+          style={open ? styles.chevronOpen : undefined}
+        />
+        {icon}
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={countStyle}><Text style={countTextStyle}>{count}</Text></View>
+      </TouchableOpacity>
+
+      {action && (
+        <TouchableOpacity onPress={action.onPress}>
+          <Text style={styles.ignoreAllText}>{action.label}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ── View all / show less ────────────────────────────────────────────────────────
+
+function ViewAllToggle({
+  expanded, total, noun, onToggle,
+}: {
+  expanded: boolean;
+  total: number;
+  noun: string;
+  onToggle: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onToggle} style={styles.showMore}>
+      <Text style={styles.showMoreText}>
+        {expanded ? 'Show less' : `View all ${total} ${noun}${total === 1 ? '' : 's'}`}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -386,6 +502,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.slate[100],
   },
+  // Collapsed, the header is the whole card — no divider under it.
+  sectionHeaderClosed: { borderBottomWidth: 0 },
+  sectionHeaderMain: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
+  chevronOpen: { transform: [{ rotate: '90deg' }] },
   sectionTitle: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold as any,
