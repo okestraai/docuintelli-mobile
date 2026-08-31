@@ -234,11 +234,42 @@ export async function exchangePublicToken(
 }
 
 /** Get individual transactions for a spending category */
-export async function getTransactionsByCategory(category: string): Promise<TransactionDetail[]> {
+/** A date range for the spending breakdown and its drill-down, as YYYY-MM-DD. */
+export interface SpendingRange { start: string; end: string }
+
+/**
+ * Spending by category over a date range.
+ *
+ * Runs the same classification as the summary, so a category means the same thing whichever
+ * period is chosen.
+ */
+export async function getSpendingByCategory(
+  range: SpendingRange,
+): Promise<{ categories: CategoryBreakdown[]; total: number; months_observed: number }> {
   const session = await getSession();
   const headers = await backendHeaders(session.access_token);
   const res = await fetch(
-    `${API_BASE}/api/financial/transactions-by-category?category=${encodeURIComponent(category)}`,
+    `${API_BASE}/api/financial/spending-by-category?start=${range.start}&end=${range.end}`,
+    { headers },
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to load spending' }));
+    throw new Error(err.error || err.message);
+  }
+
+  return res.json();
+}
+
+export async function getTransactionsByCategory(
+  category: string,
+  range?: SpendingRange,
+): Promise<TransactionDetail[]> {
+  const session = await getSession();
+  const headers = await backendHeaders(session.access_token);
+  const rangeQuery = range ? `&start=${range.start}&end=${range.end}` : '';
+  const res = await fetch(
+    `${API_BASE}/api/financial/transactions-by-category?category=${encodeURIComponent(category)}${rangeQuery}`,
     { headers },
   );
 

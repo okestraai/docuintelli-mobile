@@ -514,7 +514,10 @@ export default function FinancialInsightsScreen() {
                 </View>
               </CollapsibleSection>
             )}
-            <SpendingBreakdown categories={summary.spending_by_category} />
+            <SpendingBreakdown
+              categories={summary.spending_by_category}
+              monthKeys={summary.monthly_averages.map(m => m.month)}
+            />
             <RecurringBillsList bills={summary.recurring_bills} onChanged={refreshSummary} />
             <MoneyInList
               sources={summary.inflow_sources ?? []}
