@@ -54,6 +54,9 @@ import GradientIcon from '../../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../../src/components/ui/LoadingSpinner';
 import DocumentHealthPanel from '../../../src/components/documents/DocumentHealthPanel';
 import DocumentActionItems from '../../../src/components/obligations/DocumentActionItems';
+import RemindersChip from '../../../src/components/obligations/RemindersChip';
+import RemindersBanner from '../../../src/components/obligations/RemindersBanner';
+import { useDocumentReminders } from '../../../src/hooks/useDocumentReminders';
 import { useGoalBubble } from '../../../src/hooks/useGoalBubble';
 import { fetchDocumentRelationships } from '../../../src/lib/engagementApi';
 import { updateDocumentMetadata, appendFileToDocument } from '../../../src/lib/api';
@@ -148,6 +151,16 @@ export default function DocumentViewerScreen() {
   const { user } = useAuth();
   const { featureFlags, isPaid } = useSubscription();
   const { completeStepById } = useGoalBubble();
+  // One fetch feeding both the header chip and the overdue banner. Unlike the health panel
+  // further down the screen, this is not plan-gated.
+  const {
+    reminders,
+    busyId: reminderBusyId,
+    complete: completeReminder,
+    remove: removeReminder,
+    reload: reloadReminders,
+  } = useDocumentReminders(id!);
+  const [remindersOpen, setRemindersOpen] = useState(false);
   const [doc, setDoc] = useState<SupabaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -500,6 +513,18 @@ export default function DocumentViewerScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
+          {/* Leftmost in the action row, so a red/amber chip does not sit beside the
+              destructive delete button. Costs no vertical space, so the document stays
+              exactly where it is whether there are reminders or not. */}
+          <RemindersChip
+            reminders={reminders}
+            busyId={reminderBusyId}
+            onComplete={completeReminder}
+            onDelete={removeReminder}
+            onChanged={reloadReminders}
+            open={remindersOpen}
+            onOpenChange={setRemindersOpen}
+          />
           {featureFlags.esignatures && doc && previewUrl && (
             isPdfFile(doc.type || '', doc.original_name || doc.name || '') ||
             isWordFile(doc.type || '', doc.original_name || doc.name || '')
@@ -596,12 +621,21 @@ export default function DocumentViewerScreen() {
           </TouchableOpacity>
         )}
 
+        {/* An overdue or due-today reminder, promoted out of the header chip. Costs vertical
+            space only in the rare state that has earned it. */}
+        <RemindersBanner
+          reminders={reminders}
+          busyId={reminderBusyId}
+          onComplete={completeReminder}
+          onOpenList={() => setRemindersOpen(true)}
+        />
+
         {/* Action items awaiting a decision — above the preview because they are a prompt.
             Above the Pro gate on purpose too: DocumentHealthPanel further down is paid-only,
             and most documents belong to free users, so gating this would hide the feature
             from nearly everyone who has it. */}
         <View style={styles.actionItemsSection}>
-          <DocumentActionItems documentId={id!} variant="suggestions" />
+          <DocumentActionItems documentId={id!} onCountChange={reloadReminders} />
         </View>
 
         {/* ====== INLINE DOCUMENT PREVIEW ====== */}
@@ -800,12 +834,6 @@ export default function DocumentViewerScreen() {
             </View>
           </Card>
         )}
-
-        {/* Reminders already set on this document. Below the preview and details, so a
-            settled decision never pushes the document itself down the screen. */}
-        <View style={styles.actionItemsSection}>
-          <DocumentActionItems documentId={id!} variant="reminders" />
-        </View>
 
         {/* Document Health Panel — Pro/Family only (no dedicated flag) */}
         {isPaid && <DocumentHealthPanel documentId={id!} category={doc.category} />}

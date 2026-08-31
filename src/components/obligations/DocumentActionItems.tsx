@@ -17,13 +17,6 @@ import {
 
 interface DocumentActionItemsProps {
   documentId: string;
-  /**
-   * Which half to render. The two are placed differently on the screen: suggestions sit
-   * above the document because they are asking for a decision, reminders sit below it
-   * because the decision is already made and they should not push the document down.
-   * Each variant fetches only the list it shows, so splitting costs no extra requests.
-   */
-  variant?: 'suggestions' | 'reminders';
   onCountChange?: () => void;
 }
 
@@ -45,26 +38,24 @@ const URGENCY_STYLE: Record<string, { bg: string; text: string }> = {
 };
 
 /**
- * The action items extracted from one document, and the reminders already set on it.
+ * The action items extracted from one document, awaiting the user's decision.
  *
  * Mirrors the web component of the same name. Lives in the document screen's main body
  * rather than inside DocumentHealthPanel, which is paid-only — most documents belong to
  * free users, so gating this would hide it from nearly everyone who has it.
+ *
+ * Reminders the user has already accepted are NOT here — they live in the header chip, so
+ * a settled decision never displaces the document.
  */
 export default function DocumentActionItems({
-  documentId, variant = 'suggestions', onCountChange,
+  documentId, onCountChange,
 }: DocumentActionItemsProps) {
-  const showSuggestions = variant === 'suggestions';
-  const showReminders = variant === 'reminders';
   const [suggestions, setSuggestions] = useState<Obligation[]>([]);
-  const [reminders, setReminders] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
-  const [showAllReminders, setShowAllReminders] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(true);
-  const [remindersOpen, setRemindersOpen] = useState(true);
   const [modalTarget, setModalTarget] = useState<{ obligation: Obligation; mode: 'accept' | 'edit' } | null>(null);
   const [limitReached, setLimitReached] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ ids: string[]; label: string } | null>(null);
@@ -72,26 +63,21 @@ export default function DocumentActionItems({
   const load = useCallback(async () => {
     try {
       setError(null);
-      if (showSuggestions) {
-        const pending = await listObligations({ documentId, status: ['suggested'], limit: 100 });
-        // Dated items first — only a minority carry a real date, and those are the ones
-        // actually worth acting on.
-        setSuggestions(
-          [...pending.items].sort((a, b) => {
-            if (!!a.suggested_due_date === !!b.suggested_due_date) return 0;
-            return a.suggested_due_date ? -1 : 1;
-          }),
-        );
-      } else {
-        const active = await listObligations({ documentId, status: ['active'], limit: 100 });
-        setReminders(active.items);
-      }
+      const pending = await listObligations({ documentId, status: ['suggested'], limit: 100 });
+      // Dated items first — only a minority carry a real date, and those are the ones
+      // actually worth acting on.
+      setSuggestions(
+        [...pending.items].sort((a, b) => {
+          if (!!a.suggested_due_date === !!b.suggested_due_date) return 0;
+          return a.suggested_due_date ? -1 : 1;
+        }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load action items');
     } finally {
       setLoading(false);
     }
-  }, [documentId, showSuggestions]);
+  }, [documentId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -139,9 +125,6 @@ export default function DocumentActionItems({
   };
 
   if (loading) {
-    // The reminders card sits below the document; a spinner there would be a placeholder
-    // for something most documents do not have.
-    if (showReminders) return null;
     return (
       <View style={styles.card}>
         <ActivityIndicator size="small" color={colors.primary[600]} />
@@ -150,7 +133,6 @@ export default function DocumentActionItems({
   }
 
   if (error) {
-    if (showReminders) return null;
     return (
       <View style={styles.errorBox}>
         <Text style={styles.errorText}>We couldn't load this document's action items.</Text>
@@ -161,10 +143,7 @@ export default function DocumentActionItems({
     );
   }
 
-  // With nothing to show, the reminders card disappears rather than leaving an empty shell.
-  if (showReminders && !reminders.length) return null;
-
-  if (showSuggestions && !suggestions.length) {
+  if (!suggestions.length) {
     return (
       <View style={styles.emptyCard}>
         <ClipboardCheck size={22} color={colors.slate[300]} />
@@ -174,7 +153,6 @@ export default function DocumentActionItems({
   }
 
   const shownSuggestions = showAllSuggestions ? suggestions : suggestions.slice(0, INITIAL_VISIBLE);
-  const shownReminders = showAllReminders ? reminders : reminders.slice(0, INITIAL_VISIBLE);
 
   return (
     <View style={styles.wrap}>
@@ -194,7 +172,7 @@ export default function DocumentActionItems({
         </View>
       )}
 
-      {showSuggestions && suggestions.length > 0 && (
+      {suggestions.length > 0 && (
         <View style={styles.section}>
           <SectionHeader
             open={suggestionsOpen}
@@ -226,45 +204,6 @@ export default function DocumentActionItems({
                   total={suggestions.length}
                   noun="action item"
                   onToggle={() => setShowAllSuggestions(v => !v)}
-                />
-              )}
-            </>
-          )}
-        </View>
-      )}
-
-      {showReminders && reminders.length > 0 && (
-        <View style={styles.section}>
-          <SectionHeader
-            open={remindersOpen}
-            onToggle={() => setRemindersOpen(o => !o)}
-            icon={<Bell size={15} color={colors.slate[500]} />}
-            title="Reminders"
-            count={reminders.length}
-            countStyle={styles.countPillNeutral}
-            countTextStyle={styles.countPillNeutralText}
-          />
-
-          {remindersOpen && (
-            <>
-              {shownReminders.map((item, i) => (
-                <ReminderRow
-                  key={item.id}
-                  obligation={item}
-                  first={i === 0}
-                  busy={busyId === item.id}
-                  onEdit={() => setModalTarget({ obligation: item, mode: 'edit' })}
-                  onComplete={() => run(item.id, () => completeObligation(item.id))}
-                  onDelete={() => run(item.id, () => deleteObligation(item.id))}
-                />
-              ))}
-
-              {reminders.length > INITIAL_VISIBLE && (
-                <ViewAllToggle
-                  expanded={showAllReminders}
-                  total={reminders.length}
-                  noun="reminder"
-                  onToggle={() => setShowAllReminders(v => !v)}
                 />
               )}
             </>
