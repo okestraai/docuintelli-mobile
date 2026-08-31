@@ -123,6 +123,8 @@ export interface InflowSource {
   is_recurring: boolean;
   frequency?: string;
   average_amount?: number;
+  /** Recurring only — when the next payment is due, from the genuinely latest one. */
+  next_expected?: string;
   kind_tag?: string;
   is_salary: boolean;
   user_tags: string[];

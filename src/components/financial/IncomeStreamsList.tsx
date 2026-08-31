@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { Banknote, Briefcase, CircleDollarSign, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
+import { Banknote, Briefcase, CalendarClock, CircleDollarSign, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
 import type { InflowSource } from '../../lib/financialApi';
 import {
   getTagOptions,
@@ -151,6 +151,12 @@ export default function MoneyInList({ sources, period, onChanged }: MoneyInListP
               </View>
               <View style={styles.info}>
                 <Text style={styles.source} numberOfLines={1}>{stream.source}</Text>
+                {stream.next_expected && (
+                  <View style={styles.nextDate}>
+                    <CalendarClock size={12} color={colors.slate[400]} strokeWidth={2} />
+                    <Text style={styles.nextDateText}>Next: {formatDay(stream.next_expected)}</Text>
+                  </View>
+                )}
                 <View style={styles.metaRow}>
                   <Badge label={cadenceLabel(stream)} variant="default" />
                   {autoTags.map(tag => (
@@ -351,5 +357,16 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.slate[400],
     marginBottom: spacing.sm,
+  },
+  // Mirrors how Recurring Bills shows its next due date, so the two sections read alike.
+  nextDate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  nextDateText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[400],
   },
 });
