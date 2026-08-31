@@ -142,6 +142,14 @@ export function setupNotificationListeners() {
       engagement_digest: '/audit',
     };
 
+    // Obligation notices carry a documentId (the obligation's source document), but the
+    // user tapped a reminder and expects the reminders list, not the document viewer.
+    // Checked before the documentId branch below, which would otherwise win.
+    if (type?.startsWith('obligation_')) {
+      router.push('/(tabs)/vault?tab=obligations' as any);
+      return;
+    }
+
     if (data?.documentId) {
       router.push({ pathname: '/document/[id]', params: { id: data.documentId as string } });
     } else if (type && typeRoutes[type]) {

@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Tag,
   HeartPulse,
+  ClipboardCheck,
   Cloud,
   FileSignature,
 } from 'lucide-react-native';
@@ -66,8 +67,10 @@ import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
 import { useSubscription } from '../../src/hooks/useSubscription';
+import ObligationsPanel from '../../src/components/obligations/ObligationsPanel';
+import { getObligationSummary } from '../../src/lib/obligationsApi';
 
-type VaultTab = 'documents' | 'signatures' | 'health';
+type VaultTab = 'documents' | 'signatures' | 'health' | 'obligations';
 const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
 
 // ── Category icon mapping ────────────────────────────────────────────
@@ -129,9 +132,13 @@ export default function VaultScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<VaultTab>(tab === 'health' ? 'health' : 'documents');
+  const [activeTab, setActiveTab] = useState<VaultTab>(
+    tab === 'health' ? 'health' : tab === 'obligations' ? 'obligations' : 'documents'
+  );
   const hasSetInitialTab = useRef(false);
   const [pendingSignatureCount, setPendingSignatureCount] = useState(0);
+  const [obligationCounts, setObligationCounts] = useState({ suggested: 0, overdue: 0 });
+  const [obligationRefreshToken, setObligationRefreshToken] = useState(0);
 
   // Re-fetch documents whenever the screen gains focus
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
@@ -161,11 +168,25 @@ export default function VaultScreen() {
     }, [user?.email])
   );
 
-  // Sync tab when deep-linking to health tab
+  // Obligation badge. Fetched here rather than only inside ObligationsPanel, because that
+  // panel mounts on its own tab — without this the badge would stay at zero while the user
+  // is on Docs, which is exactly when a freshly extracted action item needs surfacing.
+  // Bumping the refresh token pulls the panel along on the same focus event.
   useFocusEffect(
     useCallback(() => {
-      if (tab === 'health' && !hasSetInitialTab.current) {
-        setActiveTab('health');
+      getObligationSummary()
+        .then((s) => setObligationCounts({ suggested: s.suggested, overdue: s.overdue }))
+        .catch(() => { /* non-critical — badge just won't show */ });
+      setObligationRefreshToken((n) => n + 1);
+    }, [])
+  );
+
+  // Sync tab when deep-linking to the health or obligations tab
+  useFocusEffect(
+    useCallback(() => {
+      if (hasSetInitialTab.current) return;
+      if (tab === 'health' || tab === 'obligations') {
+        setActiveTab(tab);
         hasSetInitialTab.current = true;
       }
     }, [tab])
@@ -464,6 +485,23 @@ export default function VaultScreen() {
             <Text style={[styles.tabSegmentText, activeTab === 'health' && styles.tabSegmentTextActive]} numberOfLines={1}>
               Health
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab('obligations')}
+            activeOpacity={0.7}
+            style={[styles.tabSegment, activeTab === 'obligations' && styles.tabSegmentActive]}
+          >
+            <ClipboardCheck size={14} color={activeTab === 'obligations' ? colors.primary[700] : colors.slate[400]} strokeWidth={2} />
+            <Text style={[styles.tabSegmentText, activeTab === 'obligations' && styles.tabSegmentTextActive]} numberOfLines={1}>
+              Reminders
+            </Text>
+            {(obligationCounts.overdue > 0 || obligationCounts.suggested > 0) && (
+              <View style={obligationCounts.overdue > 0 ? styles.pendingBadge : styles.suggestionBadge}>
+                <Text style={styles.pendingBadgeText}>
+                  {obligationCounts.overdue > 0 ? obligationCounts.overdue : obligationCounts.suggested}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -812,6 +850,19 @@ export default function VaultScreen() {
           </View>
           <AuditContent embedded />
         </ScrollView>
+      ) : activeTab === 'obligations' ? (
+        <ScrollView
+          contentContainerStyle={styles.healthScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.headerSection}>
+            {renderTitleAndTabs()}
+          </View>
+          <ObligationsPanel
+            onSummaryChange={setObligationCounts}
+            refreshToken={obligationRefreshToken}
+          />
+        </ScrollView>
       ) : loading && documents.length === 0 ? (
         <>
           {renderHeader()}
@@ -1043,6 +1094,17 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: colors.error[500],
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    minWidth: 20,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  // Same shape as pendingBadge, green rather than red: unreviewed action items are an
+  // invitation, not an alarm. Overdue reminders reuse pendingBadge.
+  suggestionBadge: {
+    backgroundColor: colors.primary[600],
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
