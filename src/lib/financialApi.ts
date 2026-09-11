@@ -127,6 +127,8 @@ export interface InflowSource {
   average_amount?: number;
   /** Recurring only — when the next payment is due, from the genuinely latest one. */
   next_expected?: string;
+  /** Recurring only — the rhythm was real but has stopped; the last payment's date. */
+  ended_on?: string;
   kind_tag?: string;
   is_salary: boolean;
   user_tags: string[];

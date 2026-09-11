@@ -35,7 +35,7 @@ const isOverdue = (nextExpected: string): boolean => nextExpected < toYmd(new Da
 
 /** How each rhythm is said aloud, matching the web list word for word. */
 const EVERY: Record<string, string> = {
-  weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'monthly',
+  weekly: 'every week', biweekly: 'every 2 weeks', semimonthly: 'twice a month', monthly: 'monthly',
   bimonthly: 'every 2 months', quarterly: 'quarterly',
 };
 

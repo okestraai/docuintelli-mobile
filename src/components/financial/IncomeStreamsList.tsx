@@ -33,7 +33,7 @@ const formatDay = (iso: string): string =>
 function cadenceLabel(s: InflowSource): string {
   if (s.is_recurring && s.frequency && s.average_amount !== undefined) {
     const every: Record<string, string> = {
-      weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'monthly',
+      weekly: 'every week', biweekly: 'every 2 weeks', semimonthly: 'twice a month', monthly: 'monthly',
       bimonthly: 'every 2 months', quarterly: 'quarterly',
     };
     return `${formatCurrency(s.average_amount)} ${every[s.frequency] ?? s.frequency}`;
@@ -151,6 +151,14 @@ export default function MoneyInList({ sources, periodLabel, loading, onChanged }
                   <View style={styles.nextDate}>
                     <CalendarClock size={12} color={colors.slate[400]} strokeWidth={2} />
                     <Text style={styles.nextDateText}>Next: {formatDay(stream.next_expected)}</Text>
+                  </View>
+                )}
+                {/* A rhythm that stopped is still the rhythm it was — a salary that ended with a
+                    job change was fortnightly, not "one-off" — but nothing is due. */}
+                {stream.ended_on && (
+                  <View style={styles.nextDate}>
+                    <CalendarClock size={12} color={colors.slate[400]} strokeWidth={2} />
+                    <Text style={styles.nextDateText}>Ended {formatDay(stream.ended_on)}</Text>
                   </View>
                 )}
                 <View style={styles.metaRow}>
