@@ -822,8 +822,14 @@ export default function VaultScreen() {
           data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderDocumentCard}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmptyState}
+          // Elements, not the functions. Passed as a function, the header is treated as a
+          // component TYPE — and renderHeader is a new function on every render, so React saw a
+          // new type each time and remounted the whole header. The search box lives in it: every
+          // keystroke set state, re-rendered, remounted the TextInput and dropped the keyboard,
+          // so a word could never be finished. An element is reconciled by its tree instead, and
+          // the input keeps its identity across renders.
+          ListHeaderComponent={renderHeader()}
+          ListEmptyComponent={renderEmptyState()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
