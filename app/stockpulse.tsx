@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity,
+  type NativeSyntheticEvent, type NativeScrollEvent,
   TextInput, Alert, Modal, Switch, FlatList, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -79,6 +80,11 @@ const SECTOR_ICONS: Record<string, any> = {
 // MAIN SCREEN — Pro-gated
 // ═══════════════════════════════════════════════════════════════════
 
+/** Screener cards mounted per page. Enough to fill a few screens; small enough to mount in a frame or two. */
+const SCREENER_PAGE = 40;
+/** How close to the bottom (px) the reader gets before the next page is mounted. */
+const SCREENER_PREFETCH_PX = 600;
+
 export default function StockPulseScreen() {
   const { loading: subLoading, featureFlags } = useSubscription();
 
@@ -104,6 +110,12 @@ function StockPulseContent() {
   // ── Dashboard state ──
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
+  // How many screener cards are mounted. The index is the whole universe -- 1,763 stocks -- and
+  // mounting a card for every one in a single commit froze the JS thread for so long that the
+  // spinner painted before the commit was the last thing the reader saw. The web dashboard
+  // windows the same list; this is the same idea for a ScrollView: a page at a time, growing as
+  // the reader nears the bottom.
+  const [visibleCount, setVisibleCount] = useState(SCREENER_PAGE);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('score_high');
@@ -518,6 +530,16 @@ function StockPulseContent() {
     return result;
   }, [recommendations, searchQuery, sectorFilter, convictionFilter, scoreMin, scoreMax, sortBy, mosFilter, gateFilter, analyzedOnly]);
 
+  // A new filter or search starts the window over: the reader is looking at a different list.
+  useEffect(() => { setVisibleCount(SCREENER_PAGE); }, [searchQuery, sectorFilter, convictionFilter, analyzedOnly, scoreMin, scoreMax]);
+
+  const handleScreenerScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (activeTab !== 'dashboard') return;
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - SCREENER_PREFETCH_PX;
+    if (nearBottom) setVisibleCount(c => (c < filteredCompanies.length ? c + SCREENER_PAGE : c));
+  }, [activeTab, filteredCompanies.length]);
+
   const convictionCounts = useMemo(() => {
     const counts: Record<string, number> = { 'Strong Buy': 0, 'Buy': 0, 'Hold': 0, 'Reduce': 0, 'Sell': 0 };
     // Unanalyzed stocks have no conviction and simply do not appear in these tallies.
@@ -623,6 +645,8 @@ function StockPulseContent() {
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[600]} />}
+        onScroll={handleScreenerScroll}
+        scrollEventThrottle={250}
       >
         {/* ══════════ DASHBOARD TAB ══════════ */}
         {activeTab === 'dashboard' && (
@@ -780,7 +804,7 @@ function StockPulseContent() {
               <EmptyState icon={BarChart3} title="No stocks found" text={searchQuery ? 'Try a different search term' : 'Adjust your filters to see more'} />
             ) : (
               <View style={s.stockList}>
-                {filteredCompanies.map(rec => (
+                {filteredCompanies.slice(0, visibleCount).map(rec => (
                   <StockCard
                     key={rec.ticker}
                     ticker={rec.ticker}
@@ -796,6 +820,17 @@ function StockPulseContent() {
                     onPress={() => openCompany(rec.ticker)}
                   />
                 ))}
+                              {filteredCompanies.length > visibleCount && (
+                  <TouchableOpacity
+                    onPress={() => setVisibleCount(c => c + SCREENER_PAGE)}
+                    style={s.showMore}
+                    accessibilityRole="button"
+                  >
+                    <Text style={s.showMoreText}>
+                      Show more ({filteredCompanies.length - visibleCount} of {filteredCompanies.length} remaining)
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -2658,6 +2693,20 @@ function ForecastItem({ label, text, color }: { label: string; text: string; col
 // ═══════════════════════════════════════════════════════════════════
 
 const s = StyleSheet.create({
+  showMore: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.slate[200],
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.white,
+  },
+  showMoreText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.primary[600],
+  },
   safe: { flex: 1, backgroundColor: colors.slate[50] },
   scroll: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xl },
 
