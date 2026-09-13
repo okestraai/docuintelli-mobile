@@ -820,7 +820,7 @@ function StockPulseContent() {
                     onPress={() => openCompany(rec.ticker)}
                   />
                 ))}
-                              {filteredCompanies.length > visibleCount && (
+                {filteredCompanies.length > visibleCount && (
                   <TouchableOpacity
                     onPress={() => setVisibleCount(c => c + SCREENER_PAGE)}
                     style={s.showMore}
