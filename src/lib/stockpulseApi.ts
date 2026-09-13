@@ -23,13 +23,32 @@ async function getSession() {
   return session;
 }
 
+/**
+ * No StockPulse request waits longer than this. A score that is not ready inside the server's own
+ * budget comes back as a 503 asking for a retry; only a genuinely stalled connection reaches this,
+ * and a stalled connection must not become a stalled screen.
+ */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   const session = await getSession();
   const headers = await backendHeaders(session.access_token);
-  const res = await fetch(`${API_BASE}/api/stockpulse${path}`, {
-    ...options,
-    headers: { ...headers, ...options?.headers },
-  });
+  // AbortController rather than AbortSignal.timeout, which Hermes does not provide.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/stockpulse${path}`, {
+      signal: controller.signal,
+      ...options,
+      headers: { ...headers, ...options?.headers },
+    });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('StockPulse took too long to respond. Please try again.');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || `API error: ${res.status}`);

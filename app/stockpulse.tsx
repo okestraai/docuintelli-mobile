@@ -240,6 +240,10 @@ function StockPulseContent() {
       const data = await getSimulator();
       setPortfolioPicks(data.picks || []);
       setPortfolioSummary(data.summary || null);
+      // The holdings are on screen from here. Scores arrive one at a time below and fill in as
+      // they land; a slow or failed score for one ticker must not hold the whole tab behind a
+      // spinner, which is what waiting for all of them before showing anything did.
+      setPortfolioLoading(false);
 
       // Score holdings for live alerts
       const activePicks = (data.picks || []).filter((p: SimulatorPick) => p.status === 'active');
@@ -248,7 +252,8 @@ function StockPulseContent() {
         try {
           const result = await scoreStock(pick.ticker);
           liveScoresMap[pick.ticker] = { score: result.final_score, price: result.current_price, conviction: result.conviction };
-        } catch { /* skip */ }
+          setPortfolioLiveScores({ ...liveScoresMap });
+        } catch { /* this ticker shows without a live score; the others still arrive */ }
       }
       setPortfolioLiveScores(liveScoresMap);
 
