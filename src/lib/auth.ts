@@ -23,6 +23,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import { API_BASE } from './config';
+import { getDeviceId } from './deviceId';
 
 // ─── Storage Keys ─────────────────────────────────────────────────────────────
 
@@ -602,6 +603,7 @@ export const auth = {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
+            'X-Device-ID': await getDeviceId(),
           },
         }).catch(() => {
           // Fire-and-forget — we clear local state regardless

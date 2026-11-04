@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { Smartphone } from 'lucide-react-native';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
@@ -20,9 +20,12 @@ import {
 export default function DeviceLimitModal() {
   const [detail, setDetail] = useState<DeviceLimitDetail | null>(null);
 
+  const pathname = usePathname();
+
   useEffect(() => onDeviceLimit(setDetail), []);
 
-  if (!detail) return null;
+  // The device list is where they fix this, so don't cover it.
+  if (!detail || pathname === '/settings/devices') return null;
 
   const planName = detail.plan
     ? detail.plan.charAt(0).toUpperCase() + detail.plan.slice(1)
