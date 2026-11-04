@@ -34,7 +34,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const errData = await res.json().catch(() => ({ error: `Request failed (${res.status})` }));
-    const err = new Error(errData.error || errData.message || `Request failed (${res.status})`);
+    const err = new Error(errData.message || errData.error || `Request failed (${res.status})`);
     if (errData.code) (err as any).code = errData.code;
     throw err;
   }

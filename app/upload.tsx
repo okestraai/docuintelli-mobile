@@ -1,7 +1,16 @@
+import StorageBar from '../src/components/StorageBar';
+import { isStorageBased } from '../src/lib/freePlan';
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, TextInput, ScrollView, StyleSheet,
-  TouchableOpacity, Image, Platform,
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Platform,
+  Alert,
 } from 'react-native';
 import { useToast } from '../src/contexts/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,6 +62,11 @@ export default function UploadScreen() {
   const { uploadDocuments } = useDocuments(isAuthenticated);
   const { subscription, loading: subLoading, canUploadDocument, incrementMonthlyUploads, documentCount, featureFlags } = useSubscription();
   const { showToast } = useToast();
+  // Toasts sit behind this modal on native, so problems show as an alert there.
+  const showProblem = (message: string, type: 'warning' | 'error' = 'error') => {
+    if (Platform.OS === 'web') showToast(message, type);
+    else Alert.alert('Upload', message);
+  };
 
   // Feature gating (source of truth = backend feature flags)
   const canIngestUrl = featureFlags.url_ingestion;
@@ -127,7 +141,7 @@ export default function UploadScreen() {
         // Belt-and-suspenders: block images client-side for Free (some pickers
         // ignore the type filter) with the same message the backend returns.
         if (!canUploadImages && IMAGE_MIME_RE.test(asset.mimeType || '')) {
-          showToast(IMAGE_BLOCK_MSG, 'warning');
+          showProblem(IMAGE_BLOCK_MSG, 'warning');
           return;
         }
         setFileUri(asset.uri);
@@ -137,7 +151,7 @@ export default function UploadScreen() {
         if (!name) setName(asset.name.replace(/\.[^/.]+$/, ''));
       }
     } catch {
-      showToast('Failed to pick file', 'error');
+      showProblem('Failed to pick file');
     }
   };
 
@@ -160,7 +174,7 @@ export default function UploadScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         if (!canUploadImages && IMAGE_MIME_RE.test(asset.mimeType || '')) {
-          showToast(IMAGE_BLOCK_MSG, 'warning');
+          showProblem(IMAGE_BLOCK_MSG, 'warning');
           return;
         }
         setAdditionalFiles(prev => [...prev, {
@@ -171,7 +185,7 @@ export default function UploadScreen() {
         }]);
       }
     } catch {
-      showToast('Failed to pick file', 'error');
+      showProblem('Failed to pick file');
     }
   };
 
@@ -185,15 +199,15 @@ export default function UploadScreen() {
 
   const handleUpload = async () => {
     if (!name.trim()) {
-      showToast('Please enter a document name', 'warning');
+      showProblem('Please enter a document name', 'warning');
       return;
     }
     if (!category) {
-      showToast('Please select a category', 'warning');
+      showProblem('Please select a category', 'warning');
       return;
     }
     if (!canUploadDocument) {
-      showToast('Upload limit reached. Please upgrade your plan.', 'warning');
+      showProblem('Upload limit reached. Please upgrade your plan.', 'warning');
       return;
     }
 
@@ -203,7 +217,7 @@ export default function UploadScreen() {
 
       if (tab === 'file') {
         if (!fileUri) {
-          showToast('Please select a file', 'warning');
+          showProblem('Please select a file', 'warning');
           setLoading(false);
           return;
         }
@@ -225,7 +239,7 @@ export default function UploadScreen() {
         }
       } else if (tab === 'url') {
         if (!url.trim()) {
-          showToast('Please enter a URL', 'warning');
+          showProblem('Please enter a URL', 'warning');
           setLoading(false);
           return;
         }
@@ -252,7 +266,7 @@ export default function UploadScreen() {
       if (expirationDate) completeStepById('set-expiration');
       goBack('/(tabs)/vault');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Upload failed', 'error');
+      showProblem(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setLoading(false);
     }
@@ -639,8 +653,14 @@ export default function UploadScreen() {
             </View>
           )}
 
+          {canUploadDocument && isStorageBased(subscription) && (
+            <View style={styles.storageBlock}>
+              <StorageBar refreshKey={documentCount} />
+            </View>
+          )}
+
           {/* Usage indicator — all plans */}
-          {canUploadDocument && (
+          {canUploadDocument && !isStorageBased(subscription) && (
             <View style={styles.usageRow}>
               <View style={styles.usageDot} />
               <Text style={styles.usageText}>
@@ -1041,6 +1061,7 @@ const styles = StyleSheet.create({
   },
 
   // Usage Row
+  storageBlock: { marginBottom: 12 },
   usageRow: {
     flexDirection: 'row',
     alignItems: 'center',

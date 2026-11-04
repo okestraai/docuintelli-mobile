@@ -14,6 +14,7 @@ import { SIGNER_COLORS } from '../../types/esignature';
 import type { SignerEntry } from '../../types/esignature';
 
 interface SignerManagerProps {
+  maxSigners?: number;
   signers: SignerEntry[];
   onSignersChange: (signers: SignerEntry[]) => void;
   signingOrder: 'parallel' | 'sequential';
@@ -24,6 +25,8 @@ interface SignerManagerProps {
   currentUserName?: string;
 }
 
+const limitStyle = { fontSize: 13, color: '#b45309', marginBottom: 8 };
+
 export default function SignerManager({
   signers,
   onSignersChange,
@@ -33,14 +36,17 @@ export default function SignerManager({
   onSelectSigner,
   currentUserEmail,
   currentUserName,
+  maxSigners,
 }: SignerManagerProps) {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
 
+  const atLimit = maxSigners !== undefined && signers.length >= maxSigners;
+
   const addSigner = () => {
     const name = newName.trim();
     const email = newEmail.trim().toLowerCase();
-    if (!name || !email) return;
+    if (!name || !email || atLimit) return;
     if (signers.some((s) => s.email === email)) return;
 
     onSignersChange([
@@ -52,7 +58,7 @@ export default function SignerManager({
   };
 
   const addMyself = () => {
-    if (!currentUserEmail || !currentUserName) return;
+    if (!currentUserEmail || !currentUserName || atLimit) return;
     if (signers.some((s) => s.email === currentUserEmail)) return;
     onSignersChange([
       ...signers,
@@ -70,6 +76,9 @@ export default function SignerManager({
 
   return (
     <View style={styles.container}>
+      {atLimit && (
+        <Text style={limitStyle}>Your plan allows {maxSigners} signer{maxSigners === 1 ? '' : 's'} on each request.</Text>
+      )}
       {/* Signing order toggle */}
       <View style={styles.orderRow}>
         <View style={styles.orderInfo}>

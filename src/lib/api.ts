@@ -222,7 +222,7 @@ export async function appendFileToDocument(
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Append failed' }));
-      return { success: false, error: errorData.error || `Append failed (${res.status})` };
+      return { success: false, error: errorData.message || errorData.error || `Append failed (${res.status})` };
     }
 
     return await res.json();
@@ -589,4 +589,19 @@ export function logClientError(
       body: JSON.stringify({ feature, error, context }),
     }).catch(() => { /* swallow — best-effort logging */ });
   }).catch(() => {});
+}
+
+export interface SubscriptionStorage {
+  usedBytes: number;
+  limitBytes: number | null;
+}
+
+export async function getSubscriptionStorage(): Promise<SubscriptionStorage> {
+    const { data: { session } } = await auth.getSession();
+    if (!session) throw new Error('User not authenticated');
+  const res = await fetch(`${API_BASE}/api/subscription/storage`, {
+    headers: { Authorization: `Bearer ${session.access_token}`, 'X-Device-ID': await getDeviceId() },
+  });
+  if (!res.ok) throw new Error('Could not load storage');
+  return res.json();
 }

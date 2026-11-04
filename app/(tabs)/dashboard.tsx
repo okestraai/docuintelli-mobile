@@ -1,3 +1,5 @@
+import StorageBar from '../../src/components/StorageBar';
+import { isStorageBased } from '../../src/lib/freePlan';
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -468,6 +470,12 @@ export default function DashboardScreen() {
                 />
               </View>
 
+              {isStorageBased(subscription) ? (
+                <View style={styles.usageBlock}>
+                  <StorageBar refreshKey={documentCount} />
+                </View>
+              ) : (
+              <>
               {/* Document storage bar */}
               <View style={styles.usageBlock}>
                 <View style={styles.usageLabelRow}>
@@ -514,6 +522,8 @@ export default function DashboardScreen() {
                   />
                 </View>
               </View>
+              </>
+              )}
 
               {/* Monthly Tokens */}
               <View style={styles.usageBlock}>

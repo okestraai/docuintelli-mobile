@@ -1,3 +1,5 @@
+import StorageBar from '../src/components/StorageBar';
+import { freePlanFeatures, isStorageBased, useFreePlan, useStorage } from '../src/lib/freePlan';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -227,6 +229,8 @@ function capitalize(str: string): string {
 
 export default function BillingScreen() {
   const { subscription, loading, documentCount, refreshSubscription } = useSubscription();
+  const storageBased = isStorageBased(subscription);
+  const { storage } = useStorage(storageBased, documentCount);
   const { showToast } = useToast();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -275,7 +279,9 @@ export default function BillingScreen() {
     starterMonthly: '$9', proMonthly: '$19', familyMonthly: '$34',
     starterYearly: '$90', proYearly: '$182', familyYearly: '$326',
   });
-  const [plans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
+  const [basePlans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
+  const freePlan = useFreePlan();
+  const plans = basePlans.map((plan) => (plan.id === 'free' ? { ...plan, features: freePlanFeatures(plan.features, freePlan) } : plan));
 
   useEffect(() => {
     if (isNativeIAP) {
@@ -435,7 +441,7 @@ export default function BillingScreen() {
       visible: true,
       title: 'Cancel Subscription',
       message:
-        'Your subscription will remain active until the end of the current billing period. After that, you will be downgraded to the Free plan. Are you sure?',
+        'Your subscription will remain active until the end of the current billing period. After that, you will be downgraded to the Free plan.' + (freePlan.storageBased ? ' Your documents stay.' : '') + ' Are you sure?',
       confirmLabel: 'Cancel Subscription',
       variant: 'danger',
       onConfirm: async () => {
@@ -630,7 +636,7 @@ export default function BillingScreen() {
       visible: true,
       title: `Downgrade to ${capitalize(planId)}`,
       message:
-        'Your downgrade will take effect at the end of your current billing period. You will retain access to your current plan features until then. Documents exceeding the new limit may need to be removed.',
+        (planId === 'free' && freePlan.storageBased ? 'Your downgrade will take effect at the end of your current billing period. You will retain access to your current plan features until then. Your documents stay.' : 'Your downgrade will take effect at the end of your current billing period. You will retain access to your current plan features until then. Documents exceeding the new limit may need to be removed.'),
       confirmLabel: 'Downgrade',
       variant: 'danger',
       onConfirm: async () => {
@@ -733,7 +739,8 @@ export default function BillingScreen() {
       : 0
     : 0;
 
-  const anyUsageHigh = docUsagePercent >= 80 || (!isUnlimitedAI && aiUsagePercent >= 80) || uploadUsagePercent >= 80;
+  const storageHigh = !!storage?.limitBytes && storage.usedBytes / storage.limitBytes >= 0.8;
+  const anyUsageHigh = storageHigh || docUsagePercent >= 80 || (!isUnlimitedAI && aiUsagePercent >= 80) || uploadUsagePercent >= 80;
 
   // ------------------------------------------------------------------
   // Render helpers
@@ -857,8 +864,8 @@ export default function BillingScreen() {
               </Text>
             </View>
             <View style={styles.infoCell}>
-              <Text style={styles.infoCellLabel}>Doc Limit</Text>
-              <Text style={styles.infoCellValue}>{subscription.document_limit >= 99999 ? 'Unlimited' : subscription.document_limit}</Text>
+              <Text style={styles.infoCellLabel}>{isStorageBased(subscription) ? 'Storage' : 'Doc Limit'}</Text>
+              <Text style={styles.infoCellValue}>{isStorageBased(subscription) ? (storage?.limitBytes ? `${Math.round(storage.limitBytes / 1048576)} MB` : `${freePlan.storageLimitMB} MB`) : subscription.document_limit >= 99999 ? 'Unlimited' : subscription.document_limit}</Text>
             </View>
           </View>
         </Card>
@@ -1372,6 +1379,11 @@ export default function BillingScreen() {
     return (
       <View style={styles.tabContent}>
         {/* Document Storage */}
+        {storageBased ? (
+        <Card>
+          <StorageBar refreshKey={documentCount} />
+        </Card>
+        ) : (
         <Card>
           <UsageBar
             label="Document Storage"
@@ -1380,6 +1392,7 @@ export default function BillingScreen() {
             limit={subscription.document_limit}
           />
         </Card>
+        )}
 
         {/* Monthly Tokens */}
         <Card>
@@ -1398,6 +1411,7 @@ export default function BillingScreen() {
         </Card>
 
         {/* Monthly Uploads */}
+        {!storageBased && (
         <Card>
           <UsageBar
             label="Monthly Uploads"
@@ -1411,6 +1425,7 @@ export default function BillingScreen() {
             </Text>
           )}
         </Card>
+        )}
 
         {/* Upgrade banner */}
         {anyUsageHigh && currentPlan !== 'pro' && currentPlan !== 'family' && (

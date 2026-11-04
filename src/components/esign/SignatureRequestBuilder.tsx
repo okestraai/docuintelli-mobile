@@ -24,6 +24,7 @@ import {
   CheckCircle2,
 } from 'lucide-react-native';
 import SignerManager from './SignerManager';
+import { useSubscription } from '../../hooks/useSubscription';
 import FieldPlacementView from './FieldPlacementView';
 import SignatureInput from './SignatureInput';
 import { colors } from '../../theme/colors';
@@ -56,6 +57,7 @@ export default function SignatureRequestBuilder({
   onClose,
   onSuccess,
 }: SignatureRequestBuilderProps) {
+  const { subscription } = useSubscription();
   const { completeStepById } = useGoalBubble();
 
   // Complete 'click-signature' goal step on mount
@@ -393,6 +395,7 @@ export default function SignatureRequestBuilder({
 
             <Text style={styles.sectionLabel}>Signers</Text>
             <SignerManager
+              maxSigners={subscription?.esign_max_signers}
               signers={signers}
               onSignersChange={setSigners}
               signingOrder={signingOrder}

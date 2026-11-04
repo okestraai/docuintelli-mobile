@@ -1,3 +1,4 @@
+import { useFreePlan, withFreePlanAnswers } from '../src/lib/freePlan';
 import React, { useState } from 'react';
 import {
   View,
@@ -31,6 +32,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function HelpScreen() {
+  const topics = withFreePlanAnswers(HELP_TOPICS, useFreePlan());
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
 
@@ -88,7 +90,7 @@ export default function HelpScreen() {
           </View>
 
           {/* Topic Sections */}
-          {HELP_TOPICS.map((topic: HelpTopic) => {
+          {topics.map((topic: HelpTopic) => {
             const isTopicExpanded = expandedTopics.has(topic.id);
             const TopicIcon = topic.icon;
 
