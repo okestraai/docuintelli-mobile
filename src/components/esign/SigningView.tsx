@@ -299,7 +299,7 @@ export default function SigningView({ token, signerId, onBack, onComplete }: Sig
       }
       setVaultCaptureState('saved');
     } catch (err: any) {
-      if (err.code === 'DOCUMENT_LIMIT_REACHED') {
+      if (err.code === 'DOCUMENT_LIMIT_REACHED' || err.code === 'STORAGE_LIMIT_EXCEEDED') {
         Alert.alert('Limit Reached', 'You have reached your document storage limit. Upgrade your plan to save more documents.');
       } else {
         Alert.alert('Error', err.message || 'Failed to save to vault');
