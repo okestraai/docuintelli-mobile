@@ -65,7 +65,7 @@ export function CloudFileBrowserModal({
   const [files, setFiles] = useState<CloudFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'My Drive' }]);
+  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ id: null, name: provider === 'google_drive' ? 'My Drive' : providerDisplayName }]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [selectedFiles, setSelectedFiles] = useState<Map<string, CloudFile>>(new Map());
   const [batchCategory, setBatchCategory] = useState('');
@@ -105,7 +105,7 @@ export function CloudFileBrowserModal({
       setSelectedFiles(new Map());
       setBatchCategory('');
       setImportResults(null);
-      setBreadcrumbs([{ id: null, name: 'My Drive' }]);
+      setBreadcrumbs([{ id: null, name: provider === 'google_drive' ? 'My Drive' : providerDisplayName }]);
     }
   }, [visible]);
 

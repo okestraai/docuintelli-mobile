@@ -118,6 +118,8 @@ function getCategoryColor(category: DocumentCategory) {
 }
 
 // ── Main Screen ──────────────────────────────────────────────────────
+const MODAL_CLOSE_MS = 500;
+
 export default function VaultScreen() {
   const { isAuthenticated, user } = useAuth();
   const { documents, loading, isFromCache, deleteDocument, refetch } = useDocuments(isAuthenticated);
@@ -236,6 +238,9 @@ export default function VaultScreen() {
             const updated = providers.find(p => p.name === provider.name);
             if (updated?.connected) {
               showToast(`${provider.displayName} connected!`, 'success');
+              // iOS won't open a modal while the connecting one is still closing, and the screen then stops responding.
+              setCloudConnecting(false);
+              await new Promise((resolve) => setTimeout(resolve, MODAL_CLOSE_MS));
               if (provider.name === 'google_drive') {
                 setShowGoogleDrivePicker(true);
               } else {
@@ -287,6 +292,7 @@ export default function VaultScreen() {
             const updated = providers.find(p => p.name === provider.name);
             if (updated?.connected) {
               showToast(`${provider.displayName} connected!`, 'success');
+              await new Promise((resolve) => setTimeout(resolve, MODAL_CLOSE_MS));
               if (provider.name === 'google_drive') {
                 setShowGoogleDrivePicker(true);
               } else {
