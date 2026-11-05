@@ -103,16 +103,18 @@ export async function getConnectUrl(provider: string): Promise<string | null> {
   return url;
 }
 
-const finishedConnections = new Set<string>();
+const finishingConnections = new Map<string, Promise<unknown>>();
 
 /** Saves a connection after the provider's consent page, if the return address carries one to finish */
 export async function finishConnection(provider: string, returnUrl: string): Promise<void> {
   if (/[?&]cloud_error=/.test(returnUrl)) throw new Error('Could not connect. Please try again.');
   const id = returnUrl.match(/[?&]cloud_finish=([^&#]+)/)?.[1];
-  // Android reports the same return address more than once, and the first call has used it up.
-  if (!id || finishedConnections.has(id)) return;
-  finishedConnections.add(id);
-  await fetchApi(`/${encodeURIComponent(provider)}/connect-finish`, { method: 'POST', body: JSON.stringify({ id: decodeURIComponent(id) }) });
+  if (!id) return;
+  // Android reports the same return address more than once, so a repeat waits for the first call.
+  if (!finishingConnections.has(id)) {
+    finishingConnections.set(id, fetchApi(`/${encodeURIComponent(provider)}/connect-finish`, { method: 'POST', body: JSON.stringify({ id: decodeURIComponent(id) }) }));
+  }
+  await finishingConnections.get(id);
 }
 
 /** Disconnect a cloud storage provider */
