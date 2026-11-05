@@ -153,7 +153,7 @@ export async function importCloudFiles(
 ): Promise<ImportResult[]> {
   const started = await fetchApi<{ imported: ImportResult[]; batchId?: string | null }>(`/${provider}/import`, {
     method: 'POST',
-    body: JSON.stringify({ files }),
+    body: JSON.stringify({ files, background: true }),
   });
   if (!started.batchId) return started.imported;
 
