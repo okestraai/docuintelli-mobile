@@ -187,6 +187,7 @@ export default function VaultScreen() {
   const [disconnectTarget, setDisconnectTarget] = useState<CloudProvider | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [cloudConnecting, setCloudConnecting] = useState(false);
+  const openingProvider = useRef(false);
 
   // Google Drive Picker
   const [showGoogleDrivePicker, setShowGoogleDrivePicker] = useState(false);
@@ -220,6 +221,19 @@ export default function VaultScreen() {
       .catch((err: Error) => showToast(err.message || 'Failed to connect', 'error'));
   }, [cloudEnabled, showToast]);
 
+  // iOS won't open a modal while another is still closing, and the screen then stops responding.
+  const openProvider = useCallback(async (provider: { name: CloudProvider['name']; displayName: string }) => {
+    openingProvider.current = true;
+    await new Promise((resolve) => setTimeout(resolve, MODAL_CLOSE_MS));
+    openingProvider.current = false;
+    if (provider.name === 'google_drive') {
+      setShowGoogleDrivePicker(true);
+    } else {
+      setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
+      setShowCloudBrowser(true);
+    }
+  }, []);
+
   // Handle OAuth WebView navigation — detect when OAuth is complete
   const handleOAuthNavigation = useCallback((navState: { url: string }) => {
     const url = navState.url;
@@ -238,15 +252,7 @@ export default function VaultScreen() {
             const updated = providers.find(p => p.name === provider.name);
             if (updated?.connected) {
               showToast(`${provider.displayName} connected!`, 'success');
-              // iOS won't open a modal while the connecting one is still closing, and the screen then stops responding.
-              setCloudConnecting(false);
-              await new Promise((resolve) => setTimeout(resolve, MODAL_CLOSE_MS));
-              if (provider.name === 'google_drive') {
-                setShowGoogleDrivePicker(true);
-              } else {
-                setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
-                setShowCloudBrowser(true);
-              }
+              await openProvider(provider);
             } else {
               showToast(`${provider.displayName} not connected. Please try again.`, 'warning');
             }
@@ -258,17 +264,12 @@ export default function VaultScreen() {
       return false; // prevent loading the redirect URL
     }
     return true;
-  }, [oauthProvider, showToast]);
+  }, [oauthProvider, openProvider, showToast]);
 
   const handlePickProvider = useCallback(async (provider: CloudProvider) => {
     setShowCloudPicker(false);
     if (provider.connected) {
-      if (provider.name === 'google_drive') {
-        setShowGoogleDrivePicker(true);
-      } else {
-        setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
-        setShowCloudBrowser(true);
-      }
+      await openProvider(provider);
       return;
     } else {
       // Open OAuth flow
@@ -284,7 +285,6 @@ export default function VaultScreen() {
             url,
             `docuintelli://vault?cloud_connected=${provider.name}`
           );
-          setCloudConnecting(false);
           if (result.type === 'success' && result.url?.includes('cloud_connected=')) {
             await finishConnection(provider.name, result.url);
             const providers = await getCloudProviders();
@@ -292,13 +292,8 @@ export default function VaultScreen() {
             const updated = providers.find(p => p.name === provider.name);
             if (updated?.connected) {
               showToast(`${provider.displayName} connected!`, 'success');
-              await new Promise((resolve) => setTimeout(resolve, MODAL_CLOSE_MS));
-              if (provider.name === 'google_drive') {
-                setShowGoogleDrivePicker(true);
-              } else {
-                setActiveCloudProvider({ name: provider.name, displayName: provider.displayName });
-                setShowCloudBrowser(true);
-              }
+              setCloudConnecting(false);
+              await openProvider(provider);
             } else {
               showToast(`${provider.displayName} not connected. Please try again.`, 'warning');
             }
@@ -314,7 +309,7 @@ export default function VaultScreen() {
         setCloudConnecting(false);
       }
     }
-  }, [showToast]);
+  }, [openProvider, showToast]);
 
   const handleDisconnect = useCallback(async () => {
     if (!disconnectTarget) return;
@@ -387,7 +382,7 @@ export default function VaultScreen() {
           {cloudEnabled && (
             <TouchableOpacity
               style={styles.cloudButton}
-              onPress={() => setShowCloudPicker(true)}
+              onPress={() => { if (!openingProvider.current) setShowCloudPicker(true); }}
               activeOpacity={0.8}
             >
               <Cloud size={18} color={colors.primary[600]} strokeWidth={2} />

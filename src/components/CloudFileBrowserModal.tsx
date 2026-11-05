@@ -204,7 +204,7 @@ export function CloudFileBrowserModal({
 
   // ── Import Results View ──────────────────────────────────────────────
   const renderResults = () => (
-    <View style={styles.resultsContainer}>
+    <View style={[styles.resultsContainer, { paddingBottom: spacing.xl + insets.bottom }]}>
       <Text style={styles.resultsTitle}>Import Results</Text>
       {importResults!.map((result, i) => {
         const file = selectedFiles.get(result.fileId);
@@ -362,6 +362,7 @@ export function CloudFileBrowserModal({
                   keyExtractor={item => item.id}
                   renderItem={renderFileRow}
                   style={styles.fileList}
+                  contentContainerStyle={selectedFiles.size === 0 ? { paddingBottom: insets.bottom } : undefined}
                   ListHeaderComponent={selectableFiles.length > 0 ? (
                     <TouchableOpacity style={styles.selectAllRow} onPress={toggleSelectAll} activeOpacity={0.7}>
                       <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
