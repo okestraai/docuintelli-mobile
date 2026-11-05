@@ -63,7 +63,7 @@ export const FAQ_CONTENT: FaqItem[] = [
 export const TERMS_CONTENT: LegalSection[] = [
   {
     heading: 'Terms & Conditions',
-    body: 'Last updated: November 5, 2026',
+    body: 'Revised edition. Last updated: November 6, 2026',
   },
   {
     heading: '1. Acceptance of Terms',
