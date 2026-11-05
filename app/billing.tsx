@@ -70,6 +70,7 @@ import {
   type PackageId,
 } from '../src/lib/iapService';
 import { syncFromRevenueCat } from '../src/lib/subscriptionApi';
+import { PLANS, yearlySavingLabel } from '../src/lib/planLimits';
 import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -274,6 +275,7 @@ export default function BillingScreen() {
   });
 
   // Billing cycle toggle + dynamic prices
+  const [yearlySaving, setYearlySaving] = useState<string | null>(() => yearlySavingLabel(PLANS.map((plan) => plan.price)));
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [priceLabels, setPriceLabels] = useState({
     starterMonthly: '$9', proMonthly: '$19', familyMonthly: '$34',
@@ -297,6 +299,12 @@ export default function BillingScreen() {
         const sy = findPrice('starter_yearly');
         const py = findPrice('pro_yearly');
         const fy = findPrice('family_yearly');
+        const amountOf = (id: string) => pkgs.find((p) => p.identifier === id)?.product.price;
+        setYearlySaving(yearlySavingLabel([
+          { monthly: amountOf('starter_monthly'), yearly: amountOf('starter_yearly') },
+          { monthly: amountOf('pro_monthly'), yearly: amountOf('pro_yearly') },
+          { monthly: amountOf('family_monthly'), yearly: amountOf('family_yearly') },
+        ]));
         if (sm || pm || fm) {
           setPriceLabels((prev) => ({
             starterMonthly: sm ?? prev.starterMonthly,
@@ -311,6 +319,7 @@ export default function BillingScreen() {
     } else {
       // Web: load prices from Stripe API (USD). Always display the live value.
       fetchPlanPrices().then((p) => {
+        setYearlySaving(yearlySavingLabel([p.starter, p.pro, p.family]));
         setPriceLabels({
           starterMonthly: formatPrice(p.starter.monthly),
           proMonthly: formatPrice(p.pro.monthly),
@@ -1077,9 +1086,11 @@ export default function BillingScreen() {
             activeOpacity={0.7}
           >
             <Text style={[styles.cycleToggleText, billingCycle === 'yearly' && styles.cycleToggleTextActive]}>Yearly</Text>
-            <View style={styles.saveBadge}>
-              <Text style={styles.saveBadgeText}>Save 20%</Text>
-            </View>
+            {yearlySaving && (
+              <View style={styles.saveBadge}>
+                <Text style={styles.saveBadgeText}>{yearlySaving}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
         {plans.map((plan) => {

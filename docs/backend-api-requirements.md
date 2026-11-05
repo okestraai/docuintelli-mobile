@@ -620,7 +620,7 @@ Or from Play Console: Setup > App signing > App signing key certificate > SHA-25
 |---|---|---|---|
 | `docuintelli_starter_monthly` | Starter | Monthly | $8.99 |
 | `docuintelli_starter_yearly` | Starter | Yearly | $85.99 |
-| `docuintelli_pro_monthly` | Pro | Monthly | $14.99 |
+| `docuintelli_pro_monthly` | Pro | Monthly | Confirm in the store; should match $19 |
 | `docuintelli_pro_yearly` | Pro | Yearly | $181.99 |
 
 ### Plan Limits (must match between backend and app)

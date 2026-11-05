@@ -141,3 +141,14 @@ export function getDocumentOverage(currentCount: number, targetPlan: PlanId): nu
 export function requiresCompliance(currentCount: number, targetPlan: PlanId): boolean {
   return getDocumentOverage(currentCount, targetPlan) > 0;
 }
+
+// The smallest saving across plans, worked out from the prices shown, so the badge never overstates it.
+export function yearlySavingLabel(
+  prices: ({ monthly?: number | null; yearly?: number | null } | null | undefined)[],
+): string | null {
+  const paid = prices.filter((price) => price?.monthly !== 0);
+  if (paid.length === 0 || paid.some((price) => !price?.monthly || !price?.yearly)) return null;
+  // Rounded down, so 19.9% is never shown as 20%.
+  const smallest = Math.min(...paid.map((price) => Math.floor((1 - price!.yearly! / (price!.monthly! * 12)) * 100)));
+  return smallest >= 1 ? `Save ${smallest}%` : null;
+}
