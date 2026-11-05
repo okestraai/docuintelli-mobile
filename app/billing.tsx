@@ -277,6 +277,14 @@ export default function BillingScreen() {
   // Billing cycle toggle + dynamic prices
   const [yearlySaving, setYearlySaving] = useState<string | null>(() => yearlySavingLabel(PLANS.map((plan) => plan.price)));
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+  // A yearly subscriber opens on yearly prices, so the current plan card shows what they pay.
+  const openedOnOwnCycle = useRef(false);
+  useEffect(() => {
+    if (!subscription || openedOnOwnCycle.current) return;
+    openedOnOwnCycle.current = true;
+    if (subscription.billing_cycle === 'yearly') setBillingCycle('yearly');
+  }, [subscription]);
   const [priceLabels, setPriceLabels] = useState({
     starterMonthly: '$9', proMonthly: '$19', familyMonthly: '$34',
     starterYearly: '$86', proYearly: '$182', familyYearly: '$326',
@@ -838,7 +846,7 @@ export default function BillingScreen() {
               <Text style={styles.currentPlanName}>{capitalize(currentPlan)} Plan</Text>
               <Text style={styles.currentPlanPrice}>
                 {plans.find((p) => p.id === currentPlan)?.price ?? '$0'}
-                <Text style={styles.currentPlanPeriod}>/month</Text>
+                <Text style={styles.currentPlanPeriod}>{plans.find((p) => p.id === currentPlan)?.period ?? '/month'}</Text>
               </Text>
             </View>
           </LinearGradient>

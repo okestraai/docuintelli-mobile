@@ -53,6 +53,7 @@ export interface Subscription {
   life_event_active_limit?: number;
   agent_monthly_limit?: number;
   current_period_end: string | null;
+  billing_cycle?: 'monthly' | 'yearly' | null;
   cancel_at_period_end: boolean;
   pending_plan: string | null;
   documents_to_keep: string[] | null;
