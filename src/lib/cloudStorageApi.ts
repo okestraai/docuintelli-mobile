@@ -67,7 +67,7 @@ export interface ImportFileRequest {
 export interface ImportResult {
   fileId: string;
   documentId?: string;
-  status: 'imported' | 'already_imported' | 'skipped' | 'failed';
+  status: 'imported' | 'already_imported' | 'skipped' | 'failed' | 'queued';
   error?: string;
 }
 
@@ -142,14 +142,32 @@ export async function browseCloudFiles(
 }
 
 /** Import selected files from cloud storage */
+/** How long a screen waits before telling the person the import carries on without it. */
+const IMPORT_WAIT_MS = 3 * 60 * 1000;
+const IMPORT_POLL_MS = 2000;
+
+/** Starts an import on the server and waits for it. If it takes too long it keeps going, and the file appears in the vault. */
 export async function importCloudFiles(
   provider: string,
   files: ImportFileRequest[],
-  pickerAccessToken?: string
 ): Promise<ImportResult[]> {
-  const data = await fetchApi<{ imported: ImportResult[] }>(`/${provider}/import`, {
+  const started = await fetchApi<{ imported: ImportResult[]; batchId?: string | null }>(`/${provider}/import`, {
     method: 'POST',
-    body: JSON.stringify({ files, pickerAccessToken }),
+    body: JSON.stringify({ files }),
   });
-  return data.imported;
+  if (!started.batchId) return started.imported;
+
+  const skipped = started.imported.filter((item) => item.status === 'skipped');
+  const deadline = Date.now() + IMPORT_WAIT_MS;
+  let latest = started.imported;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, IMPORT_POLL_MS));
+    const status = await fetchApi<{ imported: ImportResult[]; done: boolean }>(`/${provider}/import/${started.batchId}`).catch(() => null);
+    if (!status) continue;
+    latest = status.imported;
+    if (status.done) return [...latest, ...skipped];
+  }
+  return [...latest.map((item) => (item.status === 'queued'
+    ? { ...item, status: 'skipped' as const, error: 'Still importing. It will appear in your documents shortly.' }
+    : item)), ...skipped];
 }
