@@ -157,7 +157,8 @@ export async function importCloudFiles(
   });
   if (!started.batchId) return started.imported;
 
-  const skipped = started.imported.filter((item) => item.status === 'skipped');
+  // Files refused or already on their way aren't in this batch, so they are kept from the first answer.
+  const skipped = started.imported.filter((item) => item.status !== 'queued');
   const deadline = Date.now() + IMPORT_WAIT_MS;
   let latest = started.imported;
   while (Date.now() < deadline) {
