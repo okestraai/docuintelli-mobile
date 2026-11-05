@@ -70,7 +70,8 @@ import {
   type PackageId,
 } from '../src/lib/iapService';
 import { syncFromRevenueCat } from '../src/lib/subscriptionApi';
-import { PLANS, yearlySavingLabel } from '../src/lib/planLimits';
+import { PLANS, yearlySavingLabel, PLAN_LIMITS, tokensText, devicesText } from '../src/lib/planLimits';
+import { useAppConfig } from '../src/lib/appConfig';
 import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -127,10 +128,10 @@ function buildPlans(
       price: starterPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '30 documents',
-        '9 uploads/month',
-        '600K AI tokens/month',
-        '1 device',
+        `${PLAN_LIMITS.starter.documents} documents`,
+        `${PLAN_LIMITS.starter.monthlyUploads} uploads/month`,
+        `${tokensText(PLAN_LIMITS.starter.aiTokens)} AI tokens/month`,
+        devicesText(PLAN_LIMITS.starter.devices),
         'File + URL ingestion',
         'OCR for images',
         'Auto tags',
@@ -147,12 +148,12 @@ function buildPlans(
       price: proPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '50 documents',
-        '15 uploads/month',
-        '3M AI tokens/month',
-        'Up to 3 devices',
+        `${PLAN_LIMITS.pro.documents} documents`,
+        `${PLAN_LIMITS.pro.monthlyUploads} uploads/month`,
+        `${tokensText(PLAN_LIMITS.pro.aiTokens)} AI tokens/month`,
+        devicesText(PLAN_LIMITS.pro.devices),
         'Priority LLM queue',
-        'E-Signatures (50/mo, 10 signers)',
+        'E-Signatures (20/mo, 10 signers)',
         'Life Events (unlimited + AI)',
         'Emergency Access',
         'Financial Insights & StockPulse',
@@ -169,10 +170,10 @@ function buildPlans(
       price: familyPrice,
       period: isYearly ? '/year' : '/month',
       features: [
-        '150 documents',
-        '45 uploads/month',
-        '6M AI tokens/month',
-        'Up to 5 devices',
+        `${PLAN_LIMITS.family.documents} documents`,
+        `${PLAN_LIMITS.family.monthlyUploads} uploads/month`,
+        `${tokensText(PLAN_LIMITS.family.aiTokens)} AI tokens/month`,
+        devicesText(PLAN_LIMITS.family.devices),
         'Everything in Pro',
         'E-Signatures (50/mo, 10 signers)',
         'Life Events (unlimited + AI)',
@@ -291,6 +292,7 @@ export default function BillingScreen() {
   });
   const [basePlans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
   const freePlan = useFreePlan();
+  useAppConfig();
   const plans = basePlans.map((plan) => (plan.id === 'free' ? { ...plan, features: freePlanFeatures(plan.features, freePlan) } : plan));
 
   useEffect(() => {

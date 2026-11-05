@@ -18,6 +18,7 @@ import {
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
+import { useAppConfig, DEFAULT_FAMILY_SEATS } from '../../src/lib/appConfig';
 
 function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -42,6 +43,7 @@ function UsageBar({ label, usage }: { label: string; usage: FamilyPoolUsage }) {
 }
 
 export default function FamilyScreen() {
+  const seats = useAppConfig()?.familySeats ?? DEFAULT_FAMILY_SEATS;
   const { showToast } = useToast();
   const [overview, setOverview] = useState<FamilyOverview | null>(null);
   const [invites, setInvites] = useState<FamilyInvite[]>([]);
@@ -246,7 +248,7 @@ export default function FamilyScreen() {
               <View style={styles.center}>
                 <Users size={40} color={colors.slate[300]} strokeWidth={1.5} />
                 <Text style={styles.emptyTitle}>You&apos;re not on a Family plan</Text>
-                <Text style={styles.emptyBody}>The Family plan lets you share documents, uploads, and AI usage across up to 5 people.</Text>
+                <Text style={styles.emptyBody}>The Family plan lets you share documents, uploads, and AI usage across up to {seats} people.</Text>
                 <Button title="View plans" size="sm" onPress={() => router.push('/billing')} style={styles.viewPlansBtn} />
               </View>
             </Card>

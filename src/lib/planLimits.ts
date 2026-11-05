@@ -18,14 +18,32 @@ export interface PlanData {
 // NOTE: These figures are a fallback only — always prefer the live values on
 // the subscription object (document_limit, monthly_upload_limit, …). Kept in
 // sync with the backend tier table for the downgrade-compliance helpers below.
-export const PLAN_LIMITS = {
-  free: { documents: 5, monthlyUploads: 5, devices: 1, name: 'Free' },
-  starter: { documents: 30, monthlyUploads: 9, devices: 1, name: 'Starter' },
-  pro: { documents: 50, monthlyUploads: 15, devices: 3, name: 'Pro' },
-  family: { documents: 150, monthlyUploads: 45, devices: 5, name: 'Family' },
-} as const;
+export const PLAN_LIMITS: Record<'free' | 'starter' | 'pro' | 'family', { documents: number; monthlyUploads: number; devices: number; aiTokens: number; name: string }> = {
+  free: { documents: 5, monthlyUploads: 5, devices: 1, aiTokens: 50000, name: 'Free' },
+  starter: { documents: 30, monthlyUploads: 9, devices: 1, aiTokens: 600000, name: 'Starter' },
+  pro: { documents: 50, monthlyUploads: 15, devices: 3, aiTokens: 3000000, name: 'Pro' },
+  family: { documents: 150, monthlyUploads: 45, devices: 5, aiTokens: 6000000, name: 'Family' },
+};
 
 export type PlanId = keyof typeof PLAN_LIMITS;
+
+export type LivePlanLimits = Record<PlanId, { documents: number; monthlyUploads: number; devices: number; aiTokens: number }>;
+
+/** Takes the numbers an admin has set. */
+export function applyPlanLimits(limits: LivePlanLimits): void {
+  for (const id of Object.keys(PLAN_LIMITS) as PlanId[]) {
+    if (limits[id]) Object.assign(PLAN_LIMITS[id], limits[id]);
+  }
+}
+
+export function tokensText(tokens: number): string {
+  if (tokens >= 1_000_000) return `${+(tokens / 1_000_000).toFixed(1)}M`;
+  return `${Math.round(tokens / 1000)}K`;
+}
+
+export function devicesText(devices: number): string {
+  return devices === 1 ? '1 device' : `Up to ${devices} devices`;
+}
 
 export const PLANS: PlanData[] = [
   {

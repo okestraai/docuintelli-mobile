@@ -25,6 +25,7 @@ import { HELP_TOPICS, type HelpTopic, type HelpQuestion } from '../src/content/h
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
+import { useAppConfig, withFileSize } from '../src/lib/appConfig';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -32,7 +33,11 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function HelpScreen() {
-  const topics = withFreePlanAnswers(HELP_TOPICS, useFreePlan());
+  const config = useAppConfig();
+  const topics = withFreePlanAnswers(HELP_TOPICS, useFreePlan()).map((topic) => ({
+    ...topic,
+    questions: topic.questions.map((q) => ({ ...q, answer: withFileSize(q.answer, config?.maxUploadMB) })),
+  }));
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
 
