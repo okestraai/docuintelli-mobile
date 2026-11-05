@@ -114,10 +114,10 @@ function buildPlans(
       price: '$0',
       period: '/month',
       features: [
-        '5 documents',
-        '5 uploads/month',
-        '50K AI tokens/month',
-        '1 device',
+        `${PLAN_LIMITS.free.documents} documents`,
+        `${PLAN_LIMITS.free.monthlyUploads} uploads/month`,
+        `${tokensText(PLAN_LIMITS.free.aiTokens)} AI tokens/month`,
+        devicesText(PLAN_LIMITS.free.devices),
         'File upload only (no images)',
         'Standard LLM queue',
       ],
@@ -292,7 +292,7 @@ export default function BillingScreen() {
   });
   const [basePlans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
   const freePlan = useFreePlan();
-  useAppConfig();
+  const liveConfig = useAppConfig();
   const plans = basePlans.map((plan) => (plan.id === 'free' ? { ...plan, features: freePlanFeatures(plan.features, freePlan) } : plan));
 
   useEffect(() => {
@@ -348,7 +348,7 @@ export default function BillingScreen() {
     const pro = isYearly ? priceLabels.proYearly : priceLabels.proMonthly;
     const family = isYearly ? priceLabels.familyYearly : priceLabels.familyMonthly;
     setPlans(buildPlans(starter, pro, family, billingCycle));
-  }, [billingCycle, priceLabels]);
+  }, [billingCycle, priceLabels, liveConfig]);
 
   // Refreshing flag for pull-to-refresh
   const [refreshing, setRefreshing] = useState(false);

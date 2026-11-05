@@ -8,7 +8,6 @@ export interface AppConfig {
   plans: LivePlanLimits;
   maxUploadMB: number;
   familySeats: number;
-  supportEmail: string;
 }
 
 export const DEFAULT_MAX_UPLOAD_MB = 50;
@@ -76,5 +75,5 @@ export function useAppConfig(): AppConfig | null {
 
 /** Puts the real largest-file size into text written with the default. */
 export function withFileSize(text: string, maxUploadMB = DEFAULT_MAX_UPLOAD_MB): string {
-  return text.replace(/\b50 ?MB\b/g, (found) => (found.includes(' ') ? `${maxUploadMB} MB` : `${maxUploadMB}MB`));
+  return text.replace(/\b50 ?MB\b(?! of storage)/g, (found) => (found.includes(' ') ? `${maxUploadMB} MB` : `${maxUploadMB}MB`));
 }
