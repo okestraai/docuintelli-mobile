@@ -32,7 +32,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     iconBg: colors.primary[50],
     questions: [
       { question: 'How do I upload a document?', answer: 'Tap the Upload button on the dashboard or vault screen. You can choose a file from your device, capture with camera, enter a URL, or type/paste text content directly.' },
-      { question: 'What file types are supported?', answer: 'We support PDF, PNG, JPG, JPEG, GIF, WebP, DOC, DOCX, TXT, and RTF files. Maximum file size is 10MB per document.' },
+      { question: 'What file types are supported?', answer: 'We support PDF, PNG, JPG, JPEG, GIF, WebP, DOC, DOCX, TXT, and RTF files. Maximum file size is 50MB per document.' },
       { question: 'How long does processing take?', answer: 'Most documents are processed within 30 seconds to 2 minutes. Complex or large documents may take slightly longer. You\'ll see a processing indicator on the document.' },
       { question: 'What counts toward my upload limit?', answer: 'Each successful document upload counts as one upload toward your monthly quota. Failed uploads do not count. URL and text imports also count as uploads.' },
     ],
