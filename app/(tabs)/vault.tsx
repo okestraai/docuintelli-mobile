@@ -54,6 +54,7 @@ import {
   getCloudProviders,
   getConnectUrl,
   disconnectProvider,
+  finishConnection,
   CloudProvider,
 } from '../../src/lib/cloudStorageApi';
 import { API_BASE } from '../../src/lib/config';
@@ -216,6 +217,7 @@ export default function VaultScreen() {
       if (provider) {
         (async () => {
           try {
+            await finishConnection(provider.name, url);
             const providers = await getCloudProviders();
             setCloudProviders(providers);
             const updated = providers.find(p => p.name === provider.name);
@@ -266,6 +268,7 @@ export default function VaultScreen() {
           );
           setCloudConnecting(false);
           if (result.type === 'success' && result.url?.includes('cloud_connected=')) {
+            await finishConnection(provider.name, result.url);
             const providers = await getCloudProviders();
             setCloudProviders(providers);
             const updated = providers.find(p => p.name === provider.name);

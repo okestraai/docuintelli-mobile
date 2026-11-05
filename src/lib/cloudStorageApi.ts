@@ -84,25 +84,30 @@ export async function getCloudProviders(): Promise<CloudProvider[]> {
  * On web, navigates directly. On native, returns the URL for use in a WebView.
  */
 export async function getConnectUrl(provider: string): Promise<string | null> {
-  const { data: { session } } = await auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-
-  const token = encodeURIComponent(session.access_token);
   // On native (iOS & Android), redirect to the app's custom scheme so the
   // system browser / in-app WebView recognises the callback and returns to the app.
   // Web still uses the web vault URL.
   const redirectTarget = Platform.OS === 'web'
     ? `${API_BASE}/vault?cloud_connected=${provider}`
     : `docuintelli://vault?cloud_connected=${provider}`;
-  const redirectTo = encodeURIComponent(redirectTarget);
-  const connectUrl = `${BACKEND_URL}/${provider}/connect?token=${token}&redirect_to=${redirectTo}`;
+  const { url } = await fetchApi<{ url: string }>(`/${provider}/connect-link`, {
+    method: 'POST',
+    body: JSON.stringify({ redirect_to: redirectTarget }),
+  });
 
   if (Platform.OS === 'web') {
-    window.location.href = connectUrl;
+    window.location.href = url;
     return null;
   }
 
-  return connectUrl;
+  return url;
+}
+
+/** Saves a connection after the provider's consent page, if the return address carries one to finish */
+export async function finishConnection(provider: string, returnUrl: string): Promise<void> {
+  const id = returnUrl.match(/[?&]cloud_finish=([^&#]+)/)?.[1];
+  if (!id) return;
+  await fetchApi(`/${provider}/connect-finish`, { method: 'POST', body: JSON.stringify({ id: decodeURIComponent(id) }) });
 }
 
 /** Disconnect a cloud storage provider */

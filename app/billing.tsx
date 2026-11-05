@@ -845,8 +845,8 @@ export default function BillingScreen() {
             <View style={styles.currentPlanInfo}>
               <Text style={styles.currentPlanName}>{capitalize(currentPlan)} Plan</Text>
               <Text style={styles.currentPlanPrice}>
-                {plans.find((p) => p.id === currentPlan)?.price ?? '$0'}
-                <Text style={styles.currentPlanPeriod}>{plans.find((p) => p.id === currentPlan)?.period ?? '/month'}</Text>
+                {priceLabels[`${currentPlan}${subscription.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'}` as keyof typeof priceLabels] ?? '$0'}
+                <Text style={styles.currentPlanPeriod}>{subscription.billing_cycle === 'yearly' ? '/year' : '/month'}</Text>
               </Text>
             </View>
           </LinearGradient>
