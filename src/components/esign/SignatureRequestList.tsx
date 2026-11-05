@@ -89,6 +89,8 @@ export default function SignatureRequestList({
     } catch (err: any) {
       if (err.code === 'DOCUMENT_LIMIT_REACHED' || err.code === 'STORAGE_LIMIT_EXCEEDED') {
         Alert.alert('Limit Reached', 'You have reached your document storage limit.');
+      } else if (err.code === 'MONTHLY_UPLOAD_LIMIT_EXCEEDED') {
+        Alert.alert('Limit Reached', err.message);
       }
       setVaultCaptureStates((prev) => ({ ...prev, [signerId]: 'error' }));
     }
