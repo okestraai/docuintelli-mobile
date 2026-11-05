@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -62,6 +63,8 @@ export function CloudFileBrowserModal({
   providerDisplayName,
   onImportComplete,
 }: CloudFileBrowserModalProps) {
+  // Android draws under the navigation bar, which would otherwise cover the footer.
+  const insets = useSafeAreaInsets();
   const [files, setFiles] = useState<CloudFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -385,7 +388,7 @@ export function CloudFileBrowserModal({
 
               {/* Footer — Category + Import */}
               {selectedFiles.size > 0 && (
-                <View style={styles.footer}>
+                <View style={[styles.footer, { paddingBottom: spacing.lg + insets.bottom }]}>
                   <TouchableOpacity
                     style={styles.categorySelect}
                     onPress={() => setShowCategoryPicker(true)}
