@@ -42,7 +42,7 @@ export const FAQ_CONTENT: FaqItem[] = [
   {
     question: 'What is the pricing for DocuIntelli AI?',
     answer:
-      'Three tiers: Free (3 documents), Starter ($9/month, 25 documents), and Pro ($15/month, 100 documents).',
+      'Four tiers: Free, Starter, Pro, and Family. Yearly billing is 20% off twelve monthly payments. Current limits and prices are shown on the Billing screen.',
   },
   {
     question: 'Can I use DocuIntelli AI on multiple devices?',
