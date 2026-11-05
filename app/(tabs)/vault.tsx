@@ -205,6 +205,19 @@ export default function VaultScreen() {
 
   useEffect(() => { if (cloudEnabled) loadCloudProviders(); }, [cloudEnabled, loadCloudProviders]);
 
+  // The web build comes back to this page, so a connection is finished from its address.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !cloudEnabled) return;
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get('cloud_connected');
+    if (provider !== 'google_drive' && provider !== 'dropbox') return;
+    window.history.replaceState({}, '', window.location.pathname);
+    finishConnection(provider, `?${params.toString()}`)
+      .then(() => getCloudProviders())
+      .then(setCloudProviders)
+      .catch((err: Error) => showToast(err.message || 'Failed to connect', 'error'));
+  }, [cloudEnabled, showToast]);
+
   // Handle OAuth WebView navigation — detect when OAuth is complete
   const handleOAuthNavigation = useCallback((navState: { url: string }) => {
     const url = navState.url;
