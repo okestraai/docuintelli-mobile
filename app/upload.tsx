@@ -60,7 +60,7 @@ function formatFileSize(bytes: number): string {
 export default function UploadScreen() {
   const { isAuthenticated } = useAuth();
   const { uploadDocuments } = useDocuments(isAuthenticated);
-  const { subscription, loading: subLoading, canUploadDocument, incrementMonthlyUploads, documentCount, featureFlags } = useSubscription();
+  const { subscription, loading: subLoading, canUploadDocument, refreshSubscription, documentCount, featureFlags } = useSubscription();
   const { showToast } = useToast();
   // Toasts sit behind this modal on native, so problems show as an alert there.
   const showProblem = (message: string, type: 'warning' | 'error' = 'error') => {
@@ -249,7 +249,7 @@ export default function UploadScreen() {
         }]);
       }
 
-      await incrementMonthlyUploads();
+      refreshSubscription().catch(() => {});
 
       // If this was a renewal upload, link the new document to the original
       if (isRenewal && renewalDocId && uploadedIds.length > 0) {

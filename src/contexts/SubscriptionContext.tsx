@@ -24,7 +24,6 @@ interface SubscriptionState {
   bankAccountLimit: number;
   refreshSubscription: () => Promise<void>;
   incrementAIQuestions: () => Promise<void>;
-  incrementMonthlyUploads: () => Promise<void>;
 }
 
 const defaultState: SubscriptionState = {
@@ -42,7 +41,6 @@ const defaultState: SubscriptionState = {
   bankAccountLimit: 0,
   refreshSubscription: async () => {},
   incrementAIQuestions: async () => {},
-  incrementMonthlyUploads: async () => {},
 };
 
 const SubscriptionContext = createContext<SubscriptionState>(defaultState);
@@ -100,21 +98,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       });
     } catch (err) {
       console.error('Error incrementing AI questions:', err);
-    }
-  }, [subscription]);
-
-  const incrementMonthlyUploads = useCallback(async () => {
-    if (!subscription) return;
-    setSubscription({ ...subscription, monthly_uploads_used: subscription.monthly_uploads_used + 1 });
-    try {
-      const { data: { session: currentSession } } = await auth.getSession();
-      if (!currentSession) return;
-      await fetch(`${API_BASE}/api/subscription/increment-uploads`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${currentSession.access_token}` },
-      });
-    } catch (err) {
-      console.error('Error incrementing monthly uploads:', err);
     }
   }, [subscription]);
 
@@ -190,7 +173,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         bankAccountLimit,
         refreshSubscription: fetchSubscription,
         incrementAIQuestions,
-        incrementMonthlyUploads,
       }}
     >
       {children}

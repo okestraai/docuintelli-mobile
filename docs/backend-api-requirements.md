@@ -611,17 +611,17 @@ Or from Play Console: Setup > App signing > App signing key certificate > SHA-25
 
 | Entitlement ID | Plan |
 |---|---|
-| `docuintelli_starter` | Starter ($9/mo or $90/yr) |
-| `docuintelli_pro` | Pro ($15/mo or $150/yr) |
+| `docuintelli_starter` | Starter ($9/mo or $86/yr) |
+| `docuintelli_pro` | Pro ($19/mo or $182/yr) |
 
 ### App Store / Play Store Products
 
 | Product ID | Plan | Billing | Price |
 |---|---|---|---|
 | `docuintelli_starter_monthly` | Starter | Monthly | $8.99 |
-| `docuintelli_starter_yearly` | Starter | Yearly | $89.99 |
+| `docuintelli_starter_yearly` | Starter | Yearly | $85.99 |
 | `docuintelli_pro_monthly` | Pro | Monthly | $14.99 |
-| `docuintelli_pro_yearly` | Pro | Yearly | $149.99 |
+| `docuintelli_pro_yearly` | Pro | Yearly | $181.99 |
 
 ### Plan Limits (must match between backend and app)
 
