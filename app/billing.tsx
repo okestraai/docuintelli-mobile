@@ -875,7 +875,9 @@ export default function BillingScreen() {
             <View style={[styles.infoCell, styles.infoCellBorder]}>
               <Text style={styles.infoCellLabel}>Payment</Text>
               <Text style={styles.infoCellValue}>
-                {isNativeIAP
+                {subscription.plan === 'free'
+                  ? 'None'
+                  : isNativeIAP
                   ? (Platform.OS === 'ios' ? 'Apple' : 'Google Play')
                   : defaultPaymentMethod
                     ? `****${defaultPaymentMethod.last4 ?? '----'}`
