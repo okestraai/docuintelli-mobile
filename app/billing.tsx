@@ -277,7 +277,7 @@ export default function BillingScreen() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [priceLabels, setPriceLabels] = useState({
     starterMonthly: '$9', proMonthly: '$19', familyMonthly: '$34',
-    starterYearly: '$90', proYearly: '$182', familyYearly: '$326',
+    starterYearly: '$86', proYearly: '$182', familyYearly: '$326',
   });
   const [basePlans, setPlans] = useState(() => buildPlans('$9', '$19', '$34', 'monthly'));
   const freePlan = useFreePlan();
@@ -1078,7 +1078,7 @@ export default function BillingScreen() {
           >
             <Text style={[styles.cycleToggleText, billingCycle === 'yearly' && styles.cycleToggleTextActive]}>Yearly</Text>
             <View style={styles.saveBadge}>
-              <Text style={styles.saveBadgeText}>Save 17%</Text>
+              <Text style={styles.saveBadgeText}>Save 20%</Text>
             </View>
           </TouchableOpacity>
         </View>

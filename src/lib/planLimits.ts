@@ -56,7 +56,7 @@ export const PLANS: PlanData[] = [
   {
     id: 'starter',
     name: 'Starter',
-    price: { monthly: 9, yearly: 90 },
+    price: { monthly: 9, yearly: 86 },
     description: 'For individuals',
     features: [
       { text: '30 documents', included: true },
