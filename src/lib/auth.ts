@@ -17,6 +17,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearOfflineCache } from './offlineCache';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -179,6 +180,7 @@ function clearCache(): void {
   cachedAccessToken = null;
   cachedRefreshToken = null;
   cachedUser = null;
+  clearOfflineCache();
 }
 
 /**

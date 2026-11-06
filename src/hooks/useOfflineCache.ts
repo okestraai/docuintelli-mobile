@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CACHE_PREFIX, clearOfflineCache } from '../lib/offlineCache';
 
-const CACHE_PREFIX = 'docuintelli_cache_';
 const DEFAULT_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 interface CacheEntry<T> {
@@ -50,12 +50,7 @@ export function useOfflineCache() {
       if (key) {
         await AsyncStorage.removeItem(`${CACHE_PREFIX}${key}`);
       } else {
-        // Clear all cache entries
-        const allKeys = await AsyncStorage.getAllKeys();
-        const cacheKeys = allKeys.filter((k) => k.startsWith(CACHE_PREFIX));
-        if (cacheKeys.length > 0) {
-          await AsyncStorage.multiRemove(cacheKeys);
-        }
+        await clearOfflineCache();
       }
     } catch (error) {
       console.error('Failed to clear cache:', error);
