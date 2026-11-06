@@ -1,7 +1,7 @@
 jest.mock('./config', () => ({ API_BASE: 'https://api.test' }));
 jest.mock('./deviceId', () => ({ getDeviceId: jest.fn() }));
 
-import { withDeviceId } from './deviceLimitInterceptor';
+import { canUseWhileBlocked, withDeviceId } from './deviceLimitInterceptor';
 
 const sent = (args: any[]) => new Headers(args[1]?.headers).get('X-Device-ID');
 
@@ -25,5 +25,15 @@ describe('withDeviceId', () => {
     const args = ['https://other.test/api/documents', { headers: {} }];
     expect(withDeviceId(args, 'https://api.test', 'phone')).toBe(args);
     expect(withDeviceId(['https://api.test.evil.test/api/x'], 'https://api.test', 'phone')[1]).toBeUndefined();
+  });
+});
+
+describe('canUseWhileBlocked', () => {
+  it.each(['/settings/devices', '/billing'])('allows %s, where the block gets fixed', (path) => {
+    expect(canUseWhileBlocked(path)).toBe(true);
+  });
+
+  it.each(['/', '/dashboard', '/vault', '/upload', '/settings', '/document/1', '/search'])('refuses %s', (path) => {
+    expect(canUseWhileBlocked(path)).toBe(false);
   });
 });

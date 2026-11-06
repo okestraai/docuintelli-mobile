@@ -33,6 +33,11 @@ export function onDeviceLimit(fn: Listener): () => void {
 
 let installed = false;
 
+// A blocked device can only fix the block, by removing a device or upgrading.
+export function canUseWhileBlocked(pathname: string): boolean {
+  return pathname === '/settings/devices' || pathname === '/billing';
+}
+
 // Every call to our API says which device it came from, so the device limit can't be skipped.
 export function withDeviceId(args: any[], apiBase: string, deviceId: string): any[] {
   const [input, init] = args;
