@@ -8,6 +8,9 @@
  * top-level <DeviceLimitModal> listens and explains the block to the user.
  */
 
+import { API_BASE } from './config';
+import { getDeviceId } from './deviceId';
+
 export interface DeviceLimitDetail {
   code: 'DEVICE_LIMIT_EXCEEDED' | 'DEVICE_BLOCKED';
   plan?: string;
@@ -30,6 +33,16 @@ export function onDeviceLimit(fn: Listener): () => void {
 
 let installed = false;
 
+// Every call to our API says which device it came from, so the device limit can't be skipped.
+export function withDeviceId(args: any[], apiBase: string, deviceId: string): any[] {
+  const [input, init] = args;
+  const url = typeof input === 'string' ? input : input?.url ?? String(input);
+  if (!url.startsWith(`${apiBase}/api/`)) return args;
+  const headers = new Headers(init?.headers ?? input?.headers);
+  if (!headers.has('X-Device-ID')) headers.set('X-Device-ID', deviceId);
+  return [input, { ...init, headers }];
+}
+
 export function installDeviceLimitInterceptor(): void {
   if (installed || typeof global.fetch !== 'function') return;
   installed = true;
@@ -40,7 +53,8 @@ export function installDeviceLimitInterceptor(): void {
   const originalFetch = g.fetch.bind(global);
 
   g.fetch = async (...args: any[]): Promise<Response> => {
-    const res = await originalFetch(...args);
+    const deviceId = await getDeviceId().catch(() => null);
+    const res = await originalFetch(...(deviceId ? withDeviceId(args, API_BASE, deviceId) : args));
 
     // Only JSON 403s can carry a device code. Gate on content-type so we never
     // clone/buffer upload or binary error bodies (also sidesteps flaky RN

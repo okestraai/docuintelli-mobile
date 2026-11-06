@@ -18,7 +18,7 @@ export function useDocuments(isAuthenticated: boolean) {
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
   const isOnline = useAppStore((s) => s.isOnline);
-  const { cacheData, getCachedData } = useOfflineCache();
+  const { cacheData, getCachedData, clearCache } = useOfflineCache();
 
   const uploadDocuments = async (items: DocumentUploadRequest[]): Promise<string[]> => {
     try {
@@ -96,6 +96,14 @@ export function useDocuments(isAuthenticated: boolean) {
       // Cache for offline use
       cacheData(DOCUMENTS_CACHE_KEY, transformed);
     } catch (err) {
+      // A refused device must not keep showing the documents it saved earlier.
+      if ((err as { status?: number }).status === 403) {
+        await clearCache(DOCUMENTS_CACHE_KEY);
+        setDocuments([]);
+        setIsFromCache(false);
+        setError(err instanceof Error ? err.message : 'Failed to load documents');
+        return;
+      }
       // If fetch fails (likely offline), try cache
       const cached = await getCachedData<Document[]>(DOCUMENTS_CACHE_KEY);
       if (cached && cached.length > 0) {
@@ -109,7 +117,7 @@ export function useDocuments(isAuthenticated: boolean) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, cacheData, getCachedData]);
+  }, [isAuthenticated, cacheData, getCachedData, clearCache]);
 
   useEffect(() => {
     refetchDocuments();

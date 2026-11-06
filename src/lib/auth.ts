@@ -1188,7 +1188,7 @@ export const getDocuments = async (): Promise<SupabaseDocument[]> => {
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({ error: 'Failed to fetch documents' }));
-    throw new Error(errData.error || 'Failed to fetch documents');
+    throw Object.assign(new Error(errData.error || 'Failed to fetch documents'), { status: res.status });
   }
 
   const data = await res.json();
