@@ -739,7 +739,7 @@ export default function BillingScreen() {
   const defaultPaymentMethod = billingData.paymentMethods.find((pm: any) => pm.is_default) ??
     billingData.paymentMethods[0] ?? null;
 
-  const isUnlimitedAI = currentPlan === 'starter' || currentPlan === 'pro' || currentPlan === 'family';
+  const isUnlimitedAI = (subscription?.tokens_limit ?? 0) >= 999999;
 
   const docUsagePercent = subscription
     ? subscription.document_limit > 0
