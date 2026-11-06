@@ -460,7 +460,7 @@ export default function DashboardScreen() {
                         ? 'Enhanced features'
                         : subscription.plan === 'family'
                         ? 'Full power for the whole family'
-                        : 'Full power, unlimited AI'}
+                        : 'Full power, more AI'}
                     </Text>
                   </View>
                 </View>
