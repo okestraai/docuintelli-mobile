@@ -10,11 +10,16 @@ const CARD = ['5 documents', '5 uploads/month', '50K AI tokens/month', '1 device
 
 describe('freePlanFeatures', () => {
   it('leaves the card alone with the switch off', () => {
-    expect(freePlanFeatures(CARD, OFF)).toBe(CARD);
+    expect(freePlanFeatures(CARD, OFF).filter((f) => !f.includes('AI questions'))).toEqual(CARD);
   });
 
   it('describes storage, e-signature and the audit with the switch on', () => {
-    expect(freePlanFeatures(CARD, ON)).toEqual(['10 MB of storage', '50K AI tokens/month', '1 device', 'E-Signatures (1/mo, 1 signer)', 'Weekly Audit']);
+    expect(freePlanFeatures(CARD, ON)).toEqual(['10 MB of storage', '50K AI tokens/month', '10 AI questions/month', '1 device', 'E-Signatures (1/mo, 1 signer)', 'Weekly Audit']);
+  });
+
+  it('shows the AI question limit from the setting', () => {
+    expect(freePlanFeatures(CARD, { ...OFF, aiQuestions: 25 })).toContain('25 AI questions/month');
+    expect(freePlanFeatures(CARD, { ...ON, aiQuestions: 25 })).toContain('25 AI questions/month');
   });
 
   it('leaves e-signature out at 0', () => {

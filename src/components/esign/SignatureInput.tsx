@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  useWindowDimensions,
+  useWindowDimensions, KeyboardAvoidingView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { X, Pen, Type, Check } from 'lucide-react-native';
@@ -188,6 +188,7 @@ export default function SignatureInput({ visible, onSave, onCancel, title, type 
 
   return (
     <Modal visible={visible} animationType="slide" transparent statusBarTranslucent>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           {/* Header */}
@@ -303,6 +304,7 @@ export default function SignatureInput({ visible, onSave, onCancel, title, type 
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

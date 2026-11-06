@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, ScrollView, FlatList, TouchableOpacity, TextInput,
+  View, Text, FlatList, TouchableOpacity, TextInput,
   StyleSheet, RefreshControl, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,6 +33,7 @@ import { getSharedWithMe } from '../src/lib/emergencyAccessApi';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 type SubView = 'list' | 'intake' | 'detail' | 'create-custom';
 type ListTab = 'my-events' | 'shared';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl,
-  Modal, TextInput,
+  View, Text, TouchableOpacity, StyleSheet, RefreshControl,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,7 @@ import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 // Health card config
 const HEALTH_CONFIG = {
@@ -436,6 +437,7 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
             animationType="fade"
             onRequestClose={() => setCadenceModal(null)}
           >
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <TouchableOpacity
               style={styles.modalOverlay}
               activeOpacity={1}
@@ -554,6 +556,7 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
                 </View>
               </TouchableOpacity>
             </TouchableOpacity>
+            </KeyboardAvoidingView>
           </Modal>
     </>
   );

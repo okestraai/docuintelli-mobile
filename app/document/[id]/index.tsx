@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
   TextInput,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -59,6 +58,8 @@ import { updateDocumentMetadata, appendFileToDocument } from '../../../src/lib/a
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 import { spacing, borderRadius } from '../../../src/theme/spacing';
+import DateField from '../../../src/components/ui/DateField';
+import ScrollView from '../../../src/components/ui/KeyboardScrollView';
 
 // Only import WebView on native platforms
 let WebView: any = null;
@@ -171,6 +172,7 @@ export default function DocumentViewerScreen() {
   const [editExpiration, setEditExpiration] = useState('');
   const [editFiles, setEditFiles] = useState<Array<{ uri: string; name: string; mimeType: string }>>([]);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   // Load document metadata
   const fetchDocument = useCallback(async () => {
@@ -430,6 +432,9 @@ export default function DocumentViewerScreen() {
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) { showToast('Name is required', 'warning'); return; }
+    // A second tap must not add the same file twice.
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const metadata: Record<string, string> = {};
@@ -454,6 +459,7 @@ export default function DocumentViewerScreen() {
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Save failed', 'error');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -901,7 +907,7 @@ export default function DocumentViewerScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ gap: 18 }}>
+          <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ gap: 18, paddingBottom: 40 }}>
             {/* Name */}
             <View>
               <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 6 }}>Document Name</Text>
@@ -933,12 +939,10 @@ export default function DocumentViewerScreen() {
             {/* Expiration Date */}
             <View>
               <Text style={{ fontSize: 13, fontWeight: '600', color: colors.slate[700], marginBottom: 6 }}>Expiration Date</Text>
-              <TextInput
+              <DateField
                 value={editExpiration}
-                onChangeText={setEditExpiration}
-                style={{ borderWidth: 1, borderColor: colors.slate[300], borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: colors.slate[900] }}
-                placeholder="YYYY-MM-DD"
-                keyboardType="numbers-and-punctuation"
+                onChange={setEditExpiration}
+                clearable
               />
             </View>
 
@@ -966,6 +970,14 @@ export default function DocumentViewerScreen() {
                 <Text style={{ fontSize: 13, color: colors.slate[600], marginTop: 6 }}>{editFiles.length > 0 ? 'Add another file' : 'Tap to select files to merge'}</Text>
               </TouchableOpacity>
             </View>
+
+            <Button
+              title="Save Changes"
+              onPress={handleSaveEdit}
+              disabled={saving || !editName.trim()}
+              loading={saving}
+              fullWidth
+            />
           </ScrollView>
         </SafeAreaView>
       </Modal>

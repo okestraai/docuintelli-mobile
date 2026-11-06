@@ -29,6 +29,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { useGoalBubble } from '../../hooks/useGoalBubble';
 import { useDocumentHealth, useEngagementActions } from '../../hooks/useEngagement';
 import type { HealthState } from '../../lib/engagementApi';
+import DateField from '../ui/DateField';
 
 interface DocumentHealthPanelProps {
   documentId: string;
@@ -133,8 +134,8 @@ export default function DocumentHealthPanel({
       await updateMetadata(documentId, {
         issuer: issuer || undefined,
         ownerName: ownerName || undefined,
-        expirationDate: expirationDate || undefined,
-        effectiveDate: effectiveDate || undefined,
+        expirationDate,
+        effectiveDate,
         policyNumber: policyNumber || undefined,
         address: address || undefined,
         ...(confirm ? { metadataConfirmed: true } : {}),
@@ -454,18 +455,18 @@ export default function DocumentHealthPanel({
             placeholder="Not detected — add manually"
             containerStyle={styles.formField}
           />
-          <Input
+          <DateField
             label="Effective Date"
             value={effectiveDate}
-            onChangeText={setEffectiveDate}
-            placeholder="YYYY-MM-DD"
+            onChange={setEffectiveDate}
+            clearable
             containerStyle={styles.formField}
           />
-          <Input
+          <DateField
             label="Expiration Date"
             value={expirationDate}
-            onChangeText={setExpirationDate}
-            placeholder="YYYY-MM-DD"
+            onChange={setExpirationDate}
+            clearable
             containerStyle={styles.formField}
           />
           <View style={styles.formButtons}>

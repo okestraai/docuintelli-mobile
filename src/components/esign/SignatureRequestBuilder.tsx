@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   Modal,
   StyleSheet,
   Alert,
@@ -35,6 +34,7 @@ import type { SignerEntry, PlacedField, FieldType, SelfSignFieldValue } from '..
 import * as esignApi from '../../lib/esignatureApi';
 import { API_BASE } from '../../lib/config';
 import { auth } from '../../lib/auth';
+import ScrollView from '../ui/KeyboardScrollView';
 
 interface SignatureRequestBuilderProps {
   documentId: string;

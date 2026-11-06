@@ -16,6 +16,8 @@ import {
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import DateField from '../ui/DateField';
+import { toIso } from '../../lib/dateInput';
 
 const AMOUNT_HELP: Record<GoalType, string> = {
   savings: 'Amount saved toward this goal',
@@ -198,13 +200,12 @@ export default function LogActivityModal({
                         type="date"
                       />
                     ) : (
-                      <TextInput
+                      <DateField
                         value={activityDate}
-                        onChangeText={setActivityDate}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={colors.slate[400]}
-                        style={styles.textInput}
-                        keyboardType="numbers-and-punctuation"
+                        onChange={setActivityDate}
+                        maxDate={toIso(new Date())}
+                        showIcon={false}
+                        triggerStyle={styles.textInput}
                       />
                     )}
                   </View>

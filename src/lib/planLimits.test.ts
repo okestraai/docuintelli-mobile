@@ -1,4 +1,4 @@
-import { PLANS, PLAN_LIMITS, applyPlanLimits, devicesText, tokensText, yearlySavingLabel } from './planLimits';
+import { tokensLeftText, PLANS, PLAN_LIMITS, applyPlanLimits, devicesText, tokensText, yearlySavingLabel } from './planLimits';
 
 describe('yearly prices', () => {
   it('are 20% off twelve months, rounded down to a whole dollar', () => {
@@ -42,5 +42,14 @@ describe('live plan limits', () => {
     expect(PLAN_LIMITS.pro.documents).toBe(75);
     applyPlanLimits(before);
     expect(PLAN_LIMITS.pro.documents).toBe(50);
+  });
+});
+
+describe('tokensLeftText', () => {
+  it('keeps the balance on one short line', () => {
+    expect(tokensLeftText(50000)).toBe('50K');
+    expect(tokensLeftText(3000000)).toBe('3M');
+    expect(tokensLeftText(999)).toBe('999');
+    expect(tokensLeftText(0)).toBe('0');
   });
 });

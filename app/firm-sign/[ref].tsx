@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Check } from 'lucide-react-native';
@@ -13,6 +13,7 @@ import {
 import { BUSINESS_FEATURES_ENABLED } from '../../src/lib/config';
 import { colors } from '../../src/theme/colors';
 import { spacing, borderRadius } from '../../src/theme/spacing';
+import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
 /** Local calendar date as YYYY-MM-DD (no UTC off-by-one). */
 function isoDate(): string {

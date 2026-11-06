@@ -5,7 +5,6 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Image,
@@ -19,7 +18,7 @@ import { goBack } from '../src/utils/navigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import {
-  Upload, FileText, Link, X, Calendar,
+  Upload, FileText, Link, X,
   AlertTriangle, CheckCircle, Plus, Trash2,
   Lock, Zap, RefreshCw, Merge, Cloud,
 } from 'lucide-react-native';
@@ -39,6 +38,8 @@ import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
 import { DOCUMENT_CATEGORIES, type DocumentCategory } from '../src/types/document';
 import { linkRelatedDocuments } from '../src/lib/engagementApi';
+import DateField from '../src/components/ui/DateField';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 type UploadTab = 'file' | 'url';
 
@@ -193,11 +194,23 @@ export default function UploadScreen() {
     setAdditionalFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const uploadingRef = useRef(false);
   const allFilesCount = (fileUri ? 1 : 0) + additionalFiles.length;
 
   // ---- Upload handler ----
 
   const handleUpload = async () => {
+    // A second tap before the button redraws must not upload again.
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
+    try {
+      await runUpload();
+    } finally {
+      uploadingRef.current = false;
+    }
+  };
+
+  const runUpload = async () => {
     if (!name.trim()) {
       showProblem('Please enter a document name', 'warning');
       return;
@@ -601,17 +614,12 @@ export default function UploadScreen() {
               Expiration Date{' '}
               <Text style={styles.optionalTag}>(optional)</Text>
             </Text>
-            <View style={styles.nameInputWrap}>
-              <Calendar size={18} color={colors.slate[400]} />
-              <TextInput
-                style={styles.nameInput}
-                value={expirationDate}
-                onChangeText={setExpirationDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate[400]}
-                keyboardType="numbers-and-punctuation"
-              />
-            </View>
+            <DateField
+              value={expirationDate}
+              onChange={setExpirationDate}
+              placeholder="Select a date"
+              clearable
+            />
           </Card>
 
           {/* Upload Limit Warning — all plans */}

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
-  View, Text, TextInput, FlatList, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Platform, RefreshControl,
+  View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +20,7 @@ import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
 import { DOCUMENT_CATEGORIES } from '../src/types/document';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 const CATEGORIES = [
   { value: '', label: 'All' },

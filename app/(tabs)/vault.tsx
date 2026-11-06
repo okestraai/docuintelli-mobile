@@ -5,7 +5,6 @@ import {
   Text,
   TextInput,
   FlatList,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
@@ -67,6 +66,7 @@ import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
 import { useSubscription } from '../../src/hooks/useSubscription';
+import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
 const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
@@ -827,7 +827,9 @@ export default function VaultScreen() {
           <View style={styles.headerSection}>
             {renderTitleAndTabs()}
           </View>
-          <AuditContent embedded />
+          <View style={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}>
+            <AuditContent embedded />
+          </View>
         </ScrollView>
       ) : loading && documents.length === 0 ? (
         <>

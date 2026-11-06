@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView, Alert,
+  View, Text, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import {
   Shield, Plus, UserCheck, UserPlus, Clock, Zap, CheckCircle, AlertTriangle,
@@ -16,6 +16,9 @@ import Button from './ui/Button';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
+import DateField from './ui/DateField';
+import { instantFromIso, isoFromInstant, toIso } from '../lib/dateInput';
+import ScrollView from './ui/KeyboardScrollView';
 
 interface Props {
   lifeEventId: string;
@@ -511,19 +514,11 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
                   {selectedPolicy === 'time_delayed' && (
                     <View style={{ marginTop: spacing.md }}>
                       <Text style={s.label}>Grant access on date</Text>
-                      <TextInput
-                        style={s.input}
-                        value={delayUntil ? delayUntil.split('T')[0] : ''}
-                        onChangeText={(text) => {
-                          if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-                            setDelayUntil(new Date(text + 'T00:00:00').toISOString());
-                          } else {
-                            setDelayUntil(text as any);
-                          }
-                        }}
-                        placeholder="YYYY-MM-DD (e.g., 2027-01-15)"
-                        placeholderTextColor={colors.slate[400]}
-                        keyboardType="numbers-and-punctuation"
+                      <DateField
+                        value={isoFromInstant(delayUntil)}
+                        onChange={(iso) => setDelayUntil(iso ? instantFromIso(iso) : '')}
+                        minDate={toIso(new Date())}
+                        placeholder="Select a date"
                       />
                       <Text style={{ fontSize: 11, color: colors.slate[400], marginTop: 4 }}>
                         Access will be auto-granted on this date unless you veto.
@@ -672,19 +667,11 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
               {invPolicy === 'time_delayed' && (
                 <View style={{ marginTop: spacing.md }}>
                   <Text style={s.label}>Grant access on date</Text>
-                  <TextInput
-                    style={s.input}
-                    value={invDelayUntil ? invDelayUntil.split('T')[0] : ''}
-                    onChangeText={(text) => {
-                      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-                        setInvDelayUntil(new Date(text + 'T00:00:00').toISOString());
-                      } else {
-                        setInvDelayUntil(text as any);
-                      }
-                    }}
-                    placeholder="YYYY-MM-DD (e.g., 2027-01-15)"
-                    placeholderTextColor={colors.slate[400]}
-                    keyboardType="numbers-and-punctuation"
+                  <DateField
+                    value={isoFromInstant(invDelayUntil)}
+                    onChange={(iso) => setInvDelayUntil(iso ? instantFromIso(iso) : '')}
+                    minDate={toIso(new Date())}
+                    placeholder="Select a date"
                   />
                   <Text style={{ fontSize: 11, color: colors.slate[400], marginTop: 4 }}>
                     Access will be auto-granted on this date unless you veto.

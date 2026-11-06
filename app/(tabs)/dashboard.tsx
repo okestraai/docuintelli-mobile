@@ -47,6 +47,7 @@ import { getUserProfile, isOnboardingComplete } from '../../src/lib/auth';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
+import { tokensLeftText } from '../../src/lib/planLimits';
 
 // Max width matching root layout's MAX_APP_WIDTH for card sizing
 const MAX_CONTENT_WIDTH = 480;
@@ -342,8 +343,8 @@ export default function DashboardScreen() {
             <StatCard
               icon={<MessageSquare size={18} color={colors.info[600]} />}
               iconBg={colors.info[50]}
-              value={aiQuestionsLeft === -1 ? '\u221E' : String(aiQuestionsLeft)}
-              label="AI Left"
+              value={aiQuestionsLeft === -1 ? '\u221E' : tokensLeftText(aiQuestionsLeft)}
+              label="Tokens left"
             />
           </View>
         </View>
@@ -645,6 +646,8 @@ function StatCard({
           styles.statValue,
           highlight && { color: colors.warning[600] },
         ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
       >
         {value}
       </Text>

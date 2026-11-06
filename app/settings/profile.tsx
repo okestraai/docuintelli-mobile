@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   User,
@@ -21,6 +21,9 @@ import Toast from '../../src/components/ui/Toast';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
+import DateField from '../../src/components/ui/DateField';
+import { toIso } from '../../src/lib/dateInput';
+import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
 export default function ProfileScreen() {
   const { user } = useAuthStore();
@@ -187,13 +190,12 @@ export default function ProfileScreen() {
 
             <View style={styles.twoCol}>
               <View style={styles.colHalf}>
-                <Input
+                <DateField
                   label="Date of Birth"
                   value={dateOfBirth}
-                  onChangeText={setDateOfBirth}
-                  placeholder="YYYY-MM-DD"
-                  icon={<Calendar size={18} color={colors.slate[400]} strokeWidth={1.8} />}
-                  keyboardType="numbers-and-punctuation"
+                  onChange={setDateOfBirth}
+                  maxDate={toIso(new Date())}
+                  openOn={new Date(new Date().getFullYear() - 30, 0, 1)}
                 />
               </View>
               <View style={styles.colHalf}>

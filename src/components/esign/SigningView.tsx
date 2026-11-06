@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   Modal,
   TextInput,
   StyleSheet,
@@ -29,6 +28,7 @@ import { FIELD_TYPE_LABELS } from '../../types/esignature';
 import type { EsignField, SignerInfo, RequestInfo, FieldType } from '../../types/esignature';
 import * as esignApi from '../../lib/esignatureApi';
 import { useAuth } from '../../hooks/useAuth';
+import ScrollView from '../ui/KeyboardScrollView';
 
 interface SigningViewProps {
   /** Token for public signing (from deep link / email) */

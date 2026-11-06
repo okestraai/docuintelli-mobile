@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
@@ -76,6 +75,7 @@ import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -234,7 +234,7 @@ export default function BillingScreen() {
   const storageBased = isStorageBased(subscription);
   const { storage } = useStorage(storageBased, documentCount);
   const { showToast } = useToast();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('subscription');

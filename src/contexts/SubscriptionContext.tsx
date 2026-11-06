@@ -86,19 +86,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  // The server counts the question when it answers; this only keeps the screen in step.
   const incrementAIQuestions = useCallback(async () => {
     if (!subscription) return;
     setSubscription({ ...subscription, ai_questions_used: subscription.ai_questions_used + 1 });
-    try {
-      const { data: { session: currentSession } } = await auth.getSession();
-      if (!currentSession) return;
-      await fetch(`${API_BASE}/api/subscription/increment-questions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${currentSession.access_token}` },
-      });
-    } catch (err) {
-      console.error('Error incrementing AI questions:', err);
-    }
   }, [subscription]);
 
   // Fetch subscription when session changes (login/logout) and poll while authenticated

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
+import { ScrollView,
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   FlatList,

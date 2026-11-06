@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Switch,
   TouchableOpacity,
   TextInput,
@@ -36,6 +35,7 @@ import Toast from '../../src/components/ui/Toast';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
+import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
 export default function SecurityScreen() {
   const { user, signOut } = useAuthStore();

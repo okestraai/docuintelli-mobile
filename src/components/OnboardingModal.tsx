@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { User, Calendar, AlertCircle } from 'lucide-react-native';
+import { User, AlertCircle } from 'lucide-react-native';
 import Input from './ui/Input';
 import Button from './ui/Button';
 import PhoneInputMobile from './ui/PhoneInput';
@@ -17,6 +17,8 @@ import { getUserProfile, updateUserProfile } from '../lib/auth';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
+import DateField from './ui/DateField';
+import { toIso } from '../lib/dateInput';
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -37,7 +39,7 @@ export default function OnboardingModal({ visible, onComplete }: OnboardingModal
       getUserProfile().then(profile => {
         if (profile) {
           if (profile.full_name) setFullName(profile.full_name);
-          if (profile.date_of_birth) setDateOfBirth(profile.date_of_birth);
+          if (profile.date_of_birth) setDateOfBirth(String(profile.date_of_birth).slice(0, 10));
           if (profile.phone) setPhone(profile.phone);
         }
       }).catch(() => {});
@@ -54,11 +56,11 @@ export default function OnboardingModal({ visible, onComplete }: OnboardingModal
     }
 
     if (!dateOfBirth.trim()) {
-      newErrors.dateOfBirth = 'Date of birth is required (YYYY-MM-DD)';
+      newErrors.dateOfBirth = 'Date of birth is required';
     } else {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(dateOfBirth.trim())) {
-        newErrors.dateOfBirth = 'Use format YYYY-MM-DD';
+        newErrors.dateOfBirth = 'Select a valid date';
       } else {
         const dob = new Date(dateOfBirth.trim());
         if (isNaN(dob.getTime())) {
@@ -154,14 +156,13 @@ export default function OnboardingModal({ visible, onComplete }: OnboardingModal
                 autoCapitalize="words"
               />
 
-              <Input
+              <DateField
                 label="Date of Birth *"
                 value={dateOfBirth}
-                onChangeText={(text) => { setDateOfBirth(text); if (errors.dateOfBirth) setErrors(prev => ({ ...prev, dateOfBirth: undefined })); }}
-                placeholder="YYYY-MM-DD"
+                onChange={(iso) => { setDateOfBirth(iso); if (errors.dateOfBirth) setErrors(prev => ({ ...prev, dateOfBirth: undefined })); }}
                 error={errors.dateOfBirth}
-                icon={<Calendar size={18} color={colors.slate[400]} />}
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+                maxDate={toIso(new Date())}
+                openOn={new Date(new Date().getFullYear() - 30, 0, 1)}
                 containerStyle={{ marginTop: spacing.lg }}
               />
 

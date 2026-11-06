@@ -23,6 +23,7 @@ import {
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
+import DateField from '../ui/DateField';
 
 const CUSTOM_LABEL = 'Custom range…';
 
@@ -44,7 +45,7 @@ export default function PeriodPicker({
 
   const applyDraft = (next: { start: string; end: string }) => {
     setDraft(next);
-    // Native types these, so wait for a complete and ordered pair rather than querying on every
+    // Dates arrive one at a time, so wait for a complete and ordered pair rather than querying on every
     // keystroke of a half-written date.
     if (!isCompleteDate(next.start) || !isCompleteDate(next.end)) return;
     if (next.start > next.end) return;
@@ -65,27 +66,33 @@ export default function PeriodPicker({
 
       {custom && (
         <View style={styles.customRow}>
-          <TextInput
-            value={draft.start}
-            onChangeText={v => applyDraft({ ...draft, start: v })}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate[400]}
-            style={styles.dateInput}
-            keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
-            // @ts-ignore — web-only attribute
-            type={Platform.OS === 'web' ? 'date' : undefined}
-          />
+          {Platform.OS === 'web' ? (
+            <TextInput
+              value={draft.start}
+              onChangeText={v => applyDraft({ ...draft, start: v })}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.slate[400]}
+              style={styles.dateInput}
+              // @ts-ignore — web-only attribute
+              type="date"
+            />
+          ) : (
+            <DateField value={draft.start} onChange={v => applyDraft({ ...draft, start: v })} placeholder="Select" showIcon={false} containerStyle={{ flex: 1 }} triggerStyle={styles.dateTrigger} textStyle={styles.dateTriggerText} />
+          )}
           <Text style={styles.to}>to</Text>
-          <TextInput
-            value={draft.end}
-            onChangeText={v => applyDraft({ ...draft, end: v })}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate[400]}
-            style={styles.dateInput}
-            keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
-            // @ts-ignore — web-only attribute
-            type={Platform.OS === 'web' ? 'date' : undefined}
-          />
+          {Platform.OS === 'web' ? (
+            <TextInput
+              value={draft.end}
+              onChangeText={v => applyDraft({ ...draft, end: v })}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.slate[400]}
+              style={styles.dateInput}
+              // @ts-ignore — web-only attribute
+              type="date"
+            />
+          ) : (
+            <DateField value={draft.end} onChange={v => applyDraft({ ...draft, end: v })} placeholder="Select" showIcon={false} containerStyle={{ flex: 1 }} triggerStyle={styles.dateTrigger} textStyle={styles.dateTriggerText} />
+          )}
         </View>
       )}
 
@@ -161,6 +168,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  dateTrigger: {
+    minHeight: 36,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+  },
+  dateTriggerText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.slate[700],
   },
   dateInput: {
     flex: 1,

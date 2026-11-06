@@ -41,6 +41,11 @@ export function tokensText(tokens: number): string {
   return `${Math.round(tokens / 1000)}K`;
 }
 
+// Small amounts stay exact, so a low balance doesn't read as 0K.
+export function tokensLeftText(tokens: number): string {
+  return tokens < 1000 ? String(tokens) : tokensText(tokens);
+}
+
 export function devicesText(devices: number): string {
   return devices === 1 ? '1 device' : `Up to ${devices} devices`;
 }

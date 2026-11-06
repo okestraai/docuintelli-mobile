@@ -87,7 +87,8 @@ export function useStorage(enabled: boolean, refreshKey?: unknown) {
 }
 
 /** The Free plan's card on the billing screen. Other plans stay as they are. */
-export function freePlanFeatures(features: string[], facts: FreePlanFacts): string[] {
+export function freePlanFeatures(baseFeatures: string[], facts: FreePlanFacts): string[] {
+  const features = baseFeatures.flatMap((feature) => (/AI tokens\/month$/.test(feature) ? [feature, `${facts.aiQuestions} AI questions/month`] : [feature]));
   if (!facts.storageBased) return features;
   const signers = `${facts.esignSigners} signer${facts.esignSigners === 1 ? '' : 's'}`;
   const added = facts.esignPerMonth > 0 ? [`E-Signatures (${facts.esignPerMonth}/mo, ${signers})`, 'Weekly Audit'] : ['Weekly Audit'];

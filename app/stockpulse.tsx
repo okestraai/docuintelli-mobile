@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity,
+  View, Text, StyleSheet, RefreshControl, TouchableOpacity,
   type NativeSyntheticEvent, type NativeScrollEvent,
   TextInput, Alert, Modal, Switch, FlatList, Dimensions,
 } from 'react-native';
@@ -40,6 +40,9 @@ import {
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
+import DateField from '../src/components/ui/DateField';
+import { toIso } from '../src/lib/dateInput';
+import ScrollView from '../src/components/ui/KeyboardScrollView';
 
 // ═══════════════════════════════════════════════════════════════════
 // TAB DEFINITIONS — mirrors web StockPulseApp.tsx exactly
@@ -1247,11 +1250,11 @@ function StockPulseContent() {
               <View style={[s.scoreRangeRow, { marginTop: spacing.md }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.filterTitle}>Start Date</Text>
-                  <TextInput style={s.addInput} value={btStartDate} onChangeText={setBtStartDate} placeholder="2023-01-01" placeholderTextColor={colors.slate[400]} />
+                  <DateField value={btStartDate} onChange={setBtStartDate} placeholder="Start" maxDate={toIso(new Date())} showIcon={false} triggerStyle={s.addInput} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.filterTitle}>End Date</Text>
-                  <TextInput style={s.addInput} value={btEndDate} onChangeText={setBtEndDate} placeholder="2025-12-31" placeholderTextColor={colors.slate[400]} />
+                  <DateField value={btEndDate} onChange={setBtEndDate} placeholder="End" minDate={btStartDate || undefined} maxDate={toIso(new Date())} showIcon={false} triggerStyle={s.addInput} />
                 </View>
               </View>
 

@@ -7,7 +7,7 @@ import {
   Modal,
   FlatList,
   StyleSheet,
-  Platform,
+  Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { ChevronDown, Search, X } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
@@ -345,6 +345,7 @@ export default function PhoneInputMobile({ value, onChange, error, label }: Phon
         animationType="slide"
         onRequestClose={() => { setPickerVisible(false); setSearchQuery(''); }}
       >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             {/* Header */}
@@ -394,6 +395,7 @@ export default function PhoneInputMobile({ value, onChange, error, label }: Phon
             />
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
