@@ -221,7 +221,6 @@ export interface CreateRequestResponse {
   success: boolean;
   data: {
     requestId: string;
-    signerTokens: { email: string; rawToken: string }[];
   };
 }
 

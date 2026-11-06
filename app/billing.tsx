@@ -523,6 +523,12 @@ export default function BillingScreen() {
 
     if (planId === subscription.plan) return;
 
+    // Buying in the store on top of a running card subscription would charge the person twice.
+    if (isNativeIAP && subscription.stripe_subscription_id && ['active', 'canceling', 'trialing'].includes(subscription.status)) {
+      showToast('Your plan is billed on the web. Change it there so you are not charged twice.', 'error');
+      return;
+    }
+
     // Free user selecting a paid plan
     if (subscription.plan === 'free') {
       setActionLoading(true);
