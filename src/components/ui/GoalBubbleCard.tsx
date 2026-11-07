@@ -51,7 +51,7 @@ const MINIMIZED_SIZE = 44;
 
 // Screens where bubble should be hidden
 const HIDDEN_ON = ['/', '/index', '/login', '/signup', '/forgot-password'];
-const HIDDEN_PREFIXES = ['/(auth)', '/esign'];
+const HIDDEN_PREFIXES = ['/(auth)', '/esign', '/settings'];
 
 export default function GoalBubbleCard() {
   const pathname = usePathname();
