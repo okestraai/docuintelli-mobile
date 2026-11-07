@@ -47,9 +47,9 @@ const KeyboardScrollView = forwardRef<ScrollView, ScrollViewProps>(({ onScroll, 
       automaticallyAdjustKeyboardInsets={!props.horizontal}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-      scrollEventThrottle={16}
+      {...(Platform.OS === 'android' ? { scrollEventThrottle: 16 } : null)}
       {...props}
-      onScroll={trackOffset}
+      onScroll={Platform.OS === 'android' ? trackOffset : onScroll}
       contentContainerStyle={keyboardHeight > 0 ? [contentContainerStyle, { paddingBottom: keyboardHeight }] : contentContainerStyle}
     />
   );
