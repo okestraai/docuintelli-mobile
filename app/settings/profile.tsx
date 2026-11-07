@@ -22,6 +22,7 @@ import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
 import DateField from '../../src/components/ui/DateField';
+import { phoneError } from '../../src/lib/phone';
 import { toIso } from '../../src/lib/dateInput';
 import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
@@ -32,6 +33,8 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState('');
+  const [savedPhone, setSavedPhone] = useState('');
+  const [phoneProblem, setPhoneProblem] = useState<string | undefined>();
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,6 +63,7 @@ export default function ProfileScreen() {
         // Format date_of_birth for the input (YYYY-MM-DD)
         setDateOfBirth(profile.date_of_birth ? profile.date_of_birth.split('T')[0] : '');
         setPhone(profile.phone || '');
+        setSavedPhone(profile.phone || '');
         setBio(profile.bio || '');
       } else {
         // Fall back to auth metadata
@@ -91,6 +95,9 @@ export default function ProfileScreen() {
   }, [loadProfile]);
 
   const handleSave = async () => {
+    const badPhone = phoneError(phone, savedPhone);
+    setPhoneProblem(badPhone);
+    if (badPhone) return;
     try {
       setSaving(true);
       await updateUserProfile({
@@ -100,6 +107,7 @@ export default function ProfileScreen() {
         phone: phone.trim(),
         bio: bio.trim(),
       });
+      setSavedPhone(phone.trim());
       setToast({ message: 'Profile updated successfully', type: 'success', visible: true });
     } catch {
       setToast({ message: 'Failed to update profile', type: 'error', visible: true });
@@ -202,7 +210,11 @@ export default function ProfileScreen() {
                 <PhoneInputMobile
                   label="Phone Number"
                   value={phone}
-                  onChange={setPhone}
+                  onChange={(value) => {
+                    setPhone(value);
+                    setPhoneProblem(undefined);
+                  }}
+                  error={phoneProblem}
                 />
               </View>
             </View>
@@ -299,8 +311,9 @@ const styles = StyleSheet.create({
 
   // Form
   formSection: { gap: spacing.lg },
-  twoCol: { flexDirection: 'row' as const, gap: spacing.md },
-  colHalf: { flex: 1 },
+  // Too narrow for both on a phone, so each field wraps to its own full-width row.
+  twoCol: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.md },
+  colHalf: { flexGrow: 1, flexBasis: 260 },
   verifiedText: {
     fontSize: typography.fontSize.xs,
     color: colors.success[600],

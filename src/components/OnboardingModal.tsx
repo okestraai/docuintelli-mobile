@@ -19,6 +19,7 @@ import { typography } from '../theme/typography';
 import { spacing, borderRadius } from '../theme/spacing';
 import DateField from './ui/DateField';
 import { toIso } from '../lib/dateInput';
+import { phoneError } from '../lib/phone';
 
 interface OnboardingModalProps {
   visible: boolean;
@@ -73,8 +74,8 @@ export default function OnboardingModal({ visible, onComplete }: OnboardingModal
 
     if (!phone.trim()) {
       newErrors.phone = 'Phone number is required';
-    } else if (phone.replace(/\D/g, '').length < 7) {
-      newErrors.phone = 'At least 7 digits required';
+    } else if (phoneError(phone)) {
+      newErrors.phone = phoneError(phone);
     }
 
     setErrors(newErrors);
