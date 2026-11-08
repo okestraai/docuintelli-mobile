@@ -1,7 +1,12 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Keyboard, Platform, ScrollView, TextInput, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps } from 'react-native';
+import { Keyboard, Platform, ScrollView, StatusBar, TextInput, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewProps } from 'react-native';
 
 const GAP_ABOVE_KEYBOARD = 16;
+
+type FocusedInput = {
+  measureInWindow?: (done: (x: number, y: number, width: number, height: number) => void) => void;
+  measureLayout?: (relativeTo: unknown, onSuccess: () => void, onFail: () => void) => void;
+};
 
 // How far a form must scroll so an input that ends at inputBottom sits above the keyboard.
 export function scrollNeeded(inputBottom: number, keyboardTop: number): number {
@@ -19,15 +24,27 @@ const KeyboardScrollView = forwardRef<ScrollView, ScrollViewProps>(({ onScroll, 
   useEffect(() => {
     if (Platform.OS !== 'android' || props.horizontal) return;
     const shown = Keyboard.addListener('keyboardDidShow', (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-      const input = TextInput.State.currentlyFocusedInput() as unknown as { measureInWindow?: (done: (x: number, y: number, width: number, height: number) => void) => void } | null;
-      // Waits a frame so the room just added below the form exists to scroll into.
-      requestAnimationFrame(() => {
-        input?.measureInWindow?.((_x, y, _width, height) => {
-          const distance = scrollNeeded(y + height, event.endCoordinates.screenY);
-          if (distance > 0) scroller.current?.scrollTo({ y: offset.current + distance, animated: true });
-        });
-      });
+      const input = TextInput.State.currentlyFocusedInput() as unknown as FocusedInput | null;
+      const own = scroller.current;
+      const nativeScroll = own?.getNativeScrollRef?.();
+      if (!input?.measureLayout || !own || !nativeScroll) return;
+      // Only the scroll view holding the input reacts, not screens behind it or under a pop-up.
+      input.measureLayout(
+        nativeScroll,
+        () => {
+          setKeyboardHeight(event.endCoordinates.height);
+          // Waits a frame so the room just added below the form exists to scroll into.
+          requestAnimationFrame(() => {
+            input.measureInWindow?.((_x, y, _width, height) => {
+              // Window positions on Android leave out the status bar; the keyboard's screenY includes it.
+              const keyboardTop = event.endCoordinates.screenY - (StatusBar.currentHeight ?? 0);
+              const distance = scrollNeeded(y + height, keyboardTop);
+              if (distance > 0) own.scrollTo({ y: offset.current + distance, animated: true });
+            });
+          });
+        },
+        () => {},
+      );
     });
     const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
     return () => {
