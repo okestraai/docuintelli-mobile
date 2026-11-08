@@ -2,18 +2,18 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   View, Text, StyleSheet, RefreshControl, TouchableOpacity,
   type NativeSyntheticEvent, type NativeScrollEvent,
-  TextInput, Alert, Modal, Switch, FlatList, Dimensions,
+  TextInput, Alert, Modal, Switch, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Line, Text as SvgText, Rect } from 'react-native-svg';
+import Svg, { Path, Line, Text as SvgText } from 'react-native-svg';
 import {
-  BarChart3, TrendingUp, TrendingDown, Search, SlidersHorizontal, X,
+  BarChart3, TrendingUp, Search, SlidersHorizontal, X,
   Target, RefreshCw, Sparkles, AlertTriangle,
-  Eye, Briefcase, FlaskConical, Play, ChevronRight,
-  DollarSign, Percent, ArrowRight, Clock, Check,
-  ChevronDown, ChevronUp, Bell, Plus, Shield, Leaf,
+  Eye, Briefcase, FlaskConical, Play,
+  DollarSign, ArrowRight, Clock, Check,
+  ChevronDown, ChevronUp, Bell, Plus, Leaf,
   Cpu, Heart, Zap, Building2, ShoppingBag, Factory,
-  Gem, Lightbulb, Home, Radio, Settings, LayoutGrid,
+  Gem, Lightbulb, Home, Radio,
 } from 'lucide-react-native';
 import { useSubscription } from '../src/hooks/useSubscription';
 import { useToast } from '../src/contexts/ToastContext';
@@ -21,7 +21,6 @@ import NotFoundView from '../src/components/ui/NotFoundView';
 import Card from '../src/components/ui/Card';
 import Badge from '../src/components/ui/Badge';
 import Button from '../src/components/ui/Button';
-import GradientIcon from '../src/components/ui/GradientIcon';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import StockCard from '../src/components/stockpulse/StockCard';
 import SimulatorCard from '../src/components/stockpulse/SimulatorCard';
@@ -30,11 +29,11 @@ import ConvictionBadge from '../src/components/stockpulse/ConvictionBadge';
 import {
   getRecommendations, scoreStock, getSimulator, addSimulatorPick,
   closeSimulatorPick, refreshSimulator, constructPortfolio, getBacktestRuns, getActiveBacktest,
-  getBacktestResult, startBacktest, getClosedPicks, getTickerHistory,
-  getForecast, getConvictionChanges,
+  getBacktestResult, startBacktest, getTickerHistory,
+  getForecast,
   getIndex, searchStocks, recordInterest, indexStockToRecommendation,
   type Recommendation, type CIRAScore, type SimulatorPick, type SimulatorSummary,
-  type InvestorProfile, type ConstructedPortfolio, type PortfolioPosition,
+  type InvestorProfile, type ConstructedPortfolio,
   type BacktestRun,
 } from '../src/lib/stockpulseApi';
 import { colors } from '../src/theme/colors';
@@ -64,6 +63,7 @@ type MosFilter = 'all' | 'undervalued' | 'overvalued';
 type GateFilter = 'all' | 'no_gates' | 'gates_active';
 type CompanyTab = 'scores' | 'gates' | 'forecast' | 'events' | 'history';
 type PortfolioSubTab = 'holdings' | 'recommendations' | 'alerts';
+type LiveScores = Record<string, { score: number; price: number; conviction: string }>;
 
 // Sector list matching web
 const SECTORS_LIST = [
@@ -158,11 +158,11 @@ function StockPulseContent() {
   // ── Portfolio state ──
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioPicks, setPortfolioPicks] = useState<SimulatorPick[]>([]);
-  const [portfolioSummary, setPortfolioSummary] = useState<SimulatorSummary | null>(null);
+  const [, setPortfolioSummary] = useState<SimulatorSummary | null>(null);
   const [portfolioSubTab, setPortfolioSubTab] = useState<PortfolioSubTab>('holdings');
   const [portfolioAlerts, setPortfolioAlerts] = useState<any[]>([]);
   const [portfolioRecs, setPortfolioRecs] = useState<any[]>([]);
-  const [portfolioLiveScores, setPortfolioLiveScores] = useState<Record<string, { score: number; price: number; conviction: string }>>({});
+  const [, setPortfolioLiveScores] = useState<LiveScores>({});
   const [recHorizon, setRecHorizon] = useState<'short' | 'medium' | 'long'>('medium');
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [addStockForm, setAddStockForm] = useState({ ticker: '', shares: '', price: '', date: '', notes: '' });
@@ -218,7 +218,7 @@ function StockPulseContent() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [showToast]);
 
   /**
    * Discovery: when the local index cannot satisfy the query, ask the server. Purely additive —
@@ -247,7 +247,7 @@ function StockPulseContent() {
     } finally {
       setSimLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   const loadPortfolio = useCallback(async () => {
     try {
@@ -262,7 +262,7 @@ function StockPulseContent() {
 
       // Score holdings for live alerts
       const activePicks = (data.picks || []).filter((p: SimulatorPick) => p.status === 'active');
-      const liveScoresMap: typeof portfolioLiveScores = {};
+      const liveScoresMap: LiveScores = {};
       for (const pick of activePicks.slice(0, 10)) {
         try {
           const result = await scoreStock(pick.ticker);
@@ -307,7 +307,7 @@ function StockPulseContent() {
     } finally {
       setPortfolioLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   const loadBacktests = useCallback(async () => {
     try {
@@ -329,14 +329,15 @@ function StockPulseContent() {
     } finally {
       setBtLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
-  useEffect(() => { loadDashboard(); }, []);
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   useEffect(() => {
     if (activeTab === 'simulator' && simPicks.length === 0 && !simLoading) loadSimulator();
     if (activeTab === 'portfolio' && portfolioPicks.length === 0 && !portfolioLoading) loadPortfolio();
     if (activeTab === 'backtest' && btRuns.length === 0 && !btLoading) loadBacktests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Loads only when the tab changes; the length and loading flags would reload empty tabs in a loop.
   }, [activeTab]);
 
   // Poll for active backtest
@@ -354,6 +355,7 @@ function StockPulseContent() {
       }, 5000);
       return () => { if (btPollRef.current) clearInterval(btPollRef.current); };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Restart polling only when the status changes, not on every poll result.
   }, [btActive?.status]);
 
   // ────────────────────────────────────────────────────────────────
@@ -2548,6 +2550,7 @@ function ForecastTab({ ticker, currentPrice, overallScore, dimensions, forecastD
 }) {
   const [horizon, setHorizon] = useState(forecastHorizon);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Fetch once when the tab opens; horizon changes fetch through handleHorizonChange.
   useEffect(() => { if (!forecastData && !forecastLoading) loadForecast(horizon); }, []);
 
   const handleHorizonChange = (h: string) => {
@@ -2559,7 +2562,7 @@ function ForecastTab({ ticker, currentPrice, overallScore, dimensions, forecastD
   const forecast = useMemo(() => {
     if (currentPrice <= 0) return null;
     return generateForecastData(ticker, currentPrice, overallScore, horizon, dimensions);
-  }, [ticker, currentPrice, overallScore, horizon]);
+  }, [ticker, currentPrice, overallScore, horizon, dimensions]);
 
   const narrative = forecastData?.narrative || {};
   const bias = forecast?.bias || '';

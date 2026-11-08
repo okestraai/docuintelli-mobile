@@ -23,7 +23,7 @@ interface DunningStatus {
 }
 
 export default function DunningBanner() {
-  const insets = useSafeAreaInsets();
+  useSafeAreaInsets();
   const [status, setStatus] = useState<DunningStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);

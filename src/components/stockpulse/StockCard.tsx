@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronRight, TrendingUp, TrendingDown, Shield } from 'lucide-react-native';
+import { ChevronRight, TrendingUp, TrendingDown } from 'lucide-react-native';
 import Card from '../ui/Card';
 import ScoreRing from './ScoreRing';
 import ConvictionBadge from './ConvictionBadge';

@@ -4,8 +4,7 @@ import {
   StyleSheet, Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import {
-  History, Target, PiggyBank, CreditCard, TrendingDown, TrendingUp,
-  Trash2, CheckCircle2, Clock, X,
+  History, Trash2, X,
 } from 'lucide-react-native';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';

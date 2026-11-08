@@ -2,7 +2,6 @@
  * Financial Insights API helpers — ported from web (src/lib/financialApi.ts)
  * Reuses all existing backend endpoints at /api/financial/*
  */
-import { Platform } from 'react-native';
 import { auth } from './auth';
 import { API_BASE } from './config';
 import { getDeviceId } from './deviceId';

@@ -11,7 +11,6 @@ import {
   FileEdit,
   Calendar,
   ChevronDown,
-  ChevronUp,
   Sparkles,
   Building2,
   User,
@@ -91,7 +90,7 @@ export default function DocumentHealthPanel({
   // Complete 'check-health' goal step on mount
   React.useEffect(() => {
     completeStepById('check-health');
-  }, []);
+  }, [completeStepById]);
 
   const [showMetadataForm, setShowMetadataForm] = useState(false);
   const [showCadenceSelector, setShowCadenceSelector] = useState(false);
@@ -193,7 +192,6 @@ export default function DocumentHealthPanel({
     (r) => r.toLowerCase().includes('expir') || r.toLowerCase().includes('expired')
   );
   const isMetadataIncomplete = !metadata?.issuer || !metadata?.ownerName;
-  const hasNoReviewDate = !nextReviewDate;
   const showConfirmation = metadata && metadata.metadataConfirmed === false;
   const showCadenceConfirmation = metadata && metadata.reviewCadenceConfirmed === false;
 

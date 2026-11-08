@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Receipt, CalendarClock, Plus, X as XIcon, Trash2 } from 'lucide-react-native';
 import type { RecurringBill } from '../../lib/financialApi';
 import {

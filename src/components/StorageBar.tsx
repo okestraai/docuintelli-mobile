@@ -9,6 +9,7 @@ export default function StorageBar({ refreshKey }: { refreshKey?: unknown }) {
   const { storage, failed, retry } = useStorage(true, refreshKey);
 
   // An append or finished processing changes the figure without changing the document count.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- retry is a new function each render, so listing it would refetch in a loop.
   useFocusEffect(useCallback(() => retry(), []));
 
   if (failed && !storage) {

@@ -207,7 +207,7 @@ export default function SearchScreen() {
         setIsSearching(false);
       }
     }
-  }, [canGlobalSearch]);
+  }, [canGlobalSearch, completeStepById]);
 
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);

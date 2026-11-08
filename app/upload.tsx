@@ -7,7 +7,6 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Platform,
   Alert,
 } from 'react-native';
@@ -19,8 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   Upload, FileText, Link, X,
-  AlertTriangle, CheckCircle, Plus, Trash2,
-  Lock, Zap, RefreshCw, Merge, Cloud,
+  AlertTriangle, CheckCircle, Plus,
+  Lock, Zap, RefreshCw, Merge,
 } from 'lucide-react-native';
 import { useAuth } from '../src/hooks/useAuth';
 import { useDocuments } from '../src/hooks/useDocuments';
@@ -101,7 +100,7 @@ export default function UploadScreen() {
   const [mimeType, setMimeType] = useState('');
 
   // Multi-file + merge
-  const [additionalFiles, setAdditionalFiles] = useState<Array<{ uri: string; name: string; size: number; mimeType: string }>>([]);
+  const [additionalFiles, setAdditionalFiles] = useState<{ uri: string; name: string; size: number; mimeType: string }[]>([]);
   const [mergeAsOne, setMergeAsOne] = useState(false);
 
   // URL-specific

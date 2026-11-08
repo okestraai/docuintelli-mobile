@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Switch,
-  TouchableOpacity,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +24,7 @@ import {
   auth,
   changePassword,
 } from '../../src/lib/auth';
+import { API_BASE } from '../../src/lib/config';
 import { validatePassword } from '../../src/utils/validatePassword';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
@@ -107,7 +107,6 @@ export default function SecurityScreen() {
       const { data: { session } } = await auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { API_BASE } = require('../../src/lib/config');
       const res = await fetch(`${API_BASE}/api/account/export`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
@@ -140,7 +139,6 @@ export default function SecurityScreen() {
       const { data: { session } } = await auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { API_BASE } = require('../../src/lib/config');
       const res = await fetch(`${API_BASE}/api/account`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },

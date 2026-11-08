@@ -31,6 +31,7 @@ export default function ReviewPrompt({ documentCount }: ReviewPromptProps) {
 
   useEffect(() => {
     checkShouldPrompt();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Check again only when the document count changes; the checker is declared below.
   }, [documentCount]);
 
   const checkShouldPrompt = async () => {

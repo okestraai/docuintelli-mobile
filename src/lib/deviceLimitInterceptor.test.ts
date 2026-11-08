@@ -1,7 +1,7 @@
+import { canUseWhileBlocked, withDeviceId } from './deviceLimitInterceptor';
+
 jest.mock('./config', () => ({ API_BASE: 'https://api.test' }));
 jest.mock('./deviceId', () => ({ getDeviceId: jest.fn() }));
-
-import { canUseWhileBlocked, withDeviceId } from './deviceLimitInterceptor';
 
 const sent = (args: any[]) => new Headers(args[1]?.headers).get('X-Device-ID');
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator, Modal, Image, Platform,
-  Alert, useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -20,15 +20,17 @@ import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, borderRadius } from '../src/theme/spacing';
 import Card from '../src/components/ui/Card';
+import { getScreenWidth, getScreenHeight } from '../src/utils/dimensions';
 
 // Only import WebView on native platforms
 let WebView: any = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- WebView is native-only, so it loads lazily off web.
   WebView = require('react-native-webview').WebView;
 }
 
-const SCREEN_WIDTH = require('../src/utils/dimensions').getScreenWidth();
-const SCREEN_HEIGHT = require('../src/utils/dimensions').getScreenHeight();
+const SCREEN_WIDTH = getScreenWidth();
+const SCREEN_HEIGHT = getScreenHeight();
 
 // ---------------------------------------------------------------------------
 // Helpers

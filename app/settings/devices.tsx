@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import {
-  Smartphone, Monitor, Tablet, X, Info, ShieldCheck,
+  Smartphone, Monitor, Tablet, X, Info,
 } from 'lucide-react-native';
 import Card from '../../src/components/ui/Card';
 import Badge from '../../src/components/ui/Badge';
@@ -44,12 +44,12 @@ export default function DevicesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadDevices();
     getDeviceId().then(setLocalDeviceId);
-  }, []);
+  }, [loadDevices]);
 
   const handleRemove = (device: UserDevice) => {
     Alert.alert(

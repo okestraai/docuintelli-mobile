@@ -165,7 +165,7 @@ export default function RootLayout() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [initialize, setSession]);
 
   // Network monitoring
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function RootLayout() {
       setOnline(state.isConnected ?? true);
     });
     return () => unsubscribe();
-  }, []);
+  }, [setOnline]);
 
   // Deep link listener
   useEffect(() => {
@@ -223,7 +223,7 @@ export default function RootLayout() {
     });
 
     return () => subscription.remove();
-  }, [biometricEnabled, session]);
+  }, [biometricEnabled, session, setLocked]);
 
   const handleUnlock = async () => {
     setUnlocking(true);

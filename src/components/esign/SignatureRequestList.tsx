@@ -40,7 +40,7 @@ export default function SignatureRequestList({
   onRefreshDocuments,
 }: SignatureRequestListProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  useAuth();
   const [subTab, setSubTab] = useState<SubTab>('received');
   const [sent, setSent] = useState<SentRequest[]>([]);
   const [received, setReceived] = useState<ReceivedRequest[]>([]);

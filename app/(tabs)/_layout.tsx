@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
-import { Tabs } from 'expo-router';
-import { router } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { LayoutDashboard, FileText, Compass, Settings } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
-import { colors } from '../../src/theme/colors';
 
 export default function TabLayout() {
   const { user, initialized } = useAuthStore();

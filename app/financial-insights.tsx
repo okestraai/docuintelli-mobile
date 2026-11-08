@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Landmark, TrendingDown, AlertTriangle, Crown, BarChart3, ChevronRight,
+  Landmark, TrendingDown, AlertTriangle, BarChart3, ChevronRight,
   TrendingUp, Receipt, PiggyBank, Target, Lock, Shield,
 } from 'lucide-react-native';
 import InAppBrowser from '../src/components/ui/InAppBrowser';
@@ -17,7 +17,6 @@ import { useToast } from '../src/contexts/ToastContext';
 import LoadingSpinner from '../src/components/ui/LoadingSpinner';
 import GradientIcon from '../src/components/ui/GradientIcon';
 import Badge from '../src/components/ui/Badge';
-import ConnectBankCard from '../src/components/financial/ConnectBankCard';
 import AccountSelectionModal, {
   type ExistingAccount,
   type NewAccount,
@@ -112,15 +111,6 @@ export default function FinancialInsightsScreen() {
   const [newAccounts, setNewAccounts] = useState<NewAccount[]>([]);
   const [cancelBanner, setCancelBanner] = useState(false);
   const [committing, setCommitting] = useState(false);
-
-  // Quiet refresh of just the summary (no full-screen reload) — used after the user
-  // removes an income stream or recurring bill so the numbers update in place.
-  const refreshSummary = async () => {
-    try {
-      const refreshed = await getFinancialSummary();
-      if (refreshed) setSummary(refreshed);
-    } catch { /* keep current view on failure */ }
-  };
 
   const loadData = async () => {
     try {
@@ -317,7 +307,6 @@ export default function FinancialInsightsScreen() {
     (sum: number, item: any) => sum + (item.accounts?.length || 0),
     0,
   );
-  const bankLimitReached = bankCount >= bankAccountLimit;
 
   const handleConnectBank = () => {
     if (bankAccountLimit === 0) {

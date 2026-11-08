@@ -17,7 +17,7 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [setSession]);
 
   return {
     user,

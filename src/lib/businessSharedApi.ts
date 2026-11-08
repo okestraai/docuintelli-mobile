@@ -87,7 +87,7 @@ export interface EnvelopeForSigner {
   canView: boolean;
   myTurn: boolean; // sequential-order gate
   myFields: SignerField[];
-  completedFields: Array<SignerField & { signerName: string }>;
+  completedFields: (SignerField & { signerName: string })[];
 }
 
 export type SignatureImageType = 'signature' | 'initials';

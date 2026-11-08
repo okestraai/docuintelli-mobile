@@ -6,7 +6,6 @@ import {
   Modal,
   TextInput,
   StyleSheet,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { X, Pen, Type, Check } from 'lucide-react-native';

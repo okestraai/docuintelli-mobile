@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { Text, StyleSheet, Dimensions } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Animated, {
   useSharedValue,
@@ -16,8 +16,6 @@ import { colors } from '../../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOGO_SIZE = Math.min(SCREEN_WIDTH * 0.3, 120);
-
-const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
 /** Shield + checkmark logo matching DocuIntelli brand */
 function ShieldLogo({ size }: { size: number }) {
@@ -131,6 +129,7 @@ export default function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
     }, 2700);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- The splash animation runs once on mount.
   }, []);
 
   const logoAnimatedStyle = useAnimatedStyle(() => ({

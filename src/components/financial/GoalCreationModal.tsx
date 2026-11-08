@@ -8,7 +8,6 @@ import {
   Sparkles, ChevronDown, ChevronUp, Check, X,
 } from 'lucide-react-native';
 import Button from '../ui/Button';
-import Badge from '../ui/Badge';
 import {
   createGoal,
   updateGoal,
@@ -26,12 +25,12 @@ import { toIso } from '../../lib/dateInput';
 
 // ── Config ──────────────────────────────────────────────────
 
-const GOAL_TYPE_OPTIONS: Array<{
+const GOAL_TYPE_OPTIONS: {
   value: GoalType;
   label: string;
   description: string;
   Icon: any;
-}> = [
+}[] = [
   { value: 'savings', label: 'Savings', description: 'Save toward a target', Icon: PiggyBank },
   { value: 'spending_limit', label: 'Spending Limit', description: 'Limit spending', Icon: CreditCard },
   { value: 'debt_paydown', label: 'Debt Paydown', description: 'Pay down debt', Icon: TrendingDown },
@@ -151,14 +150,14 @@ export default function GoalCreationModal({
 
   // Flatten all accounts
   const allAccounts = useMemo(() => {
-    const result: Array<{
+    const result: {
       account_id: string;
       name: string;
       type: string;
       subtype: string;
       mask: string;
       initial_balance: number;
-    }> = [];
+    }[] = [];
     for (const item of connectedAccounts) {
       for (const acct of item.accounts || []) {
         result.push(acct);

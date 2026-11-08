@@ -6,10 +6,9 @@ import {
   Upload, X,
 } from 'lucide-react-native';
 import {
-  getDetectedLoans, dismissDetectedLoan, linkDocumentToLoan,
+  getDetectedLoans, dismissDetectedLoan,
   type DetectedLoanPrompt,
 } from '../../lib/financialApi';
-import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { useToast } from '../../contexts/ToastContext';

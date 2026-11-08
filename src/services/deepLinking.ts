@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { APP_SCHEME, BUSINESS_FEATURES_ENABLED } from '../lib/config';
+import { BUSINESS_FEATURES_ENABLED } from '../lib/config';
 import { stashClientInvite, processClientInvite } from '../lib/businessClientInvite';
 
 /**

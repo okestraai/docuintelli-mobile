@@ -7,7 +7,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { borderRadius, spacing } from '../../theme/spacing';
+import { spacing } from '../../theme/spacing';
 
 interface PlanCardProps {
   name: string;
@@ -30,7 +30,6 @@ export default function PlanCard({
   disabled,
   onSelect,
 }: PlanCardProps) {
-  const isDowngrade = !isCurrent && !isUpgrade;
 
   return (
     <Card style={styles.card}>

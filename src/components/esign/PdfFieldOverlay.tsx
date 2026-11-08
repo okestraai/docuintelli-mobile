@@ -15,6 +15,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { PDFJS_SCRIPT_TAGS, PDFJS_WORKER_INIT } from '../../lib/pdfjs';
 import { PDFJS_LIB_B64, PDFJS_WORKER_B64 } from '../../lib/pdfjsAssets';
+import { getScreenWidth } from '../../utils/dimensions';
 import type { EsignField, PlacedField, SignerEntry, FieldType } from '../../types/esignature';
 
 interface PdfFieldOverlayProps {
@@ -34,7 +35,7 @@ interface PdfFieldOverlayProps {
   onFieldPress2?: (field: PlacedField) => void;
 }
 
-const SCREEN_WIDTH = require('../../utils/dimensions').getScreenWidth();
+const SCREEN_WIDTH = getScreenWidth();
 const PDF_VIEW_WIDTH = SCREEN_WIDTH;
 
 // pdf.js loaded from the app BUNDLE (base64), not a CDN. Data URI = the library; blob = the worker.
@@ -106,6 +107,7 @@ function useWebPdfAsImage(pdfUrl: string, currentPage: number, authToken?: strin
     return () => { cancelled = true; };
   }, [pdfUrl, authToken]);
 
+  const pdfLoadState = pdfDocRef.current ? 'loaded' : 'pending';
   // Render current page to offscreen canvas → data URL
   useEffect(() => {
     if (Platform.OS !== 'web' || !pdfDocRef.current) return;
@@ -148,7 +150,7 @@ function useWebPdfAsImage(pdfUrl: string, currentPage: number, authToken?: strin
     })();
 
     return () => { cancelled = true; };
-  }, [currentPage, pdfDocRef.current ? 'loaded' : 'pending']);
+  }, [currentPage, pdfLoadState]);
 
   return { totalPages, pageImageUri, pageSize, isLoading, error };
 }
@@ -366,6 +368,7 @@ export default function PdfFieldOverlay({
       setCanvasSize(webPdf.pageSize);
     }
     setIsLoading(webPdf.isLoading);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Width and height are listed so a new pageSize object of the same size does not rerun it.
   }, [webPdf.totalPages, webPdf.pageSize.width, webPdf.pageSize.height, webPdf.isLoading]);
 
   // Pre-fetch PDF as base64 using expo-file-system (avoids CORS/auth/btoa issues)

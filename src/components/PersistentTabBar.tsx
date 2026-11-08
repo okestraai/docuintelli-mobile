@@ -7,7 +7,6 @@ import { useSubscription } from '../hooks/useSubscription';
 import type { FeatureFlags } from '../types/subscription';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { spacing } from '../theme/spacing';
 
 // `flag` — when set, the tab is only visible when that feature flag is present.
 // `lockFlag` — when set, the tab shows a lock badge (upsell) while the flag is absent.

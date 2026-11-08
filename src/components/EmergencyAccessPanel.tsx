@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import {
   Shield, Plus, UserCheck, UserPlus, Clock, Zap, CheckCircle, AlertTriangle,
-  Pencil, Trash2, Mail, ThumbsUp, ThumbsDown, Ban, Send, X, ChevronDown,
+  Trash2, Mail, ThumbsUp, ThumbsDown, Send, X, ChevronDown,
 } from 'lucide-react-native';
 import {
   getContacts, getGrantsForEvent, createGrant, createContact, revokeGrant,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
 import { useToast } from '../../src/contexts/ToastContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import {
   FileText,
   Search,
@@ -29,7 +28,6 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
-  ChevronRight,
   MessageCircle,
   Tag,
   HeartPulse,
@@ -38,7 +36,6 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useDocuments } from '../../src/hooks/useDocuments';
-import Badge from '../../src/components/ui/Badge';
 import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
 import ConfirmModal from '../../src/components/subscription/ConfirmModal';
@@ -56,12 +53,10 @@ import {
   finishConnection,
   CloudProvider,
 } from '../../src/lib/cloudStorageApi';
-import { API_BASE } from '../../src/lib/config';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
-import { DOCUMENT_CATEGORIES, type DocumentCategory } from '../../src/types/document';
-import type { Document } from '../../src/types/document';
+import { DOCUMENT_CATEGORIES, type DocumentCategory, type Document } from '../../src/types/document';
 import { AuditContent } from '../audit';
 import SignatureRequestList from '../../src/components/esign/SignatureRequestList';
 import { getMySignatures } from '../../src/lib/esignatureApi';
@@ -69,7 +64,6 @@ import { useSubscription } from '../../src/hooks/useSubscription';
 import ScrollView from '../../src/components/ui/KeyboardScrollView';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
-const SCREEN_WIDTH = require('../../src/utils/dimensions').getScreenWidth();
 
 // ── Category icon mapping ────────────────────────────────────────────
 const CATEGORY_ICONS: Record<DocumentCategory, React.ComponentType<any>> = {

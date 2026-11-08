@@ -38,6 +38,7 @@ export default function Toast({
         Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => onDismiss());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Animate only when visibility changes, so a new onDismiss does not restart the toast.
   }, [visible]);
 
   if (!visible) return null;

@@ -17,7 +17,7 @@ export function useDocuments(isAuthenticated: boolean) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
-  const isOnline = useAppStore((s) => s.isOnline);
+  useAppStore((s) => s.isOnline);
   const { cacheData, getCachedData, clearCache } = useOfflineCache();
 
   const uploadDocuments = async (items: DocumentUploadRequest[]): Promise<string[]> => {

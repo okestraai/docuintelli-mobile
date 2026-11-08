@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
-  useWindowDimensions, KeyboardAvoidingView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { X, Pen, Type, Check } from 'lucide-react-native';
@@ -308,8 +308,6 @@ export default function SignatureInput({ visible, onSave, onCancel, title, type 
     </Modal>
   );
 }
-
-const SCREEN_WIDTH = require('../../utils/dimensions').getScreenWidth();
 
 const styles = StyleSheet.create({
   overlay: {

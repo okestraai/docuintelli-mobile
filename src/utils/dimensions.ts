@@ -11,6 +11,7 @@ function getDimensions() {
     return { width: 390, height: 844 };
   }
   // Native — lazy require to avoid module-scope crash
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Lazy so web static export never touches the native module.
   const Dimensions = require('react-native/Libraries/Utilities/Dimensions').default;
   return Dimensions.get('window');
 }

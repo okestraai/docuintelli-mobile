@@ -27,7 +27,7 @@ import {
   Check,
   Target,
 } from 'lucide-react-native';
-import { useGoalBubbleStore, type BubbleViewState } from '../../store/goalBubbleStore';
+import { useGoalBubbleStore } from '../../store/goalBubbleStore';
 import { GOALS, type GoalIcon } from '../../content/goalDefinitions';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';

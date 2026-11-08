@@ -26,7 +26,6 @@ import {
   MessageSquare,
   Upload,
   Receipt,
-  Calendar,
   ExternalLink,
   Info,
   X,

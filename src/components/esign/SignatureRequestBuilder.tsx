@@ -63,7 +63,7 @@ export default function SignatureRequestBuilder({
   // Complete 'click-signature' goal step on mount
   useEffect(() => {
     completeStepById('click-signature');
-  }, []);
+  }, [completeStepById]);
 
   // Step state
   const [currentStep, setCurrentStep] = useState<Step>('signers');

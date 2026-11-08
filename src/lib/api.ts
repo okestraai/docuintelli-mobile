@@ -148,7 +148,7 @@ export async function processManualContent(
 // ── Merge Upload ────────────────────────────────────────────────────
 
 export async function uploadMergedDocument(
-  files: Array<{ uri: string; name: string; mimeType: string }>,
+  files: { uri: string; name: string; mimeType: string }[],
   name: string,
   category: string,
   expirationDate?: string
@@ -521,9 +521,9 @@ export async function globalChatStream(
   return result || { success: true, answer: '', sources: [] };
 }
 
-export async function loadGlobalChatHistory(): Promise<Array<{
+export async function loadGlobalChatHistory(): Promise<{
   id: string; role: string; content: string; sources?: GlobalChatSource[]; created_at: string;
-}>> {
+}[]> {
   const { data: { session } } = await auth.getSession();
   if (!session) return [];
 

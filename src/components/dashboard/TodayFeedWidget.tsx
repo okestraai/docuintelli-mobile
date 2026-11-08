@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import {
-  Activity,
   AlertTriangle,
   Clock,
   Lightbulb,

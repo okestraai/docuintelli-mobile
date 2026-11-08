@@ -416,7 +416,6 @@ export default function FinancialGoalsSection({ connectedAccounts }: FinancialGo
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [deletingGoal, setDeletingGoal] = useState<FinancialGoal | null>(null);
   const [loggingGoal, setLoggingGoal] = useState<FinancialGoal | null>(null);
 
   /** Apply a GoalsResponse to state */

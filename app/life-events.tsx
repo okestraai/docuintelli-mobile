@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, RefreshControl, Animated,
+  View, Text, TouchableOpacity, TextInput,
+  StyleSheet, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,7 +14,7 @@ import {
 import {
   getTemplates, getEvents, createEvent, getEventDetail,
   archiveEvent, unarchiveEvent,
-  TemplateOverview, LifeEvent, EventDetail, ReadinessData,
+  TemplateOverview, LifeEvent, EventDetail,
   RequirementStatusItem,
 } from '../src/lib/lifeEventsApi';
 import { useAuth } from '../src/hooks/useAuth';
@@ -140,7 +140,7 @@ function ReadinessRing({ score, size = 56 }: { score: number; size?: number }) {
 
 export default function LifeEventsScreen() {
   const { isAuthenticated } = useAuth();
-  const { documents } = useDocuments(isAuthenticated);
+  useDocuments(isAuthenticated);
   const { showToast } = useToast();
   const { loading: subLoading, refreshSubscription, featureFlags } = useSubscription();
   const canUseLifeEvents = featureFlags.life_events;

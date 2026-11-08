@@ -147,7 +147,6 @@ export default function StatusScreen() {
   }, [checkHealth]);
 
   // Derive overall status
-  const allOperational = services.every(s => s.status === 'operational');
   const anyDown = services.some(s => s.status === 'down');
   const anyDegraded = services.some(s => s.status === 'degraded');
   const anyChecking = services.some(s => s.status === 'checking');

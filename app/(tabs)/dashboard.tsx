@@ -116,8 +116,8 @@ export default function DashboardScreen() {
 
   const { user } = useAuthStore();
   const { isAuthenticated } = useAuth();
-  const { documents, loading, refetch } = useDocuments(isAuthenticated);
-  const { subscription, loading: subLoading, documentCount, canAskQuestion, featureFlags, refreshSubscription, error: subError } = useSubscription();
+  const { documents, refetch } = useDocuments(isAuthenticated);
+  const { subscription, loading: subLoading, documentCount, canAskQuestion, featureFlags, refreshSubscription } = useSubscription();
   const canGlobalSearch = featureFlags.global_search;
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
@@ -367,7 +367,6 @@ export default function DashboardScreen() {
             <Card>
               {expiringDocs.slice(0, 5).map((doc, index) => {
                 const isExpired = doc.status === 'expired';
-                const days = doc.expiration_date ? daysUntil(doc.expiration_date) : null;
 
                 return (
                   <TouchableOpacity

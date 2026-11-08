@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { auth } from '../lib/auth';
+import { API_BASE } from '../lib/config';
 import Constants from 'expo-constants';
 
 // Configure notification handling (skip on web — not supported)
@@ -88,7 +89,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     // Store token via API
     const { data: { session } } = await auth.getSession();
     if (session) {
-      const { API_BASE } = require('../lib/config');
       await fetch(`${API_BASE}/api/user/push-token`, {
         method: 'POST',
         headers: {
@@ -161,7 +161,6 @@ export async function clearPushToken() {
   try {
     const { data: { session } } = await auth.getSession();
     if (session) {
-      const { API_BASE } = require('../lib/config');
       await fetch(`${API_BASE}/api/user/push-token`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session.access_token}` },

@@ -122,7 +122,7 @@ export const useGoalBubbleStore = create<GoalBubbleState>((set, get) => ({
   },
 
   completeStep: (goalId, stepId) => {
-    const { completedSteps, _lastAppState } = get();
+    const { completedSteps } = get();
     const existing = completedSteps[goalId] || [];
     if (existing.includes(stepId)) return;
 

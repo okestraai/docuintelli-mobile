@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -47,7 +47,7 @@ export default function SigningView({ token, signerId, onBack, onComplete }: Sig
   const [error, setError] = useState('');
 
   // Request/signer info
-  const [signerInfo, setSignerInfo] = useState<SignerInfo | null>(null);
+  const [, setSignerInfo] = useState<SignerInfo | null>(null);
   const [requestInfo, setRequestInfo] = useState<RequestInfo | null>(null);
 
   // Fields
@@ -102,6 +102,7 @@ export default function SigningView({ token, signerId, onBack, onComplete }: Sig
         setPhase('invalid');
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load once per signing link; loadFields is declared below.
   }, [token, signerId]);
 
   // ── Load fields + PDF ─────────────────────────────────────────────
@@ -263,15 +264,14 @@ export default function SigningView({ token, signerId, onBack, onComplete }: Sig
 
     setIsCompleting(true);
     try {
-      let result;
       if (token) {
-        result = await esignApi.completeTokenSigning(token);
+        await esignApi.completeTokenSigning(token);
         // Link account if logged in
         if (user) {
           esignApi.linkTokenAccount(token, user.id).catch(() => {});
         }
       } else if (signerId) {
-        result = await esignApi.completeSignerSigning(signerId);
+        await esignApi.completeSignerSigning(signerId);
       }
 
       setPhase('complete');

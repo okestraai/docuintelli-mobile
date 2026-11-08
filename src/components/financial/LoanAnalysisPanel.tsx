@@ -36,6 +36,7 @@ export default function LoanAnalysisPanel({ detectedLoanId, displayName }: LoanA
 
   useEffect(() => {
     loadAnalysis();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Reload only when the loan changes; loadAnalysis is recreated each render.
   }, [detectedLoanId]);
 
   const loadAnalysis = async () => {

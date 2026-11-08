@@ -5,7 +5,6 @@ import { ScrollView,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  FlatList,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -13,12 +12,10 @@ import { ScrollView,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import {
-  ArrowLeft,
   Send,
   Plus,
   MessageSquare,
   CheckCircle2,
-  Clock,
 } from 'lucide-react-native';
 
 import Card from '../../src/components/ui/Card';

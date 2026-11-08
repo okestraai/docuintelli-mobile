@@ -60,10 +60,12 @@ import { typography } from '../../../src/theme/typography';
 import { spacing, borderRadius } from '../../../src/theme/spacing';
 import DateField from '../../../src/components/ui/DateField';
 import ScrollView from '../../../src/components/ui/KeyboardScrollView';
+import { getScreenWidth, getScreenHeight } from '../../../src/utils/dimensions';
 
 // Only import WebView on native platforms
 let WebView: any = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- WebView is native-only, so it loads lazily off web.
   WebView = require('react-native-webview').WebView;
 }
 
@@ -137,15 +139,15 @@ function isViewableFile(mimeType: string, fileName: string): boolean {
 }
 
 const PREVIEW_HEIGHT = 300;
-const SCREEN_WIDTH = require('../../../src/utils/dimensions').getScreenWidth();
-const SCREEN_HEIGHT = require('../../../src/utils/dimensions').getScreenHeight();
+const SCREEN_WIDTH = getScreenWidth();
+const SCREEN_HEIGHT = getScreenHeight();
 
 // E-signature access: Starter+ plans can initiate signature requests
 
 export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { showToast } = useToast();
-  const { user } = useAuth();
+  useAuth();
   const { featureFlags, isPaid } = useSubscription();
   const { completeStepById } = useGoalBubble();
   const [doc, setDoc] = useState<SupabaseDocument | null>(null);
@@ -170,7 +172,7 @@ export default function DocumentViewerScreen() {
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [editExpiration, setEditExpiration] = useState('');
-  const [editFiles, setEditFiles] = useState<Array<{ uri: string; name: string; mimeType: string }>>([]);
+  const [editFiles, setEditFiles] = useState<{ uri: string; name: string; mimeType: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 

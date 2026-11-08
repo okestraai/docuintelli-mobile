@@ -110,6 +110,7 @@ export function CloudFileBrowserModal({
       setImportResults(null);
       setBreadcrumbs([{ id: null, name: provider === 'google_drive' ? 'My Drive' : providerDisplayName }]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Reset only when the modal opens.
   }, [visible]);
 
   if (!visible) return null;

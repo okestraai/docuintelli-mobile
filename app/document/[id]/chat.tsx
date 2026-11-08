@@ -27,6 +27,7 @@ import {
 } from 'lucide-react-native';
 import { chatWithDocument, loadChatHistory } from '../../../src/lib/api';
 import { auth } from '../../../src/lib/auth';
+import { API_BASE } from '../../../src/lib/config';
 import { useSubscription } from '../../../src/hooks/useSubscription';
 import GradientIcon from '../../../src/components/ui/GradientIcon';
 import LoadingSpinner from '../../../src/components/ui/LoadingSpinner';
@@ -136,7 +137,6 @@ export default function DocumentChatScreen() {
         const { data: { session } } = await auth.getSession();
         if (!session) return;
 
-        const { API_BASE } = require('../../../src/lib/config');
         const res = await fetch(`${API_BASE}/api/documents/${id}`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });

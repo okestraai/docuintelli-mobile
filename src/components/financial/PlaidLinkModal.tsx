@@ -81,7 +81,7 @@ export default function PlaidLinkModal({
           onClose();
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore non-JSON messages
     }
   }, [processSuccess, onClose]);

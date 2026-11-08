@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { PieChart, ChevronDown, ChevronRight, Plus, X as XIcon } from 'lucide-react-native';
 import type { CategoryBreakdown, TransactionDetail, TransactionClassification } from '../../lib/financialApi';

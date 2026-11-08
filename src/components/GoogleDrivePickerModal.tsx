@@ -167,7 +167,7 @@ export function GoogleDrivePickerModal({
   const [phase, setPhase] = useState<'loading' | 'picker' | 'category' | 'importing' | 'results'>('loading');
   const [pickedFiles, setPickedFiles] = useState<PickedFile[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [importing, setImporting] = useState(false);
+  const [, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pickerHTML, setPickerHTML] = useState<string | null>(null);
@@ -183,6 +183,7 @@ export function GoogleDrivePickerModal({
       // Fetch the backend OAuth token then build the Picker HTML
       fetchTokenAndBuildPicker();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Start once each time the modal opens; the loader is declared below.
   }, [visible]);
 
   const fetchTokenAndBuildPicker = useCallback(async (retryCount = 0) => {

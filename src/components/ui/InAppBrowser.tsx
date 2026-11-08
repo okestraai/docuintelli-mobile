@@ -18,6 +18,7 @@ import { PDFJS_SCRIPT_TAGS, PDFJS_WORKER_INIT } from '../../lib/pdfjs';
 // Only import WebView on native platforms
 let WebView: any = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- WebView is native-only, so it loads lazily off web.
   WebView = require('react-native-webview').WebView;
 }
 
