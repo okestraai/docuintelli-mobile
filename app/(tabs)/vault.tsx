@@ -585,7 +585,7 @@ export default function VaultScreen() {
       {renderTitleAndTabs()}
       {isFromCache && activeTab === 'documents' && (
         <View style={styles.cacheBanner}>
-          <Text style={styles.cacheBannerText}>Showing cached data — you're offline</Text>
+          <Text style={styles.cacheBannerText}>Showing cached data — you&apos;re offline</Text>
         </View>
       )}
       {activeTab === 'documents' && renderDocumentFilters()}

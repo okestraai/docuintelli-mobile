@@ -255,7 +255,7 @@ function EnvelopeSign({ refId }: { refId: string }) {
 
           {!myTurn && (
             <View style={[styles.card, { borderColor: colors.primary[200] }]}>
-              <Text style={styles.muted}>Waiting for an earlier signer. You'll be able to sign once it's your turn.</Text>
+              <Text style={styles.muted}>Waiting for an earlier signer. You&apos;ll be able to sign once it&apos;s your turn.</Text>
             </View>
           )}
 
@@ -306,7 +306,7 @@ function FieldRow({ field, value, readOnly, onText, onSignature, onToday, onTogg
         </Pressable>
       ) : field.fieldType === 'date_signed' ? (
         filled ? <Text style={styles.muted}>{value.slice(0, 10)}</Text>
-          : <Pressable style={[styles.secondaryBtn, readOnly && styles.btnDisabled]} disabled={readOnly} onPress={onToday}><Text style={styles.secondaryBtnText}>Apply today's date</Text></Pressable>
+          : <Pressable style={[styles.secondaryBtn, readOnly && styles.btnDisabled]} disabled={readOnly} onPress={onToday}><Text style={styles.secondaryBtnText}>Apply today&apos;s date</Text></Pressable>
       ) : field.fieldType === 'checkbox' ? (
         <Pressable onPress={onToggle} disabled={readOnly} style={styles.checkRow}>
           <View style={[styles.checkbox, value === 'true' && styles.checkboxOn]}>{value === 'true' && <Check size={14} color={colors.white} />}</View>

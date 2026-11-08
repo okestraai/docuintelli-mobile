@@ -21,7 +21,7 @@ export default function OfflineBanner() {
     >
       <View style={styles.content}>
         <WifiOff size={16} color={colors.warning[800]} strokeWidth={2} />
-        <Text style={styles.text}>You're offline. Some features may be unavailable.</Text>
+        <Text style={styles.text}>You&apos;re offline. Some features may be unavailable.</Text>
       </View>
     </View>
   );

@@ -172,23 +172,7 @@ export default function DashboardScreen() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Block dashboard render until onboarding check completes
-  if (!onboardingReady && user?.id) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary[600]} />
-        </View>
-        <OnboardingModal visible={showOnboarding} onComplete={() => { setShowOnboarding(false); setOnboardingReady(true); }} />
-      </SafeAreaView>
-    );
-  }
-
-  const displayName =
-    profileName || user?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'User';
-  const firstName = displayName.split(' ')[0];
-
-  // Derived data
+  // Derived data, worked out before the early return below so every render calls the same hooks.
   const activeCount = useMemo(
     () => documents.filter((d) => d.status === 'active').length,
     [documents],
@@ -205,6 +189,22 @@ export default function DashboardScreen() {
         }),
     [documents],
   );
+
+  // Block dashboard render until onboarding check completes
+  if (!onboardingReady && user?.id) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary[600]} />
+        </View>
+        <OnboardingModal visible={showOnboarding} onComplete={() => { setShowOnboarding(false); setOnboardingReady(true); }} />
+      </SafeAreaView>
+    );
+  }
+
+  const displayName =
+    profileName || user?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'User';
+  const firstName = displayName.split(' ')[0];
 
   const aiQuestionsLeft = subscription
     ? subscription.plan === 'free'

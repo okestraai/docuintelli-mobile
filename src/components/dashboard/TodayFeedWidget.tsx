@@ -111,7 +111,7 @@ export default function TodayFeedWidget({ refreshTrigger }: { refreshTrigger?: n
       {/* Section Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>Today's Actions</Text>
+          <Text style={styles.headerTitle}>Today&apos;s Actions</Text>
           <Badge label={String(feed.length)} variant="default" />
         </View>
 

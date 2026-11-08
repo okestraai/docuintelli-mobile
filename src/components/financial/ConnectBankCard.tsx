@@ -110,7 +110,7 @@ export default function ConnectBankCard({ onConnect, loading = false, compact = 
 
         <Text style={styles.title}>Bank Limit Reached</Text>
         <Text style={styles.description}>
-          You've connected {bankCount} of {bankLimit} accounts. Connect a new bank to swap accounts, or upgrade for more.
+          You&apos;ve connected {bankCount} of {bankLimit} accounts. Connect a new bank to swap accounts, or upgrade for more.
         </Text>
 
         <Button

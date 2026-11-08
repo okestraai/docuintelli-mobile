@@ -1255,7 +1255,7 @@ export function SharedWithMeSection() {
           <Text style={styles.emptyTitle}>No shared documents yet</Text>
           <Text style={styles.emptyText}>
             When someone adds you as a trusted contact and shares a life event with you,
-            it will appear here. You'll be able to request access to their important documents
+            it will appear here. You&apos;ll be able to request access to their important documents
             when the time comes.
           </Text>
         </View>

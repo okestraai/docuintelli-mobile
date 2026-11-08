@@ -390,7 +390,7 @@ export default function LifeEventsScreen() {
                     )}
                   </View>
                   <Text style={styles.pageSubtitle}>
-                    Prepare for life's big moments
+                    Prepare for life&apos;s big moments
                   </Text>
                 </View>
               </View>
@@ -418,9 +418,9 @@ export default function LifeEventsScreen() {
                     <Compass size={24} color={colors.primary[600]} strokeWidth={2} />
                   </View>
                 </View>
-                <Text style={styles.welcomeTitle}>Be ready for what's next</Text>
+                <Text style={styles.welcomeTitle}>Be ready for what&apos;s next</Text>
                 <Text style={styles.welcomeText}>
-                  Planning a move? Getting married? Pick an event below and we'll build a personalized document checklist for you.
+                  Planning a move? Getting married? Pick an event below and we&apos;ll build a personalized document checklist for you.
                 </Text>
               </LinearGradient>
             )}
@@ -761,7 +761,7 @@ export default function LifeEventsScreen() {
                 <View style={styles.customInfoItem}>
                   <Text style={styles.customInfoBullet}>2.</Text>
                   <Text style={styles.customInfoText}>
-                    Use "Add Custom Document" in the detail view to build your checklist
+                    Use &quot;Add Custom Document&quot; in the detail view to build your checklist
                   </Text>
                 </View>
                 <View style={styles.customInfoItem}>

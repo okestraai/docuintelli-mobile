@@ -527,7 +527,7 @@ export function AuditContent({ embedded }: { embedded?: boolean }) {
                 </TouchableOpacity>
 
                 <Text style={styles.modalHint}>
-                  We'll notify you at 80%, 90%, and 100% of the review period.
+                  We&apos;ll notify you at 80%, 90%, and 100% of the review period.
                 </Text>
 
                 {/* Actions */}

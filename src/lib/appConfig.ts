@@ -23,7 +23,7 @@ function isConfig(value: unknown): value is AppConfig {
   return !!value && typeof (value as AppConfig).maxUploadMB === 'number' && !!(value as AppConfig).plans;
 }
 
-function use(config: AppConfig): AppConfig {
+function remember(config: AppConfig): AppConfig {
   latest = config;
   applyPlanLimits(config.plans);
   return config;
@@ -34,7 +34,7 @@ async function lastAnswer(): Promise<AppConfig | null> {
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : null;
-    return isConfig(parsed) ? use(parsed) : null;
+    return isConfig(parsed) ? remember(parsed) : null;
   } catch {
     return null;
   }
@@ -46,7 +46,7 @@ async function fetchConfig(): Promise<AppConfig | null> {
     const config = res.ok ? await res.json() : null;
     if (isConfig(config)) {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config)).catch(() => {});
-      return use(config);
+      return remember(config);
     }
   } catch {
     // Offline: the last answer below is the best there is.

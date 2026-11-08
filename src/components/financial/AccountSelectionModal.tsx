@@ -311,7 +311,7 @@ export default function AccountSelectionModal({
               <AlertTriangle size={18} color={colors.error[500]} strokeWidth={2} />
               <View style={styles.warningTextWrap}>
                 <Text style={styles.warningTitle}>
-                  You've selected more accounts than your {planDisplayName(currentPlan)} plan allows.
+                  You&apos;ve selected more accounts than your {planDisplayName(currentPlan)} plan allows.
                 </Text>
                 {currentPlan === 'pro' || currentPlan === 'family' ? (
                   <Text style={styles.warningBody}>

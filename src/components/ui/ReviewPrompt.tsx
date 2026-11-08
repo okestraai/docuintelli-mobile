@@ -139,7 +139,7 @@ export default function ReviewPrompt({ documentCount }: ReviewPromptProps) {
           ))}
         </View>
         <Text style={styles.message}>
-          We'd love to hear from you! Your feedback helps us improve.
+          We&apos;d love to hear from you! Your feedback helps us improve.
         </Text>
         <View style={styles.buttons}>
           <Button title="Rate the App" onPress={handleRate} fullWidth size="lg" />

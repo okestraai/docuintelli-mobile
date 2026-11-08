@@ -375,7 +375,7 @@ export default function SigningView({ token, signerId, onBack, onComplete }: Sig
           <CheckCircle2 size={64} color={colors.primary[600]} />
           <Text style={styles.completeTitle}>Signed!</Text>
           <Text style={styles.completeText}>
-            You have successfully signed "{requestInfo?.documentName || 'the document'}".
+            You have successfully signed &quot;{requestInfo?.documentName || 'the document'}&quot;.
           </Text>
 
           {user && vaultCaptureState !== 'saved' && (

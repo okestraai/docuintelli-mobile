@@ -18,7 +18,7 @@ export default function NotFoundView() {
       </View>
       <Text style={styles.title}>Page not found</Text>
       <Text style={styles.subtitle}>
-        The page you're looking for doesn't exist or has moved.
+        The page you&apos;re looking for doesn&apos;t exist or has moved.
       </Text>
       <TouchableOpacity
         style={styles.button}

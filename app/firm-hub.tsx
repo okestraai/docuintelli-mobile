@@ -48,7 +48,7 @@ export default function FirmHub() {
         <Stack.Screen options={{ title: 'From your firms', headerShown: true }} />
         <SafeAreaView style={styles.safe} edges={['bottom']}>
           <View style={styles.center}>
-            <Text style={styles.muted}>This feature isn't available in this build.</Text>
+            <Text style={styles.muted}>This feature isn&apos;t available in this build.</Text>
           </View>
         </SafeAreaView>
       </>
@@ -322,7 +322,7 @@ function ProvideModal({ request, onClose, onDone }: {
               myDocs === null ? (
                 <Loading />
               ) : myDocs.length === 0 ? (
-                <Text style={styles.muted}>Your vault is empty — switch to "Upload a file".</Text>
+                <Text style={styles.muted}>Your vault is empty — switch to &quot;Upload a file&quot;.</Text>
               ) : (
                 <View style={{ gap: spacing.sm }}>
                   {myDocs.map((d) => {

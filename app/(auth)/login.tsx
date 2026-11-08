@@ -273,7 +273,7 @@ export default function LoginScreen() {
           {/* Footer */}
           <View style={styles.footer}>
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Text style={styles.footerText}>Don&apos;t have an account? </Text>
               <TouchableOpacity
                 onPress={() => router.push('/(auth)/signup')}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}

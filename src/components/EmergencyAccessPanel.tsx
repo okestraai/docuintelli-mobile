@@ -567,7 +567,7 @@ export default function EmergencyAccessPanel({ lifeEventId }: Props) {
                 </View>
               )}
 
-              <Text style={s.invHint}>Send invitations to people you trust. They'll create a DocuIntelli account to accept.</Text>
+              <Text style={s.invHint}>Send invitations to people you trust. They&apos;ll create a DocuIntelli account to accept.</Text>
 
               {/* Contact rows */}
               {invRows.map((row, idx) => (

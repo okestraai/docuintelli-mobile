@@ -124,7 +124,7 @@ export default function VerifyOtpScreen() {
           <Button title="Verify Code" onPress={handleVerify} loading={loading} disabled={loading || otpCode.length !== 6} size="lg" />
 
           <View style={styles.resendRow}>
-            <Text style={styles.resendLabel}>Didn't receive the code? </Text>
+            <Text style={styles.resendLabel}>Didn&apos;t receive the code? </Text>
             <TouchableOpacity onPress={handleResend} disabled={loading || resendCooldown > 0 || (isSignup && resendCount >= 3)}>
               <Text style={[styles.resendLink, (resendCooldown > 0 || (isSignup && resendCount >= 3)) && styles.resendDisabled]}>
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : isSignup && resendCount >= 3 ? 'Too many attempts' : 'Resend'}

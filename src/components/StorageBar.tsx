@@ -16,7 +16,7 @@ export default function StorageBar({ refreshKey }: { refreshKey?: unknown }) {
       <View style={styles.row}>
         <Text style={styles.label}>Storage</Text>
         <TouchableOpacity onPress={retry} accessibilityRole="button">
-          <Text style={styles.retry}>Couldn't load. Try again</Text>
+          <Text style={styles.retry}>Couldn&apos;t load. Try again</Text>
         </TouchableOpacity>
       </View>
     );
@@ -43,7 +43,7 @@ export default function StorageBar({ refreshKey }: { refreshKey?: unknown }) {
           ]}
         />
       </View>
-      {over && <Text style={styles.over}>You're over your storage. Your documents still work, but new uploads need more space.</Text>}
+      {over && <Text style={styles.over}>You&apos;re over your storage. Your documents still work, but new uploads need more space.</Text>}
     </View>
   );
 }

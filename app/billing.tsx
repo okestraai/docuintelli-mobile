@@ -944,7 +944,7 @@ export default function BillingScreen() {
                       {validatedCoupon.trial_days} days free on the {capitalize(validatedCoupon.plan)} plan
                     </Text>
                     <Text style={styles.couponValidatedNote}>
-                      You'll enter payment details. No charge until the trial ends.
+                      You&apos;ll enter payment details. No charge until the trial ends.
                     </Text>
                   </View>
                   <CheckCircle size={24} color={colors.success[500]} strokeWidth={2} />
@@ -1472,7 +1472,7 @@ export default function BillingScreen() {
                 <View style={styles.upgradeBannerText}>
                   <Text style={styles.upgradeBannerTitle}>Ready to Upgrade?</Text>
                   <Text style={styles.upgradeBannerSubtext}>
-                    You're approaching your plan limits. Upgrade for more capacity.
+                    You&apos;re approaching your plan limits. Upgrade for more capacity.
                   </Text>
                 </View>
               </View>

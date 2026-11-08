@@ -172,7 +172,7 @@ export default function EmergencyInviteScreen() {
         </View>
         <Text style={styles.cardTitle}>Invitation Declined</Text>
         <Text style={styles.cardDescription}>
-          No worries. You won't receive further notifications about this.
+          No worries. You won&apos;t receive further notifications about this.
         </Text>
         <TouchableOpacity
           style={styles.linkButton}

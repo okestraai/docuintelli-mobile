@@ -379,7 +379,7 @@ export default function UploadScreen() {
                 </View>
                 <Text style={styles.upgradeTitle}>URL Ingestion</Text>
                 <Text style={styles.upgradeDescription}>
-                  Import documents directly from web URLs. We'll fetch, process, and store the content for you.
+                  Import documents directly from web URLs. We&apos;ll fetch, process, and store the content for you.
                 </Text>
                 <Button
                   title="Upgrade to Starter"

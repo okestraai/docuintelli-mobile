@@ -51,7 +51,7 @@ export default function ConfirmModal({
         {requiresConfirmText && (
           <View style={styles.confirmInputContainer}>
             <Text style={styles.confirmHint}>
-              Type "{requiresConfirmText}" to confirm
+              Type &quot;{requiresConfirmText}&quot; to confirm
             </Text>
             <Input
               value={confirmInput}
