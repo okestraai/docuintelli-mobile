@@ -17,7 +17,8 @@ const testGlobals = Object.fromEntries(
 module.exports = [
   ...expo,
   {
-    ignores: ['dist/*', 'node_modules/*', '.expo/*'],
+    // pdfjsAssets.ts is a generated 1.8 MB base64 bundle, so lint skips it.
+    ignores: ['dist/*', 'node_modules/*', '.expo/*', 'src/lib/pdfjsAssets.ts'],
   },
   {
     // Flat config dropped `/* eslint-env jest */`, so the harness declares its globals here instead.
