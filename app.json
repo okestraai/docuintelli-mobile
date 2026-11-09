@@ -63,7 +63,6 @@
           "data": [
             { "scheme": "https", "host": "docuintelli.com", "pathPrefix": "/sign/" },
             { "scheme": "https", "host": "docuintelli.com", "pathPrefix": "/firm-sign/" },
-            { "scheme": "https", "host": "docuintelli.com", "pathPrefix": "/invite/" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/reset-password" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/emergency-invite" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/vault" },
