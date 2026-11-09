@@ -3,6 +3,8 @@ import { APP_SCHEME, BUSINESS_FEATURES_ENABLED } from '../lib/config';
 import { stashClientInvite, processClientInvite } from '../lib/businessClientInvite';
 
 const WEB_HOSTS = new Set(['docuintelli.com', 'www.docuintelli.com']);
+// Settings tabs on the website that have their own screen in the app.
+const SETTINGS_SCREENS = new Set(['profile', 'security', 'preferences', 'family', 'devices', 'support']);
 
 // Signing tokens are hex or base64url; anything else (encoded slashes, dots) is refused.
 const TOKEN = /^[A-Za-z0-9_-]{1,200}$/;
@@ -59,7 +61,16 @@ export function routeForLink(url: string): string {
   if (path === 'emergency-invite') {
     return token ? `/emergency-invite?token=${encodeURIComponent(token)}` : '/';
   }
-  if (path === 'vault') return '/vault';
+  // Pages that notification emails link to.
+  if (path === 'vault') return q.get('tab') === 'health' ? '/vault?tab=health' : '/vault';
+  if (path === 'dashboard') return '/dashboard';
+  if (path === 'life-events') return '/life-events';
+  if (path === 'financial-insights') return q.get('tab') === 'stockpulse' ? '/stockpulse' : '/financial-insights';
+  if (path === 'settings') {
+    const tab = q.get('tab');
+    if (tab === 'billing' || q.get('billtab')) return '/billing';
+    return tab && SETTINGS_SCREENS.has(tab) ? `/settings/${tab}` : '/settings';
+  }
   // Client invites are taken by handleDeepLink; the user just lands on home.
   if (path.startsWith('invite/')) return '/';
 
