@@ -36,6 +36,10 @@ describe('routeForLink — website links', () => {
     'https://docuintelli.com/sign/',
     'https://docuintelli.com/firm-sign/',
     'https://evil.example/sign/x',
+    'https://docuintelli.com/sign/..%2F..%2Fapi%2Fx',
+    'https://docuintelli.com/firm-sign/a%2Fb',
+    'https://docuintelli.com/#/sign/..%2Fx',
+    'https://docuintelli.com/?sign=a/b',
   ])('%s opens home instead of an error screen', (url) => {
     expect(routeForLink(url)).toBe('/');
   });

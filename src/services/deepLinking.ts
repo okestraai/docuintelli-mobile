@@ -4,7 +4,12 @@ import { stashClientInvite, processClientInvite } from '../lib/businessClientInv
 
 const WEB_HOSTS = new Set(['docuintelli.com', 'www.docuintelli.com']);
 
-const firstSegment = (rest: string) => rest.split('/')[0];
+// Signing tokens are hex or base64url; anything else (encoded slashes, dots) is refused.
+const TOKEN = /^[A-Za-z0-9_-]{1,200}$/;
+const firstSegment = (rest: string) => {
+  const t = rest.split('/')[0];
+  return TOKEN.test(t) ? t : '';
+};
 
 /**
  * The screen an incoming link opens. Expo Router calls this through app/+native-intent.tsx for
@@ -35,7 +40,7 @@ export function routeForLink(url: string): string {
 
   // Old e-signature emails used the web's hash route.
   const hashSign = parsed.hash.match(/^#\/sign\/([^/?#]+)/)?.[1];
-  if (hashSign) return `/esign/sign/${hashSign}`;
+  if (hashSign) return TOKEN.test(hashSign) ? `/esign/sign/${hashSign}` : '/';
 
   if (path.startsWith('sign/')) {
     const t = firstSegment(path.slice('sign/'.length));
@@ -47,7 +52,7 @@ export function routeForLink(url: string): string {
   }
   // Older firm links: /?sign=<token>.
   const legacySign = q.get('sign');
-  if (BUSINESS_FEATURES_ENABLED && legacySign) return `/firm-sign/${encodeURIComponent(legacySign)}`;
+  if (BUSINESS_FEATURES_ENABLED && legacySign) return TOKEN.test(legacySign) ? `/firm-sign/${legacySign}` : '/';
 
   if (path === 'checkout/success' || path === 'checkout/cancel') return '/billing';
   if (path === 'reset-password') return '/forgot-password';
