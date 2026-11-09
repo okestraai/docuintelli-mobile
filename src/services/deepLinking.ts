@@ -1,112 +1,98 @@
-import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { BUSINESS_FEATURES_ENABLED } from '../lib/config';
+import { APP_SCHEME, BUSINESS_FEATURES_ENABLED } from '../lib/config';
 import { stashClientInvite, processClientInvite } from '../lib/businessClientInvite';
 
+const WEB_HOSTS = new Set(['docuintelli.com', 'www.docuintelli.com']);
+
+const firstSegment = (rest: string) => rest.split('/')[0];
+
 /**
- * Deep linking is primarily handled by Expo Router automatically via file-based routing.
- * URLs like docuintelli://document/abc123 map to app/document/[id]/index.tsx.
+ * The screen an incoming link opens. Expo Router calls this through app/+native-intent.tsx for
+ * every link, so a website link never lands on "Unmatched Route".
  *
- * This service handles special non-route URLs like Stripe callbacks.
+ * `/sign/<token>` is this app's own e-signature; `/firm-sign/<token>` is a firm's request, a
+ * different system with a different token. They must never share a screen.
  */
-
-export function handleDeepLink(url: string) {
-  const parsed = Linking.parse(url);
-
-  // ── Business ("firm") network deep links — inert unless configured ──
-  // These arrive as query params on ANY incoming URL (incl. the bare root,
-  // which has no path), so they must be handled before the !path early-return.
-  if (BUSINESS_FEATURES_ENABLED) {
-    const invite = parsed.queryParams?.invite;
-    if (typeof invite === 'string' && invite) {
-      // Stash, then attempt immediately (in case the user is already signed in).
-      // Non-blocking, one-shot, failures swallowed.
-      stashClientInvite(invite).then(() => processClientInvite()).catch(() => {});
-    }
-
-    const sign = parsed.queryParams?.sign;
-    if (typeof sign === 'string' && sign) {
-      // Default to the single-signer screen; it probes for envelopes itself.
-      router.push({ pathname: '/firm-sign/[ref]', params: { ref: sign } } as any);
-      return;
-    }
+export function routeForLink(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
   }
 
-  if (!parsed.path) return;
+  const isWeb = parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  if (isWeb && !WEB_HOSTS.has(parsed.hostname)) return '/';
+  // Dev-client and other schemes are not ours to rewrite.
+  if (!isWeb && parsed.protocol !== `${APP_SCHEME}:`) return url;
 
-  // Normalize path — HTTPS Universal Links have a leading slash, custom scheme links don't
-  const path = parsed.path.replace(/^\//, '');
+  // docuintelli://sign/x puts "sign" in the host; https puts it in the path.
+  const path = isWeb
+    ? parsed.pathname.replace(/^\/+/, '')
+    : [parsed.hostname, parsed.pathname.replace(/^\/+/, '')].filter(Boolean).join('/');
+  const q = parsed.searchParams;
+  const token = q.get('token');
 
-  // Handle Stripe checkout callbacks
-  if (path === 'checkout/success') {
-    // Stripe checkout completed — navigate to billing with success state
-    router.replace('/billing');
-    return;
-  }
+  // Old e-signature emails used the web's hash route.
+  const hashSign = parsed.hash.match(/^#\/sign\/([^/?#]+)/)?.[1];
+  if (hashSign) return `/esign/sign/${hashSign}`;
 
-  if (path === 'checkout/cancel') {
-    router.replace('/billing');
-    return;
-  }
-
-  // Handle password reset
-  if (path === 'reset-password') {
-    const token = parsed.queryParams?.token as string | undefined;
-    if (token) {
-      router.push({ pathname: '/(auth)/forgot-password', params: { token } });
-    }
-    return;
-  }
-
-  // Handle emergency access invite
-  if (path === 'emergency-invite') {
-    const token = parsed.queryParams?.token as string | undefined;
-    if (token) {
-      router.push({ pathname: '/emergency-invite', params: { token } });
-    }
-    return;
-  }
-
-  // Handle cloud storage OAuth callback (safety net if openAuthSessionAsync misses it)
-  if (path === 'vault' && parsed.queryParams?.cloud_connected) {
-    router.replace('/(tabs)/vault');
-    return;
-  }
-
-  // A signature request raised by a FIRM in the Business Network — a different system from this
-  // app's own e-signature below, with a different token and a different screen. It arrives as a real
-  // path so iOS Universal Links can claim it: the old shape was '/?sign=<token>', root with a query,
-  // which iOS cannot claim without claiming '/' and handing the app every marketing page. Those
-  // links opened Safari every time. The query form is still handled above, for links already sent.
-  if (path.startsWith('firm-sign/')) {
-    const ref = path.slice('firm-sign/'.length);
-    if (ref) router.push({ pathname: '/firm-sign/[ref]', params: { ref } } as any);
-    return;
-  }
-
-  // Handle e-signature signing links (docuintelli://sign/{token} or https://docuintelli.com/sign/{token})
   if (path.startsWith('sign/')) {
-    const signingToken = path.replace('sign/', '');
-    if (signingToken) {
-      router.push({ pathname: '/esign/sign/[token]', params: { token: signingToken } });
-    }
-    return;
+    const t = firstSegment(path.slice('sign/'.length));
+    return t ? `/esign/sign/${t}` : '/';
   }
+  if (path.startsWith('firm-sign/')) {
+    const t = firstSegment(path.slice('firm-sign/'.length));
+    return t ? `/firm-sign/${t}` : '/';
+  }
+  // Older firm links: /?sign=<token>.
+  const legacySign = q.get('sign');
+  if (BUSINESS_FEATURES_ENABLED && legacySign) return `/firm-sign/${encodeURIComponent(legacySign)}`;
 
-  // For all other deep links, Expo Router handles them automatically
+  if (path === 'checkout/success' || path === 'checkout/cancel') return '/billing';
+  if (path === 'reset-password') return '/forgot-password';
+  if (path === 'emergency-invite') {
+    return token ? `/emergency-invite?token=${encodeURIComponent(token)}` : '/';
+  }
+  if (path === 'vault') return '/vault';
+  // Client invites are taken by handleDeepLink; the user just lands on home.
+  if (path.startsWith('invite/')) return '/';
+
+  // Any other website page has no screen here.
+  if (isWeb) return '/';
+
+  // App-scheme links (docuintelli://document/abc) map to routes as they are.
+  return `/${path}${parsed.search}`;
+}
+
+/** The invite token in a link, from /invite/<token> or the older ?invite=<token>. */
+export function inviteTokenOf(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const fromPath = u.pathname.match(/^\/invite\/([^/?#]+)/)?.[1];
+    return fromPath ? decodeURIComponent(fromPath) : u.searchParams.get('invite');
+  } catch {
+    return null;
+  }
+}
+
+/** Side effects only; routing is in routeForLink. */
+export function handleDeepLink(url: string) {
+  if (!BUSINESS_FEATURES_ENABLED) return;
+  const invite = inviteTokenOf(url);
+  if (invite) {
+    // Stash, then try at once in case the user is already signed in. Failures are swallowed.
+    stashClientInvite(invite).then(() => processClientInvite()).catch(() => {});
+  }
 }
 
 export function setupDeepLinkListener() {
-  // Listen for incoming deep links while app is running
   const subscription = Linking.addEventListener('url', ({ url }) => {
     handleDeepLink(url);
   });
 
-  // Check if app was opened via deep link
   Linking.getInitialURL().then((url) => {
-    if (url) {
-      handleDeepLink(url);
-    }
+    if (url) handleDeepLink(url);
   });
 
   return () => {

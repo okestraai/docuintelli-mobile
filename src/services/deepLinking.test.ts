@@ -1,77 +1,82 @@
-import { handleDeepLink } from './deepLinking';
-import { router } from 'expo-router';
+import { handleDeepLink, inviteTokenOf, routeForLink } from './deepLinking';
+import { stashClientInvite } from '../lib/businessClientInvite';
 
-/**
- * Which ceremony a signing link opens.
- *
- * This app has TWO unrelated signing systems and they must never be confused:
- *
- *  - `/sign/<token>` — this app's own e-signature product → `/esign/sign/[token]`
- *  - `/firm-sign/<token>` — a signature request raised by a firm in the Business Network →
- *    `/firm-sign/[ref]`, a different screen resolving a different kind of token
- *
- * Firm links used to arrive as `/?sign=<token>`: root with a query, which iOS Universal Links
- * cannot claim without claiming `/` and handing this app every marketing page. So on iOS they
- * always opened Safari. The path form fixes that — and the prefix is what stops it landing in the
- * wrong ceremony.
- */
+// `/sign/<token>` is this app's own e-signature; `/firm-sign/<token>` is a firm's request. A firm
+// token must never reach the e-signature screen.
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
-jest.mock('expo-linking', () => ({
-  parse: (url: string) => {
-    const u = new URL(url);
-    const queryParams: Record<string, string> = {};
-    u.searchParams.forEach((v, k) => (queryParams[k] = v));
-    return { path: u.pathname === '/' ? null : u.pathname, queryParams };
-  },
-}));
+jest.mock('expo-linking', () => ({ addEventListener: jest.fn(), getInitialURL: jest.fn() }));
 jest.mock('../lib/config', () => ({ APP_SCHEME: 'docuintelli', BUSINESS_FEATURES_ENABLED: true }));
 jest.mock('../lib/businessClientInvite', () => ({
   stashClientInvite: jest.fn().mockResolvedValue(undefined),
   processClientInvite: jest.fn().mockResolvedValue(undefined),
 }));
 
-const push = router.push as jest.Mock;
-
 beforeEach(() => jest.clearAllMocks());
 
-describe('handleDeepLink — firm signature requests', () => {
-  it('opens the FIRM ceremony for /firm-sign/<token>', () => {
-    handleDeepLink('https://docuintelli.com/firm-sign/tok-123');
-    expect(push).toHaveBeenCalledWith({ pathname: '/firm-sign/[ref]', params: { ref: 'tok-123' } });
+describe('routeForLink — website links', () => {
+  it.each([
+    ['https://docuintelli.com/sign/esign-token', '/esign/sign/esign-token'],
+    ['https://docuintelli.com/#/sign/old-token', '/esign/sign/old-token'],
+    ['https://docuintelli.com/firm-sign/tok-123', '/firm-sign/tok-123'],
+    ['https://docuintelli.com/?sign=tok-legacy', '/firm-sign/tok-legacy'],
+    ['https://docuintelli.com/emergency-invite?token=e1', '/emergency-invite?token=e1'],
+    ['https://docuintelli.com/reset-password?token=r1', '/forgot-password'],
+    ['https://docuintelli.com/vault', '/vault'],
+    ['https://docuintelli.com/vault?cloud_connected=1', '/vault'],
+    ['https://docuintelli.com/invite/inv-1', '/'],
+    ['https://www.docuintelli.com/sign/w1', '/esign/sign/w1'],
+  ])('%s opens %s', (url, route) => {
+    expect(routeForLink(url)).toBe(route);
   });
 
-  it('opens THIS app\'s own ceremony for /sign/<token>', () => {
-    handleDeepLink('https://docuintelli.com/sign/esign-token');
-    expect(push).toHaveBeenCalledWith({
-      pathname: '/esign/sign/[token]',
-      params: { token: 'esign-token' },
-    });
+  it.each([
+    'https://docuintelli.com/pricing',
+    'https://docuintelli.com/hosted/invoice/x',
+    'https://docuintelli.com/',
+    'https://docuintelli.com/sign/',
+    'https://docuintelli.com/firm-sign/',
+    'https://evil.example/sign/x',
+  ])('%s opens home instead of an error screen', (url) => {
+    expect(routeForLink(url)).toBe('/');
   });
 
   it('never sends a firm token to the e-signature screen', () => {
-    // The whole reason the firm link is NOT '/sign/<token>'. `'firm-sign/x'.startsWith('sign/')` is
-    // false, but a future refactor to a looser match would silently reroute every firm signer.
-    handleDeepLink('https://docuintelli.com/firm-sign/tok-123');
-    expect(push).toHaveBeenCalledTimes(1);
-    expect(push.mock.calls[0][0].pathname).not.toContain('esign');
+    expect(routeForLink('https://docuintelli.com/firm-sign/tok-123')).not.toContain('esign');
+  });
+});
+
+describe('routeForLink — app links', () => {
+  it.each([
+    ['docuintelli://sign/t1', '/esign/sign/t1'],
+    ['docuintelli://checkout/success', '/billing'],
+    ['docuintelli://checkout/cancel', '/billing'],
+    ['docuintelli://document/abc', '/document/abc'],
+    ['docuintelli://document/abc?tab=info', '/document/abc?tab=info'],
+  ])('%s opens %s', (url, route) => {
+    expect(routeForLink(url)).toBe(route);
   });
 
-  it('still handles the legacy ?sign= shape, for links already sent', () => {
-    handleDeepLink('https://docuintelli.com/?sign=tok-legacy');
-    expect(push).toHaveBeenCalledWith({
-      pathname: '/firm-sign/[ref]',
-      params: { ref: 'tok-legacy' },
-    });
+  it('leaves other schemes and plain paths alone', () => {
+    const dev = 'exp+docuintelli://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081';
+    expect(routeForLink(dev)).toBe(dev);
+    expect(routeForLink('/document/abc')).toBe('/document/abc');
+  });
+});
+
+describe('client invites', () => {
+  it('reads the token from /invite/<token> and the older ?invite=', () => {
+    expect(inviteTokenOf('https://docuintelli.com/invite/inv-1')).toBe('inv-1');
+    expect(inviteTokenOf('https://docuintelli.com/?invite=inv-2')).toBe('inv-2');
+    expect(inviteTokenOf('https://docuintelli.com/vault')).toBeNull();
   });
 
-  it('ignores a bare /firm-sign/ with no token', () => {
-    handleDeepLink('https://docuintelli.com/firm-sign/');
-    expect(push).not.toHaveBeenCalled();
+  it('stashes the invite when a link arrives', () => {
+    handleDeepLink('https://docuintelli.com/invite/inv-1');
+    expect(stashClientInvite).toHaveBeenCalledWith('inv-1');
   });
 
-  it('leaves unrelated paths to expo-router', () => {
-    handleDeepLink('https://docuintelli.com/vault');
-    expect(push).not.toHaveBeenCalled();
+  it('does nothing for other links', () => {
+    handleDeepLink('https://docuintelli.com/sign/t');
+    expect(stashClientInvite).not.toHaveBeenCalled();
   });
 });
