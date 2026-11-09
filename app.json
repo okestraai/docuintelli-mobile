@@ -67,7 +67,6 @@
             { "scheme": "https", "host": "docuintelli.com", "path": "/reset-password" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/emergency-invite" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/vault" },
-            { "scheme": "https", "host": "docuintelli.com", "path": "/dashboard" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/settings" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/life-events" },
             { "scheme": "https", "host": "docuintelli.com", "path": "/financial-insights" }
