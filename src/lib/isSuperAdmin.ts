@@ -9,10 +9,11 @@ import { useAuthStore } from '../store/authStore';
  * this with `requireSuperAdmin`; the app uses this helper to hide entry points
  * and 404 the screens.
  */
-export const SUPER_ADMIN_EMAIL = 'okestraai@gmail.com';
+// Set at build time from EXPO_PUBLIC_SUPER_ADMIN_EMAIL (the same account as the server's SUPER_ADMIN_EMAIL).
+const SUPER_ADMIN_EMAIL = (process.env.EXPO_PUBLIC_SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase();
 
 export function isSuperAdmin(email?: string | null): boolean {
-  return !!email && email.toLowerCase() === SUPER_ADMIN_EMAIL;
+  return !!SUPER_ADMIN_EMAIL && !!email && email.trim().toLowerCase() === SUPER_ADMIN_EMAIL;
 }
 
 /** Reactive hook: true when the logged-in user is the super admin. */
