@@ -68,7 +68,7 @@ import {
   type PackageId,
 } from '../src/lib/iapService';
 import { syncFromRevenueCat } from '../src/lib/subscriptionApi';
-import { PLANS, yearlySavingLabel, PLAN_LIMITS, tokensText, devicesText } from '../src/lib/planLimits';
+import { PLANS, yearlySavingLabel, PLAN_LIMITS, tokensText, devicesText, isUnlimitedTokens } from '../src/lib/planLimits';
 import { useAppConfig } from '../src/lib/appConfig';
 import * as Linking from 'expo-linking';
 import { colors } from '../src/theme/colors';
@@ -744,7 +744,7 @@ export default function BillingScreen() {
   const defaultPaymentMethod = billingData.paymentMethods.find((pm: any) => pm.is_default) ??
     billingData.paymentMethods[0] ?? null;
 
-  const isUnlimitedAI = (subscription?.tokens_limit ?? 0) >= 999999;
+  const isUnlimitedAI = isUnlimitedTokens(subscription?.tokens_limit);
 
   const docUsagePercent = subscription
     ? subscription.document_limit > 0
@@ -1430,6 +1430,7 @@ export default function BillingScreen() {
             used={subscription.tokens_used ?? 0}
             limit={subscription.tokens_limit ?? 50000}
             isUnlimited={isUnlimitedAI}
+            formatValue={tokensText}
           />
           {subscription.tokens_reset_date && (
             <Text style={styles.resetNote}>

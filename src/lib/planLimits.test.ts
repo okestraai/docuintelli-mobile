@@ -1,4 +1,4 @@
-import { tokensLeftText, PLANS, PLAN_LIMITS, applyPlanLimits, devicesText, tokensText, yearlySavingLabel } from './planLimits';
+import { tokensLeftText, PLANS, PLAN_LIMITS, applyPlanLimits, devicesText, tokensText, yearlySavingLabel, isUnlimitedCount, isUnlimitedTokens } from './planLimits';
 
 describe('yearly prices', () => {
   it('are 20% off twelve months, rounded down to a whole dollar', () => {
@@ -51,5 +51,22 @@ describe('tokensLeftText', () => {
     expect(tokensLeftText(3000000)).toBe('3M');
     expect(tokensLeftText(999)).toBe('999');
     expect(tokensLeftText(0)).toBe('0');
+  });
+});
+
+describe('unlimited limits', () => {
+  it('keeps paid token limits as real numbers', () => {
+    expect(isUnlimitedTokens(600_000)).toBe(false);
+    expect(isUnlimitedTokens(3_000_000)).toBe(false);
+    expect(isUnlimitedTokens(6_000_000)).toBe(false);
+  });
+
+  it('treats the super admin limits as unlimited', () => {
+    expect(isUnlimitedTokens(1_000_000_000)).toBe(true);
+    expect(isUnlimitedCount(999_999)).toBe(true);
+  });
+
+  it('treats plan document counts as capped', () => {
+    expect(isUnlimitedCount(50)).toBe(false);
   });
 });

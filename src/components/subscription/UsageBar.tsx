@@ -4,17 +4,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { borderRadius, spacing } from '../../theme/spacing';
+import { isUnlimitedCount } from '../../lib/planLimits';
 
 interface UsageBarProps {
   label: string;
   used: number;
   limit: number;
   isUnlimited?: boolean;
+  formatValue?: (value: number) => string;
   icon?: React.ReactNode;
 }
 
-export default function UsageBar({ label, used, limit, isUnlimited: isUnlimitedProp = false, icon }: UsageBarProps) {
-  const isUnlimited = isUnlimitedProp || limit >= 99999;
+export default function UsageBar({ label, used, limit, isUnlimited: isUnlimitedProp, formatValue = String, icon }: UsageBarProps) {
+  const isUnlimited = isUnlimitedProp ?? isUnlimitedCount(limit);
   const percentage = isUnlimited ? 0 : limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
   const remaining = limit - used;
   const isAtLimit = !isUnlimited && remaining <= 0;
@@ -41,7 +43,7 @@ export default function UsageBar({ label, used, limit, isUnlimited: isUnlimitedP
           {isUnlimited ? (
             'Unlimited'
           ) : (
-            `${used}/${limit}`
+            `${formatValue(used)}/${formatValue(limit)}`
           )}
         </Text>
       </View>

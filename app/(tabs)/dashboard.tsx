@@ -47,24 +47,20 @@ import { getUserProfile, isOnboardingComplete } from '../../src/lib/auth';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
-import { tokensLeftText } from '../../src/lib/planLimits';
+import { isUnlimitedCount, isUnlimitedTokens, tokensLeftText } from '../../src/lib/planLimits';
 
 // Max width matching root layout's MAX_APP_WIDTH for card sizing
 const MAX_CONTENT_WIDTH = 480;
 
-const UNLIMITED_THRESHOLD = 99999;
-function isUnlimited(limit: number): boolean {
-  return limit >= UNLIMITED_THRESHOLD;
-}
 function formatLimit(used: number, limit: number): string {
-  return isUnlimited(limit) ? `${used} / Unlimited` : `${used} / ${limit}`;
+  return isUnlimitedCount(limit) ? `${used} / Unlimited` : `${used} / ${limit}`;
 }
 function formatTokens(value: number): string {
   if (value >= 1000000) return `${(value / 1000000).toFixed(value % 1000000 === 0 ? 0 : 1)}M`;
   return `${(value / 1000).toFixed(0)}K`;
 }
 function formatTokenLimit(used: number, limit: number): string {
-  if (isUnlimited(limit)) return `${formatTokens(used)} / Unlimited`;
+  if (isUnlimitedTokens(limit)) return `${formatTokens(used)} / Unlimited`;
   return `${formatTokens(used)} / ${formatTokens(limit)}`;
 }
 
@@ -207,17 +203,17 @@ export default function DashboardScreen() {
   const firstName = displayName.split(' ')[0];
 
   const aiQuestionsLeft = subscription
-    ? subscription.plan === 'free'
-      ? Math.max(0, (subscription.tokens_limit ?? 50000) - (subscription.tokens_used ?? 0))
-      : -1 // unlimited
+    ? isUnlimitedTokens(subscription.tokens_limit)
+      ? -1 // unlimited
+      : Math.max(0, (subscription.tokens_limit ?? 50000) - (subscription.tokens_used ?? 0))
     : 0;
 
   const docUsagePercent = subscription
-    ? isUnlimited(subscription.document_limit) ? Math.min(100, Math.round((documentCount / 100) * 100)) : Math.min(100, Math.round((documentCount / subscription.document_limit) * 100))
+    ? isUnlimitedCount(subscription.document_limit) ? Math.min(100, Math.round((documentCount / 100) * 100)) : Math.min(100, Math.round((documentCount / subscription.document_limit) * 100))
     : 0;
 
   const uploadUsagePercent = subscription
-    ? isUnlimited(subscription.monthly_upload_limit) ? Math.min(100, Math.round((subscription.monthly_uploads_used / 150) * 100)) : Math.min(
+    ? isUnlimitedCount(subscription.monthly_upload_limit) ? Math.min(100, Math.round((subscription.monthly_uploads_used / 150) * 100)) : Math.min(
         100,
         Math.round(
           (subscription.monthly_uploads_used / subscription.monthly_upload_limit) * 100,
@@ -545,7 +541,7 @@ export default function DashboardScreen() {
                     style={[
                       styles.progressBarFill,
                       {
-                        width: `${isUnlimited(subscription.tokens_limit ?? 50000)
+                        width: `${isUnlimitedTokens(subscription.tokens_limit ?? 50000)
                           ? Math.max(2, Math.min(100, Math.round(((subscription.tokens_used ?? 0) / 500000) * 100)))
                           : Math.max(
                             2,

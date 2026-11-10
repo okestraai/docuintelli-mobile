@@ -36,6 +36,18 @@ export function applyPlanLimits(limits: LivePlanLimits): void {
   }
 }
 
+// Counts this high mean no cap; tokens need a higher line because paid plans reach millions.
+export const UNLIMITED_COUNT = 99_999;
+export const UNLIMITED_TOKENS = 1_000_000_000;
+
+export function isUnlimitedCount(limit: number | null | undefined): boolean {
+  return (limit ?? 0) >= UNLIMITED_COUNT;
+}
+
+export function isUnlimitedTokens(limit: number | null | undefined): boolean {
+  return (limit ?? 0) >= UNLIMITED_TOKENS;
+}
+
 export function tokensText(tokens: number): string {
   if (tokens >= 1_000_000) return `${+(tokens / 1_000_000).toFixed(1)}M`;
   return `${Math.round(tokens / 1000)}K`;
