@@ -13,6 +13,7 @@ import { useSharePresence } from './useSharePresence';
 
 let WebView: any = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- WebView is native-only, so it loads lazily off web.
   WebView = require('react-native-webview').WebView;
 }
 
@@ -76,22 +77,24 @@ export function SharedVaultViewer({
   const [downloading, setDownloading] = useState(false);
   useSharePresence(trackPresence && file ? shareId : null, { documentId: file?.documentId });
 
+  const documentId = file?.documentId;
+  const viewAs = file?.viewAs;
   useEffect(() => {
-    if (!file) return;
+    if (!documentId || !viewAs) return;
     let alive = true;
     setContent(null);
     setError(null);
-    if (file.viewAs === 'none') {
+    if (viewAs === 'none') {
       setError(canDownload ? 'This kind of file can’t be shown here. Download it to open it.' : 'This kind of file can’t be shown here, and this share is view only.');
       return;
     }
-    fetchSharedVaultView(file.documentId, file.viewAs)
+    fetchSharedVaultView(documentId, viewAs)
       .then((c) => alive && setContent(c))
       .catch((e) => alive && setError(e?.message || 'Could not open the file'));
     return () => {
       alive = false;
     };
-  }, [file?.documentId, file?.viewAs, canDownload]);
+  }, [documentId, viewAs, canDownload]);
 
   async function download() {
     if (!file) return;

@@ -356,9 +356,9 @@ export interface SharedFolderContents {
   shareId: string;
   permission: VaultSharePermission;
   canDownload: boolean;
-  path: Array<{ id: string; name: string }>;
-  folders: Array<{ id: string; name: string; documentCount: number }>;
-  documents: Array<{ id: string; name: string; category: string; size: number | null; updatedAt: string; viewAs: ViewAs }>;
+  path: { id: string; name: string }[];
+  folders: { id: string; name: string; documentCount: number }[];
+  documents: { id: string; name: string; category: string; size: number | null; updatedAt: string; viewAs: ViewAs }[];
 }
 
 export async function listSharedVaultItems(): Promise<Page<SharedVaultItem>> {

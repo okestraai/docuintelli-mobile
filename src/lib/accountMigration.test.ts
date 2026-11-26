@@ -1,9 +1,9 @@
+import { getMigration } from './accountMigration';
+
 jest.mock('./config', () => ({ API_BASE: 'https://api.test' }));
 jest.mock('./auth', () => ({
   auth: { getSession: jest.fn().mockResolvedValue({ data: { session: { access_token: 'jwt' } } }) },
 }));
-
-import { getMigration } from './accountMigration';
 
 const respond = (body: unknown, ok = true) =>
   jest.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok, json: async () => body } as any);

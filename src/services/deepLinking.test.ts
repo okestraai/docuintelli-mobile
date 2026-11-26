@@ -5,6 +5,7 @@ import { stashClientInvite } from '../lib/businessClientInvite';
 // token must never reach the e-signature screen.
 
 jest.mock('expo-linking', () => ({ addEventListener: jest.fn(), getInitialURL: jest.fn() }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('../lib/config', () => ({ APP_SCHEME: 'docuintelli', BUSINESS_FEATURES_ENABLED: true }));
 jest.mock('../lib/businessClientInvite', () => ({
   stashClientInvite: jest.fn().mockResolvedValue(undefined),
@@ -100,19 +101,25 @@ describe('client invites', () => {
 });
 
 describe('handleDeepLink — a firm shared a folder or file (?share=)', () => {
+  const push = () => (jest.requireMock('expo-router') as { router: { push: jest.Mock } }).router.push;
+  const invite = () => jest.requireMock('../lib/businessClientInvite') as Record<string, jest.Mock>;
+
   it('stashes the token, accepts it, and opens the firm hub on that share', async () => {
-    const invite = jest.requireMock('../lib/businessClientInvite');
     handleDeepLink('https://docuintelli.com/?share=tok-share');
     await new Promise((r) => setTimeout(r, 0));
-    expect(invite.stashShareInvite).toHaveBeenCalledWith('tok-share');
-    expect(push).toHaveBeenCalledWith({ pathname: '/firm-hub', params: { share: 'share-1' } });
+    expect(invite().stashShareInvite).toHaveBeenCalledWith('tok-share');
+    expect(push()).toHaveBeenCalledWith({ pathname: '/firm-hub', params: { share: 'share-1' } });
   });
 
   it('stays put when the share could not be accepted yet (e.g. not signed in)', async () => {
-    const invite = jest.requireMock('../lib/businessClientInvite');
-    invite.processShareInvite.mockResolvedValueOnce(null);
+    invite().processShareInvite.mockResolvedValueOnce(null);
     handleDeepLink('https://docuintelli.com/?share=tok-share');
     await new Promise((r) => setTimeout(r, 0));
-    expect(push).not.toHaveBeenCalled();
+    expect(push()).not.toHaveBeenCalled();
+  });
+
+  it('ignores a malformed token', () => {
+    handleDeepLink('https://docuintelli.com/?share=..%2Fx');
+    expect(invite().stashShareInvite).not.toHaveBeenCalled();
   });
 });

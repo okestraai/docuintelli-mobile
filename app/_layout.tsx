@@ -12,15 +12,6 @@ import { auth } from '../src/lib/auth';
 import { API_BASE, BUSINESS_FEATURES_ENABLED } from '../src/lib/config';
 import { processClientInvite, processShareInvite } from '../src/lib/businessClientInvite';
 import { getMigration } from '../src/lib/accountMigration';
-
-/** A converted (business-only) account gets the 'moved to Business' screen instead of failing calls. */
-function checkAccountMoved(): void {
-  getMigration()
-    .then((m) => {
-      if (m) router.replace({ pathname: '/account-moved', params: m.businessName ? { firm: m.businessName } : {} } as any);
-    })
-    .catch(() => {});
-}
 import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
@@ -42,6 +33,15 @@ import { GoalBubbleProvider } from '../src/contexts/GoalBubbleContext';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
 import { spacing, MAX_APP_WIDTH } from '../src/theme/spacing';
+
+/** A converted (business-only) account gets the 'moved to Business' screen instead of failing calls. */
+function checkAccountMoved(): void {
+  getMigration()
+    .then((m) => {
+      if (m) router.replace({ pathname: '/account-moved', params: m.businessName ? { firm: m.businessName } : {} } as any);
+    })
+    .catch(() => {});
+}
 
 // Keep the native splash screen visible until we're ready to show our custom AnimatedSplash.
 // This prevents a white flash between the OS splash and the JS-side splash.
