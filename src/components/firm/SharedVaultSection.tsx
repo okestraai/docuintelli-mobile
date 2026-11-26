@@ -84,6 +84,9 @@ function SharedFolderBrowser({ item, onClose }: { item: SharedVaultItem; onClose
   const [data, setData] = useState<SharedFolderContents | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<SharedFileRef | null>(null);
+  // Re-read the folder (and with it the CURRENT permission) each time a file is opened, so a firm's
+  // change — e.g. view only → full access — shows without reopening the folder (same as the website).
+  const [reloadKey, setReloadKey] = useState(0);
   // One heartbeat for the whole share: the open file while viewing one, otherwise the folder.
   useSharePresence(item.shareId, file ? { documentId: file.documentId } : { folderId: folderId ?? data?.path[0]?.id });
 
@@ -96,7 +99,7 @@ function SharedFolderBrowser({ item, onClose }: { item: SharedVaultItem; onClose
     return () => {
       alive = false;
     };
-  }, [item.shareId, folderId]);
+  }, [item.shareId, folderId, reloadKey]);
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -144,7 +147,10 @@ function SharedFolderBrowser({ item, onClose }: { item: SharedVaultItem; onClose
               {data.documents.map((d) => (
                 <TouchableOpacity
                   key={d.id}
-                  onPress={() => setFile({ documentId: d.id, name: d.name, viewAs: d.viewAs })}
+                  onPress={() => {
+                    setFile({ documentId: d.id, name: d.name, viewAs: d.viewAs });
+                    setReloadKey((k) => k + 1);
+                  }}
                   style={styles.listRow}
                 >
                   <FileText size={18} color={colors.slate[400]} />

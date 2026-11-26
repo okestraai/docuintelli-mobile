@@ -62,6 +62,9 @@ import SignatureRequestList from '../../src/components/esign/SignatureRequestLis
 import { getMySignatures } from '../../src/lib/esignatureApi';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import ScrollView from '../../src/components/ui/KeyboardScrollView';
+import { SharedVaultSection } from '../../src/components/firm/SharedVaultSection';
+import { listSharedVaultItems, type SharedVaultItem } from '../../src/lib/businessSharedApi';
+import { BUSINESS_FEATURES_ENABLED } from '../../src/lib/config';
 
 type VaultTab = 'documents' | 'signatures' | 'health';
 
@@ -132,6 +135,23 @@ export default function VaultScreen() {
 
   // Re-fetch documents whenever the screen gains focus
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
+  // Folders and files a firm shared with this person (business DECISIONS D9) — shown at the top of
+  // the vault, as on the website, so nobody has to find "From your firms" in Settings to see them.
+  // Re-read on focus: a firm can share, change or revoke at any time. Any failure shows nothing.
+  const [sharedItems, setSharedItems] = useState<SharedVaultItem[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!BUSINESS_FEATURES_ENABLED || !isAuthenticated) return;
+      let alive = true;
+      listSharedVaultItems()
+        .then((p) => alive && setSharedItems(p.items))
+        .catch(() => alive && setSharedItems([]));
+      return () => {
+        alive = false;
+      };
+    }, [isAuthenticated]),
+  );
 
   // Fetch pending signature count on mount (independent of Signatures tab)
   useFocusEffect(
@@ -841,8 +861,17 @@ export default function VaultScreen() {
           // keystroke set state, re-rendered, remounted the TextInput and dropped the keyboard,
           // so a word could never be finished. An element is reconciled by its tree instead, and
           // the input keeps its identity across renders.
-          ListHeaderComponent={renderHeader()}
-          ListEmptyComponent={renderEmptyState()}
+          ListHeaderComponent={
+            <>
+              {renderHeader()}
+              {sharedItems.length > 0 && (
+                <View style={{ paddingHorizontal: spacing.lg }}>
+                  <SharedVaultSection items={sharedItems} />
+                </View>
+              )}
+            </>
+          }
+          ListEmptyComponent={sharedItems.length > 0 ? null : renderEmptyState()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
