@@ -11,6 +11,16 @@ import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
 import { API_BASE, BUSINESS_FEATURES_ENABLED } from '../src/lib/config';
 import { processClientInvite, processShareInvite } from '../src/lib/businessClientInvite';
+import { getMigration } from '../src/lib/accountMigration';
+
+/** A converted (business-only) account gets the 'moved to Business' screen instead of failing calls. */
+function checkAccountMoved(): void {
+  getMigration()
+    .then((m) => {
+      if (m) router.replace({ pathname: '/account-moved', params: m.businessName ? { firm: m.businessName } : {} } as any);
+    })
+    .catch(() => {});
+}
 import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
@@ -103,6 +113,7 @@ export default function RootLayout() {
 
       // Now initialize (reads tokens from storage)
       await initialize();
+      checkAccountMoved();
 
       // If a firm client-portal invite was captured before auth, process it now
       // that we (may) have a session. No-op unless business features are enabled.
@@ -151,6 +162,7 @@ export default function RootLayout() {
       data: { subscription },
     } = auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
+      if (sess) checkAccountMoved();
       // A user just signed in — process any pending firm invite captured before auth.
       // No-op unless business features are enabled and an invite was stashed.
       if (BUSINESS_FEATURES_ENABLED && sess) {
