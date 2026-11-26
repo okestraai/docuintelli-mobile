@@ -4,21 +4,22 @@ import {
   RefreshControl, ActivityIndicator, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, router, useFocusEffect } from 'expo-router';
+import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import {
   Building2, FileText, Inbox, FileSignature, ChevronRight, Download,
   Upload, X, Check,
 } from 'lucide-react-native';
 import {
-  getSharedDocumentUrl, listSharedDocuments, listMyIntake, fulfilIntake,
+  getSharedDocumentUrl, listSharedDocuments, listMyIntake, fulfilIntake, listSharedVaultItems,
   listMySignatures, getSignatureSignedUrl,
-  type SharedDocument, type IntakeForMe, type SignatureForMe,
+  type SharedDocument, type IntakeForMe, type SignatureForMe, type SharedVaultItem,
 } from '../src/lib/businessSharedApi';
 import { BUSINESS_FEATURES_ENABLED } from '../src/lib/config';
 import { getDocuments, type SupabaseDocument } from '../src/lib/auth';
 import { uploadDocumentFile } from '../src/lib/api';
 import InAppBrowser from '../src/components/ui/InAppBrowser';
+import { SharedVaultSection } from '../src/components/firm/SharedVaultSection';
 import Card from '../src/components/ui/Card';
 import { colors } from '../src/theme/colors';
 import { typography } from '../src/theme/typography';
@@ -102,13 +103,21 @@ function DocumentsTab() {
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ url: string; name: string } | null>(null);
+  // Folders and files shared from a firm's vault (business D9); opened directly after accepting a share link.
+  const [vaultItems, setVaultItems] = useState<SharedVaultItem[]>([]);
+  const { share } = useLocalSearchParams<{ share?: string }>();
+  const [openShareId, setOpenShareId] = useState<string | null>(typeof share === 'string' ? share : null);
 
   const load = useCallback(async (refresh = false) => {
     if (!refresh) setLoading(true);
     setError(null);
     try {
-      const r = await listSharedDocuments();
+      const [r, v] = await Promise.all([
+        listSharedDocuments(),
+        listSharedVaultItems().catch(() => ({ items: [] as SharedVaultItem[] })),
+      ]);
       setDocs(r.items);
+      setVaultItems(v.items);
     } catch (e: any) {
       setError(e?.message || 'Failed to load');
     } finally {
@@ -131,7 +140,7 @@ function DocumentsTab() {
 
   if (loading) return <Loading />;
   if (error) return <ErrorView message={error} onRetry={() => load()} />;
-  if (!docs || docs.length === 0) {
+  if ((!docs || docs.length === 0) && vaultItems.length === 0) {
     return <Empty title="Nothing shared yet" hint="Documents firms share with you will appear here." />;
   }
 
@@ -141,7 +150,8 @@ function DocumentsTab() {
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={false} onRefresh={() => load(true)} tintColor={colors.primary[600]} />}
       >
-        {docs.map((d) => (
+        <SharedVaultSection items={vaultItems} openShareId={openShareId} onOpened={() => setOpenShareId(null)} />
+        {(docs ?? []).map((d) => (
           <Card key={d.grantId ?? d.businessDocumentId} style={styles.rowCard}>
             <TouchableOpacity onPress={() => open(d)} style={styles.row} activeOpacity={0.7}>
               <View style={styles.rowIcon}><FileText size={18} color={colors.primary[600]} strokeWidth={2} /></View>

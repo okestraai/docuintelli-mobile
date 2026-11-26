@@ -10,7 +10,7 @@ import { ArrowLeft, Shield, Monitor } from 'lucide-react-native';
 import { goBack } from '../src/utils/navigation';
 import { auth } from '../src/lib/auth';
 import { API_BASE, BUSINESS_FEATURES_ENABLED } from '../src/lib/config';
-import { processClientInvite } from '../src/lib/businessClientInvite';
+import { processClientInvite, processShareInvite } from '../src/lib/businessClientInvite';
 import { useAuthStore } from '../src/store/authStore';
 import { useAppStore } from '../src/store/appStore';
 import { useBiometrics } from '../src/hooks/useBiometrics';
@@ -108,6 +108,8 @@ export default function RootLayout() {
       // that we (may) have a session. No-op unless business features are enabled.
       if (BUSINESS_FEATURES_ENABLED) {
         processClientInvite().catch(() => {});
+        // ...and a firm's folder/file share link, opened once accepted.
+        processShareInvite().then((shareId) => { if (shareId) router.push({ pathname: '/firm-hub', params: { share: shareId } } as any); }).catch(() => {});
       }
 
       // Configure RevenueCat for native IAP
@@ -153,6 +155,7 @@ export default function RootLayout() {
       // No-op unless business features are enabled and an invite was stashed.
       if (BUSINESS_FEATURES_ENABLED && sess) {
         processClientInvite().catch(() => {});
+        processShareInvite().then((shareId) => { if (shareId) router.push({ pathname: '/firm-hub', params: { share: shareId } } as any); }).catch(() => {});
       }
       // Sync RevenueCat user with auth state
       if (Platform.OS !== 'web') {

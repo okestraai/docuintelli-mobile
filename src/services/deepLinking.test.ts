@@ -9,6 +9,8 @@ jest.mock('../lib/config', () => ({ APP_SCHEME: 'docuintelli', BUSINESS_FEATURES
 jest.mock('../lib/businessClientInvite', () => ({
   stashClientInvite: jest.fn().mockResolvedValue(undefined),
   processClientInvite: jest.fn().mockResolvedValue(undefined),
+  stashShareInvite: jest.fn().mockResolvedValue(undefined),
+  processShareInvite: jest.fn().mockResolvedValue('share-1'),
 }));
 
 beforeEach(() => jest.clearAllMocks());
@@ -94,5 +96,23 @@ describe('client invites', () => {
   it('does nothing for other links', () => {
     handleDeepLink('https://docuintelli.com/sign/t');
     expect(stashClientInvite).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleDeepLink — a firm shared a folder or file (?share=)', () => {
+  it('stashes the token, accepts it, and opens the firm hub on that share', async () => {
+    const invite = jest.requireMock('../lib/businessClientInvite');
+    handleDeepLink('https://docuintelli.com/?share=tok-share');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(invite.stashShareInvite).toHaveBeenCalledWith('tok-share');
+    expect(push).toHaveBeenCalledWith({ pathname: '/firm-hub', params: { share: 'share-1' } });
+  });
+
+  it('stays put when the share could not be accepted yet (e.g. not signed in)', async () => {
+    const invite = jest.requireMock('../lib/businessClientInvite');
+    invite.processShareInvite.mockResolvedValueOnce(null);
+    handleDeepLink('https://docuintelli.com/?share=tok-share');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(push).not.toHaveBeenCalled();
   });
 });

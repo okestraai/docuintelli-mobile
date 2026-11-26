@@ -332,3 +332,106 @@ export const TEXT_TYPES = ['full_name', 'text_field', 'title_role', 'company_nam
 
 export const fieldLabel = (f: SignerField): string =>
   f.label || f.fieldType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// ── Vault shares: folders and files a firm shared with me (business DECISIONS D9) ──────────
+export type VaultSharePermission = 'view' | 'full' | 'full_edit';
+/** How the in-app viewer shows a file ('none' = it can't be previewed). */
+export type ViewAs = 'pdf' | 'image' | 'text' | 'html' | 'none';
+
+export interface SharedVaultItem {
+  shareId: string;
+  kind: 'document' | 'folder';
+  name: string;
+  firmName: string;
+  permission: VaultSharePermission;
+  canDownload: boolean;
+  canUploadVersion: boolean;
+  expiresAt: string | null;
+  sharedAt: string;
+  documentId: string | null;
+  viewAs: ViewAs | null;
+}
+
+export interface SharedFolderContents {
+  shareId: string;
+  permission: VaultSharePermission;
+  canDownload: boolean;
+  path: Array<{ id: string; name: string }>;
+  folders: Array<{ id: string; name: string; documentCount: number }>;
+  documents: Array<{ id: string; name: string; category: string; size: number | null; updatedAt: string; viewAs: ViewAs }>;
+}
+
+export async function listSharedVaultItems(): Promise<Page<SharedVaultItem>> {
+  ensureEnabled();
+  const res = await fetch(`${bizBase()}/shared/items?limit=100`, { headers: await authHeaders() });
+  return handleResponse(res);
+}
+
+export async function browseSharedFolder(shareId: string, folderId?: string): Promise<SharedFolderContents> {
+  ensureEnabled();
+  const q = folderId ? `?folderId=${encodeURIComponent(folderId)}` : '';
+  const res = await fetch(`${bizBase()}/shared/items/${encodeURIComponent(shareId)}/browse${q}`, {
+    headers: await authHeaders(),
+  });
+  return handleResponse(res);
+}
+
+/**
+ * A shared file's content for the in-app viewer: text (text / Word-as-HTML) or base64 bytes
+ * (PDF / image). Fetched here with the user's token, so neither the token nor any storage link ever
+ * reaches the WebView — a view-only share has nothing to save.
+ */
+export async function fetchSharedVaultView(
+  documentId: string,
+  viewAs: ViewAs,
+): Promise<{ text: string } | { base64: string }> {
+  ensureEnabled();
+  const res = await fetch(`${bizBase()}/shared/vault-documents/${encodeURIComponent(documentId)}/view`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) return handleResponse(res);
+  if (viewAs === 'text' || viewAs === 'html') return { text: await res.text() };
+  const blob = await res.blob();
+  const base64: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  return { base64 };
+}
+
+/** A short-lived download link — full access only (the server refuses view-only with VIEW_ONLY). */
+export async function getSharedVaultDownload(documentId: string): Promise<{ url: string; expiresIn: number }> {
+  ensureEnabled();
+  const res = await fetch(`${bizBase()}/shared/vault-documents/${encodeURIComponent(documentId)}/download`, {
+    headers: await authHeaders(),
+  });
+  return handleResponse(res);
+}
+
+/** Accept a share link (?share=<token>). The signed-in email must be the one it was sent to. */
+export async function acceptShareInvite(
+  token: string,
+): Promise<{ shareId: string; kind: 'document' | 'folder'; name: string; firmName: string }> {
+  ensureEnabled();
+  const res = await fetch(`${bizBase()}/shared/share-invites/${encodeURIComponent(token)}/accept`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  return handleResponse(res);
+}
+
+/** Heartbeat while a shared item is open — lets the firm see who is live, and on which file. */
+export async function sendSharePresence(body: { shareId: string; documentId?: string; folderId?: string }): Promise<void> {
+  ensureEnabled();
+  await fetch(`${bizBase()}/shared/presence`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify(body) });
+}
+
+export async function leaveSharePresence(shareId: string): Promise<void> {
+  ensureEnabled();
+  await fetch(`${bizBase()}/shared/presence/${encodeURIComponent(shareId)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  });
+}

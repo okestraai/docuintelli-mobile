@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 import { APP_SCHEME, BUSINESS_FEATURES_ENABLED } from '../lib/config';
-import { stashClientInvite, processClientInvite } from '../lib/businessClientInvite';
+import { stashClientInvite, processClientInvite, stashShareInvite, processShareInvite } from '../lib/businessClientInvite';
 
 const WEB_HOSTS = new Set(['docuintelli.com', 'www.docuintelli.com']);
 // Settings tabs on the website that have their own screen in the app.
@@ -99,6 +100,27 @@ export function handleDeepLink(url: string) {
   if (invite) {
     // Stash, then try at once in case the user is already signed in. Failures are swallowed.
     stashClientInvite(invite).then(() => processClientInvite()).catch(() => {});
+  }
+  // A firm shared a folder or file (?share=<token>): stash, accept if already signed in, and open it
+  // in "From your firms". Not signed in yet → _layout accepts it after sign-in.
+  const share = shareTokenOf(url);
+  if (share) {
+    stashShareInvite(share)
+      .then(() => processShareInvite())
+      .then((shareId) => {
+        if (shareId) router.push({ pathname: '/firm-hub', params: { share: shareId } } as any);
+      })
+      .catch(() => {});
+  }
+}
+
+/** The share token in a link (?share=<token>), if it looks like one. */
+export function shareTokenOf(url: string): string | null {
+  try {
+    const t = new URL(url).searchParams.get('share');
+    return t && TOKEN.test(t) ? t : null;
+  } catch {
+    return null;
   }
 }
 

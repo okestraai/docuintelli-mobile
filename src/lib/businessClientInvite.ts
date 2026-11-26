@@ -16,7 +16,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from './auth';
 import { BUSINESS_FEATURES_ENABLED } from './config';
-import { acceptClientInvite } from './businessSharedApi';
+import { acceptClientInvite, acceptShareInvite } from './businessSharedApi';
 
 const STORAGE_KEY = 'business_pending_invite';
 
@@ -62,4 +62,44 @@ export async function processClientInvite(): Promise<string | null> {
   }
 
   return businessId;
+}
+
+// ── Vault share links (?share=<token>) — business DECISIONS D9 ────────────────
+// A firm shared a folder or file by email. Same capture → sign in/up → accept flow as the client
+// invite above; the server only accepts the address the share was sent to.
+const SHARE_KEY = 'business_pending_share';
+
+export async function stashShareInvite(token: string): Promise<void> {
+  if (!BUSINESS_FEATURES_ENABLED || !token) return;
+  try {
+    await AsyncStorage.setItem(SHARE_KEY, token);
+  } catch {
+    // never block boot
+  }
+}
+
+/**
+ * Accept a stashed share for the signed-in user. Returns the shareId to open, or null when there was
+ * nothing to do / not yet signed in / it failed. Kept on a wrong-account refusal (403) so signing in
+ * with the invited address can still accept it; cleared otherwise.
+ */
+export async function processShareInvite(): Promise<string | null> {
+  if (!BUSINESS_FEATURES_ENABLED) return null;
+  let token: string | null = null;
+  try {
+    token = await AsyncStorage.getItem(SHARE_KEY);
+  } catch {
+    return null;
+  }
+  if (!token) return null;
+  const { data: { session } } = await auth.getSession();
+  if (!session) return null;
+  try {
+    const res = await acceptShareInvite(token);
+    await AsyncStorage.removeItem(SHARE_KEY).catch(() => {});
+    return res.shareId;
+  } catch (e: any) {
+    if (!/different email/i.test(e?.message ?? '')) await AsyncStorage.removeItem(SHARE_KEY).catch(() => {});
+    return null;
+  }
 }

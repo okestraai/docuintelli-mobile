@@ -22,7 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '../../src/store/authStore';
 import { getUserProfile } from '../../src/lib/auth';
-import { getSharedStatus } from '../../src/lib/businessSharedApi';
+import { getSharedStatus, listSharedVaultItems } from '../../src/lib/businessSharedApi';
 import { BUSINESS_FEATURES_ENABLED } from '../../src/lib/config';
 import { useSubscription } from '../../src/hooks/useSubscription';
 import Card from '../../src/components/ui/Card';
@@ -134,9 +134,11 @@ export default function SettingsScreen() {
   // Gate the "From your firms" entry on client-roster membership — hidden otherwise, matching web.
   useEffect(() => {
     if (!BUSINESS_FEATURES_ENABLED) return;
-    getSharedStatus()
-      .then((s) => setIsFirmClient(s.isClient))
-      .catch(() => setIsFirmClient(false));
+    // Shown to a firm's clients AND to anyone a firm shared a folder or file with (they may not be a client).
+    Promise.all([
+      getSharedStatus().then((st) => st.isClient).catch(() => false),
+      listSharedVaultItems().then((p) => p.total > 0).catch(() => false),
+    ]).then(([client, shared]) => setIsFirmClient(client || shared));
   }, []);
 
   const menuItems = isFirmClient ? [FIRM_MENU_ITEM, ...MENU_ITEMS] : MENU_ITEMS;
